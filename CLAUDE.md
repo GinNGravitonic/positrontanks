@@ -60,13 +60,16 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 
 ## Build & Test
 
-_Add your build and test commands here_
+pnpm workspace (Node >= 24, pnpm 12 pinned via `packageManager`). Install pnpm directly with `npm install -g pnpm@12`; don't use corepack, since the corepack bundled with Node 24 can't run pnpm 12. Packages live in `packages/*`. Run from the repo root:
 
 ```bash
-# Example:
-# npm install
-# npm test
+pnpm install
+pnpm build   # tsc -b over all project references
+pnpm lint    # eslint, typescript-eslint strictTypeChecked
+pnpm test    # vitest; tests are packages/*/src/**/*.test.ts
 ```
+
+TypeScript is pinned to 6.0.x because typescript-eslint does not yet support TS >= 6.1.
 
 ## Architecture Overview
 
