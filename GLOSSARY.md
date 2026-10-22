@@ -111,7 +111,7 @@ Whether a Game is simulated in real time (one simulated second per real second) 
 _Avoid_: Speed, mode
 
 **Disabled**:
-The state of a Bot whose Hit Points have reached zero; it no longer acts or counts toward its Player's survival.
+The state of a Bot whose Hit Points have reached zero or whose Program has halted; it no longer acts or counts toward its Player's survival, and remains on the Map as a wreck Obstacle.
 _Avoid_: Dead, destroyed, killed
 
 **Friend**:
