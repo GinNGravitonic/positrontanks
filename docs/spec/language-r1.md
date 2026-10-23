@@ -245,7 +245,7 @@ Bearings are relative to the Bot's Heading, in degrees within (-180, 180], posit
 
 | Signature | Returns | Meaning |
 |---|---|---|
-| `throttle(f)` | null | Drive force as a fraction of the Build's maximum, clamped to [-1, 1]. Negative values mean reverse. |
+| `throttle(f)` | null | Target speed as a fraction of the Build's top speed on the current Terrain, clamped to [-1, 1]. Negative values mean reverse. The Bot accelerates or brakes towards it ([engine-r1.md](engine-r1.md#movement)). |
 | `turn(f)` | null | Turn as a fraction of the Build's maximum turn rate, clamped to [-1, 1]. Positive values mean clockwise. |
 | `fire(weaponId, target)` | boolean | `target` is either a record with numeric `x` and `y` (such as a contact from `scan()`; it aims at that point, with no automatic lead) or a number (a relative bearing). |
 | `fireAbs(weaponId, absBearing)` | boolean | Fire along an absolute bearing. |

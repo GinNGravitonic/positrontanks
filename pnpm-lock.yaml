@@ -187,7 +187,11 @@ importers:
 
   packages/cli: {}
 
-  packages/engine-r1: {}
+  packages/engine-r1:
+    dependencies:
+      '@aumohta/ruleset-data':
+        specifier: workspace:*
+        version: link:../ruleset-data
 
   packages/infra: {}
 

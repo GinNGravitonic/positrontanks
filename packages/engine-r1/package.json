@@ -11,5 +11,8 @@
   },
   "scripts": {
     "build": "tsc -b"
+  },
+  "dependencies": {
+    "@aumohta/ruleset-data": "workspace:*"
   }
 }

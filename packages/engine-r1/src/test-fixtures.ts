@@ -1,0 +1,162 @@
+/**
+ * A small Ruleset and Map for engine tests. Not r1's real numbers.
+ */
+
+import type { Build, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
+import { createWorld, type BotState, type EntrySetup, type World } from "./world.js";
+
+const noArmor = { front: null, left: null, right: null, rear: null } as const;
+
+export const ruleset: Ruleset = {
+  version: "test",
+  tickRate: 10,
+  pointBudget: { min: 10, max: 1000 },
+  mapFormats: [1],
+  terrains: [
+    { name: "grass", speed: 1, accel: 1 },
+    { name: "sand", speed: 0.5, accel: 0.5 },
+    { name: "road", speed: 1.2, accel: 1 },
+  ],
+  limits: {
+    initBudgetMultiplier: 20,
+    memoryCells: 10000,
+    maxCallDepth: 64,
+    maxCollectionLength: 10000,
+    maxSourceBytes: 65536,
+    logLinesPerTick: 50,
+    logLineLength: 200,
+  },
+  slotTypes: ["motor", "weapon"],
+  chassisStats: {
+    mass: { type: "number", min: 1 },
+    hitPoints: { type: "number", min: 1, integer: true },
+  },
+  componentKinds: {
+    motor: {
+      mount: "slot",
+      stats: {
+        force: { type: "number", min: 0 },
+        maxSpeed: { type: "number", min: 0 },
+        turnRate: { type: "number", min: 0 },
+        mass: { type: "number", min: 0 },
+        motorTerrain: { type: "terrainModifiers" },
+      },
+    },
+    armor: { mount: "side", stats: { armor: { type: "number", min: 0 }, mass: { type: "number", min: 0 } } },
+  },
+  chassis: [
+    {
+      id: "disc",
+      name: "Disc",
+      cost: 10,
+      shape: { shape: "circle", radius: 0.5 },
+      slots: [
+        { id: "drive", type: "motor", x: 0, y: 0, direction: 0 },
+        { id: "drive2", type: "motor", x: 0, y: 0.2, direction: 180 },
+      ],
+      stats: { mass: 50, hitPoints: 100 },
+    },
+    {
+      id: "box",
+      name: "Box",
+      cost: 20,
+      shape: {
+        shape: "polygon",
+        points: [
+          { x: -0.5, y: -1 },
+          { x: 0.5, y: -1 },
+          { x: 0.5, y: 1 },
+          { x: -0.5, y: 1 },
+        ],
+      },
+      slots: [{ id: "drive", type: "motor", x: 0, y: 0, direction: 0 }],
+      stats: { mass: 100, hitPoints: 200 },
+    },
+  ],
+  components: [
+    {
+      id: "wheels",
+      name: "Wheels",
+      kind: "motor",
+      cost: 5,
+      slotTypes: ["motor"],
+      stats: { force: 500, maxSpeed: 10, turnRate: 180, mass: 0, motorTerrain: { sand: { speed: 0.5, accel: 1 } } },
+    },
+    {
+      id: "tracks",
+      name: "Tracks",
+      kind: "motor",
+      cost: 5,
+      slotTypes: ["motor"],
+      stats: { force: 300, maxSpeed: 6, turnRate: 90, mass: 10, motorTerrain: { sand: { speed: 2, accel: 2 } } },
+    },
+    { id: "plate", name: "Plate", kind: "armor", cost: 5, slotTypes: [], stats: { armor: 5, mass: 0 } },
+  ],
+};
+
+/** A Disc on Wheels: 50 kg, accel 10 m/s², top speed 10 m/s, turn 180°/s. */
+export const discBuild: Build = { chassis: "disc", components: { drive: "wheels" }, armor: noArmor };
+
+export const boxBuild: Build = { chassis: "box", components: { drive: "wheels" }, armor: noArmor };
+
+/** A copy of the record without `key`. */
+export function without<T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> {
+  return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
+}
+
+export function armored(build: Build, armor: Partial<Build["armor"]>): Build {
+  return { ...build, armor: { ...build.armor, ...armor } };
+}
+
+/** 100 x 100 grass with a sand strip, two small Spawn Zones and a third roomy one. */
+export function testMap(extra: Partial<MapFormat1> = {}): MapFormat1 {
+  return {
+    format: 1,
+    width: 100,
+    height: 100,
+    baseTerrain: "grass",
+    terrainRegions: [
+      {
+        terrain: "sand",
+        shape: "polygon",
+        points: [
+          { x: 0, y: 60 },
+          { x: 100, y: 60 },
+          { x: 100, y: 80 },
+          { x: 0, y: 80 },
+        ],
+      },
+    ],
+    obstacles: [],
+    spawnZones: [
+      { shape: "circle", x: 10, y: 10, radius: 3, heading: 90, capacity: 1 },
+      { shape: "circle", x: 90, y: 10, radius: 3, heading: 270, capacity: 1 },
+      { shape: "circle", x: 50, y: 40, radius: 10, heading: 0, capacity: 4 },
+    ],
+    ...extra,
+  };
+}
+
+/** A world with one single-Bot Entry per Build, each Bot then moved to the given pose. */
+export function worldWith(
+  bots: readonly { build: Build; x: number; y: number; heading: number }[],
+  map: MapFormat1 = testMap(),
+): World {
+  const entries: EntrySetup[] = bots.map((b, i) => ({ bots: [{ name: `bot${String(i + 1)}`, build: b.build }] }));
+  const zones = bots.map((_, i) => ({ shape: "circle" as const, x: 5 + i * 3, y: 95, radius: 1, heading: 0, capacity: 1 }));
+  const world = createWorld({ ruleset, map: { ...map, spawnZones: zones }, entries, seed: 1 });
+  bots.forEach((b, i) => {
+    const bot = world.bots[i];
+    if (bot === undefined) throw new Error("missing Bot");
+    bot.x = b.x;
+    bot.y = b.y;
+    bot.heading = b.heading;
+  });
+  return world;
+}
+
+export function bot(world: World, id: number): BotState {
+  const b = world.bots[id - 1];
+  if (b === undefined) throw new Error(`no Bot ${String(id)}`);
+  return b;
+}
