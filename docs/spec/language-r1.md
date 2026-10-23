@@ -93,6 +93,7 @@ Notes:
 - Assignment, `++` and `--` are statements, not expressions. `x = y = 0` and `f(i++)` are syntax errors.
 - Operator precedence and associativity follow JavaScript. `?:` is right-associative and all binary operators are left-associative.
 - At the top level, only `let`, `const` and `function` declarations are allowed. Nested `function` declarations are allowed inside any block.
+- Expressions and blocks may nest at most 128 levels deep. Each of these counts as one level: an expression, including one inside parentheses, a call's arguments, a list or record literal, an index or a `?:` branch; a unary operator; a block; and an `else if`. The operands of a chain of binary operators such as `a + b + c` do not add levels. Deeper nesting is a save-time error. This keeps the checker safe from hostile input. It is a fixed rule of the language, not Ruleset data.
 - Function declarations are hoisted within their block, as in JavaScript, so mutually recursive functions work. `let` and `const` are not hoisted: using one before its declaration has run is a runtime error. When the checker can see the problem statically, it is a save-time error.
 
 ---
@@ -397,6 +398,7 @@ When a Bot Design Revision is saved or copied to a Ruleset, the checker reports 
 - `break` or `continue` outside a loop, and `return` outside a function.
 - A forbidden built-in reachable from the init phase (§5.2).
 - Source longer than `maxSourceBytes`.
+- Nesting deeper than 128 levels (§3).
 
 ### 10.2 Runtime errors in `tick()`
 
