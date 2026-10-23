@@ -26,9 +26,35 @@ export const ARMOR_SIDES: readonly ArmorSide[] = ["front", "left", "right", "rea
 
 /** The Component kind whose Components drive and turn the Bot. */
 export const MOTOR_KIND = "motor";
+/** The Component kind whose Components fire. */
+export const WEAPON_KIND = "weapon";
+
+export const WEAPON_CATEGORIES = ["melee", "projectile", "beam"] as const;
+export type WeaponCategory = (typeof WEAPON_CATEGORIES)[number];
 
 const CHASSIS_STATS = ["mass", "hitPoints"] as const;
 const MOTOR_STATS = ["force", "maxSpeed", "turnRate"] as const;
+const WEAPON_STATS = ["arcWidth", "range", "reloadTicks", "damage", "projectileSpeed"] as const;
+
+/** An installed weapon, as the simulation uses it. */
+export interface WeaponSpec {
+  /** The Slot name, which Programs use as the weapon id. */
+  readonly id: string;
+  readonly category: WeaponCategory;
+  /** The muzzle: the Slot's position in the Bot frame. */
+  readonly x: number;
+  readonly y: number;
+  /** The Slot direction relative to the Heading, in (-180, 180]: the centre of the Firing Arc. */
+  readonly direction: number;
+  /** Degrees, in [0, 360]. */
+  readonly arcWidth: number;
+  /** Meters from the muzzle. */
+  readonly range: number;
+  readonly reloadTicks: number;
+  readonly damage: number;
+  /** m/s; 0 for weapons other than Projectile Weapons. */
+  readonly projectileSpeed: number;
+}
 
 /** The figures the simulation uses for one Bot, derived from its Build. */
 export interface BotSpec {
@@ -48,6 +74,8 @@ export interface BotSpec {
   /** Per-Terrain motor modifiers, in the Ruleset's Terrain order; Terrains with no effect are omitted. */
   readonly motorTerrain: Readonly<Record<string, TerrainMultipliers>>;
   readonly armor: Readonly<Record<ArmorSide, number>>;
+  /** In Slot order. */
+  readonly weapons: readonly WeaponSpec[];
 }
 
 function requireNumberStat(
@@ -64,6 +92,10 @@ function requireNumberStat(
 function statNumber(stats: Stats, name: string): number {
   const v = Object.hasOwn(stats, name) ? stats[name] : undefined;
   return typeof v === "number" ? v : 0;
+}
+
+function isWeaponCategory(v: unknown): v is WeaponCategory {
+  return WEAPON_CATEGORIES.some((c) => c === v);
 }
 
 function checkNonNegative(errors: RulesetError[], stats: Stats, name: string, path: string, positive = false): void {
@@ -94,6 +126,19 @@ export function checkRuleset(ruleset: Ruleset): RulesetError[] {
     }
   }
 
+  const weapon = Object.hasOwn(ruleset.componentKinds, WEAPON_KIND) ? ruleset.componentKinds[WEAPON_KIND] : undefined;
+  if (weapon === undefined) {
+    errors.push({ path: `ruleset.componentKinds.${WEAPON_KIND}`, message: "is required by engine-r1" });
+  } else {
+    const path = `ruleset.componentKinds.${WEAPON_KIND}`;
+    if (weapon.mount !== "slot") errors.push({ path: `${path}.mount`, message: 'must be "slot" for engine-r1' });
+    const category = Object.hasOwn(weapon.stats, "category") ? weapon.stats.category : undefined;
+    if (category?.type !== "enum") {
+      errors.push({ path: `${path}.stats.category`, message: 'must be of type "enum" for engine-r1' });
+    }
+    for (const name of WEAPON_STATS) requireNumberStat(errors, weapon.stats, name, `${path}.stats`);
+  }
+
   for (const [kindName, kind] of Object.entries(ruleset.componentKinds)) {
     const path = `ruleset.componentKinds.${kindName}.stats`;
     if (kind.mount === "side") requireNumberStat(errors, kind.stats, "armor", path);
@@ -113,8 +158,25 @@ export function checkRuleset(ruleset: Ruleset): RulesetError[] {
     checkNonNegative(errors, c.stats, "mass", path);
     if (c.kind === MOTOR_KIND) for (const name of MOTOR_STATS) checkNonNegative(errors, c.stats, name, path);
     if (ruleset.componentKinds[c.kind]?.mount === "side") checkNonNegative(errors, c.stats, "armor", path);
+    if (c.kind === WEAPON_KIND) checkWeapon(errors, c, path);
   });
   return errors;
+}
+
+function checkWeapon(errors: RulesetError[], c: Component, path: string): void {
+  const category = c.stats.category;
+  if (!isWeaponCategory(category)) {
+    errors.push({ path: `${path}.stats.category`, message: `must be one of ${WEAPON_CATEGORIES.map((w) => `"${w}"`).join(", ")} for engine-r1` });
+  }
+  const arcWidth = statNumber(c.stats, "arcWidth");
+  if (arcWidth < 0 || arcWidth > 360) errors.push({ path: `${path}.stats.arcWidth`, message: "must be from 0 to 360 for engine-r1" });
+  checkNonNegative(errors, c.stats, "range", path);
+  const reloadTicks = statNumber(c.stats, "reloadTicks");
+  if (!Number.isInteger(reloadTicks) || reloadTicks < 1) {
+    errors.push({ path: `${path}.stats.reloadTicks`, message: "must be a whole number of at least 1 for engine-r1" });
+  }
+  checkNonNegative(errors, c.stats, "damage", path);
+  checkNonNegative(errors, c.stats, "projectileSpeed", path, category === "projectile");
 }
 
 function motorModifier(motor: Component, terrain: string): TerrainMultipliers {
@@ -142,10 +204,11 @@ export function deriveBotSpec(ruleset: Ruleset, build: Build): BotSpec {
     return component;
   };
 
-  const installed = chassis.slots.flatMap((slot) => {
+  const mounted = chassis.slots.flatMap((slot) => {
     const id = Object.hasOwn(build.components, slot.id) ? build.components[slot.id] : undefined;
-    return id === undefined ? [] : [find(id)];
+    return id === undefined ? [] : [{ slot, component: find(id) }];
   });
+  const installed = mounted.map((m) => m.component);
   const armor = {} as Record<ArmorSide, number>;
   let mass = statNumber(chassis.stats, "mass");
   for (const component of installed) mass += statNumber(component.stats, "mass");
@@ -185,6 +248,25 @@ export function deriveBotSpec(ruleset: Ruleset, build: Build): BotSpec {
     if (speed !== 1 || accel !== 1) motorTerrain[name] = { speed, accel };
   }
 
+  const weapons = mounted.flatMap(({ slot, component: c }): WeaponSpec[] => {
+    const category = c.stats.category;
+    if (c.kind !== WEAPON_KIND || !isWeaponCategory(category)) return [];
+    return [
+      {
+        id: slot.id,
+        category,
+        x: slot.x,
+        y: slot.y,
+        direction: slot.direction,
+        arcWidth: statNumber(c.stats, "arcWidth"),
+        range: statNumber(c.stats, "range"),
+        reloadTicks: statNumber(c.stats, "reloadTicks"),
+        damage: statNumber(c.stats, "damage"),
+        projectileSpeed: category === "projectile" ? statNumber(c.stats, "projectileSpeed") : 0,
+      },
+    ];
+  });
+
   const shape: LocalShape =
     chassis.shape.shape === "circle"
       ? { shape: "circle", radius: chassis.shape.radius }
@@ -200,5 +282,6 @@ export function deriveBotSpec(ruleset: Ruleset, build: Build): BotSpec {
     turnRate: (bareTurnRate * statNumber(chassis.stats, "mass")) / mass,
     motorTerrain,
     armor,
+    weapons,
   };
 }

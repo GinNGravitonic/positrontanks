@@ -2,10 +2,14 @@
  * A small Ruleset and Map for engine tests. Not r1's real numbers.
  */
 
-import type { Build, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
+import type { Build, Component, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
 import { createWorld, type BotState, type EntrySetup, type World } from "./world.js";
 
 const noArmor = { front: null, left: null, right: null, rear: null } as const;
+
+function weapon(id: string, stats: Component["stats"]): Component {
+  return { id, name: id, kind: "weapon", cost: 5, slotTypes: ["weapon"], stats };
+}
 
 export const ruleset: Ruleset = {
   version: "test",
@@ -43,6 +47,17 @@ export const ruleset: Ruleset = {
       },
     },
     armor: { mount: "side", stats: { armor: { type: "number", min: 0 }, mass: { type: "number", min: 0 } } },
+    weapon: {
+      mount: "slot",
+      stats: {
+        category: { type: "enum", values: ["melee", "projectile", "beam"] },
+        arcWidth: { type: "number", min: 0, max: 360 },
+        range: { type: "number", min: 0 },
+        reloadTicks: { type: "number", min: 1, integer: true },
+        damage: { type: "number", min: 0 },
+        projectileSpeed: { type: "number", min: 0 },
+      },
+    },
   },
   chassis: [
     {
@@ -53,6 +68,8 @@ export const ruleset: Ruleset = {
       slots: [
         { id: "drive", type: "motor", x: 0, y: 0, direction: 0 },
         { id: "drive2", type: "motor", x: 0, y: 0.2, direction: 180 },
+        { id: "gun", type: "weapon", x: 0, y: -0.4, direction: 0 },
+        { id: "tail", type: "weapon", x: 0, y: 0.4, direction: 180 },
       ],
       stats: { mass: 50, hitPoints: 100 },
     },
@@ -69,7 +86,10 @@ export const ruleset: Ruleset = {
           { x: -0.5, y: 1 },
         ],
       },
-      slots: [{ id: "drive", type: "motor", x: 0, y: 0, direction: 0 }],
+      slots: [
+        { id: "drive", type: "motor", x: 0, y: 0, direction: 0 },
+        { id: "gun", type: "weapon", x: 0, y: -0.9, direction: 0 },
+      ],
       stats: { mass: 100, hitPoints: 200 },
     },
   ],
@@ -91,6 +111,10 @@ export const ruleset: Ruleset = {
       stats: { force: 300, maxSpeed: 6, turnRate: 90, mass: 10, motorTerrain: { sand: { speed: 2, accel: 2 } } },
     },
     { id: "plate", name: "Plate", kind: "armor", cost: 5, slotTypes: [], stats: { armor: 5, mass: 0 } },
+    weapon("spike", { category: "melee", arcWidth: 60, range: 0.5, reloadTicks: 2, damage: 40, projectileSpeed: 0 }),
+    weapon("laser", { category: "beam", arcWidth: 30, range: 50, reloadTicks: 3, damage: 20, projectileSpeed: 0 }),
+    weapon("turret", { category: "beam", arcWidth: 360, range: 50, reloadTicks: 1, damage: 10, projectileSpeed: 0 }),
+    weapon("cannon", { category: "projectile", arcWidth: 20, range: 40, reloadTicks: 5, damage: 30, projectileSpeed: 20 }),
   ],
 };
 
@@ -102,6 +126,11 @@ export const boxBuild: Build = { chassis: "box", components: { drive: "wheels" }
 /** A copy of the record without `key`. */
 export function without<T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> {
   return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
+}
+
+/** The Build with these Components added, by Slot. */
+export function armed(build: Build, components: Readonly<Record<string, string>>): Build {
+  return { ...build, components: { ...build.components, ...components } };
 }
 
 export function armored(build: Build, armor: Partial<Build["armor"]>): Build {

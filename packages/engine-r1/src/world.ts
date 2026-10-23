@@ -8,7 +8,7 @@
  */
 
 import type { Build, MapFormat1, Obstacle, Ruleset } from "@aumohta/ruleset-data";
-import { checkRuleset, deriveBotSpec, type BotSpec } from "./bot-spec.js";
+import { checkRuleset, deriveBotSpec, type BotSpec, type WeaponCategory } from "./bot-spec.js";
 import {
   boundsOverlap,
   placeShape,
@@ -50,6 +50,13 @@ export interface WorldSetup {
 export type BotStatus = "active" | "stopped" | "disabled";
 export type DisabledCause = "destroyed" | "programHalted";
 
+export interface WeaponState {
+  /** The Slot name. */
+  readonly id: string;
+  /** Ticks until the weapon can fire again; 0 when it is ready. */
+  ticksUntilReady: number;
+}
+
 export interface BotState {
   /** Opaque and stable for the Game; Bots are numbered from 1 in Entry order. */
   readonly id: number;
@@ -71,6 +78,8 @@ export interface BotState {
   hitPoints: number;
   status: BotStatus;
   disabledCause: DisabledCause | null;
+  /** In the order of spec.weapons. */
+  readonly weapons: WeaponState[];
 }
 
 export interface ObstacleState {
@@ -79,6 +88,26 @@ export interface ObstacleState {
   readonly bounds: Bounds;
   /** Remaining Hit Points; null for a permanent Obstacle. */
   hitPoints: number | null;
+}
+
+/** A Projectile in flight: a point moving in a straight line. */
+export interface ProjectileState {
+  /** Numbered from 1 in firing order. */
+  readonly id: number;
+  /** The Bot that fired it, which it never hits. */
+  readonly bot: number;
+  /** The Slot name of the weapon that fired it. */
+  readonly weapon: string;
+  readonly category: WeaponCategory;
+  readonly damage: number;
+  /** Absolute direction of travel. */
+  readonly heading: number;
+  /** m/s. */
+  readonly speed: number;
+  x: number;
+  y: number;
+  /** Meters it may still travel before it is spent. */
+  remaining: number;
 }
 
 export interface World {
@@ -91,6 +120,10 @@ export interface World {
   readonly bots: BotState[];
   /** Map Obstacles not yet destroyed, in Map order. */
   obstacles: ObstacleState[];
+  /** In flight, in id order. */
+  projectiles: ProjectileState[];
+  /** The id the next Projectile fired gets. */
+  nextProjectileId: number;
   /** The Spawn Zone index each Entry was assigned, by Entry index. */
   readonly spawnZones: readonly number[];
 }
@@ -203,9 +236,10 @@ export function createWorld(setup: WorldSetup): World {
         hitPoints: spec.maxHitPoints,
         status: "active",
         disabledCause: null,
+        weapons: spec.weapons.map((w) => ({ id: w.id, ticksUntilReady: 0 })),
       });
     }
   });
 
-  return { ruleset, map, seed, tick: 0, bots, obstacles, spawnZones };
+  return { ruleset, map, seed, tick: 0, bots, obstacles, projectiles: [], nextProjectileId: 1, spawnZones };
 }

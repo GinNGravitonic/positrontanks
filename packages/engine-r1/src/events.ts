@@ -4,6 +4,7 @@
  */
 
 import type { ArmorSide } from "@aumohta/ruleset-data";
+import type { WeaponCategory } from "./bot-spec.js";
 import type { Point } from "./geometry.js";
 import type { DisabledCause } from "./world.js";
 
@@ -22,7 +23,15 @@ export interface CollisionSource {
   readonly with: Collider;
 }
 
-export type DamageSource = CollisionSource;
+/** A shot from `bot`'s weapon in Slot `weapon`. */
+export interface WeaponSource {
+  readonly kind: "weapon";
+  readonly bot: number;
+  readonly weapon: string;
+  readonly category: WeaponCategory;
+}
+
+export type DamageSource = CollisionSource | WeaponSource;
 
 export interface CollisionEvent {
   readonly type: "collision";
@@ -33,6 +42,32 @@ export interface CollisionEvent {
   /** Closing speed along the contact direction, in m/s; 0 or less means no ram. */
   readonly closingSpeed: number;
   readonly point: Point;
+}
+
+/** A legal shot. */
+export interface FiredEvent {
+  readonly type: "fired";
+  readonly tick: number;
+  readonly bot: number;
+  readonly weapon: string;
+  readonly category: WeaponCategory;
+  /** The muzzle. */
+  readonly from: Point;
+  /** The absolute direction of the shot. */
+  readonly absBearing: number;
+  /** The Projectile launched, for a Projectile Weapon; otherwise null. */
+  readonly projectile: number | null;
+}
+
+/** Where a shot ended: what it hit, or null if it ran out of range there. */
+export interface ImpactEvent {
+  readonly type: "impact";
+  readonly tick: number;
+  readonly bot: number;
+  readonly weapon: string;
+  readonly projectile: number | null;
+  readonly point: Point;
+  readonly target: Collider | null;
 }
 
 export interface DamageEvent {
@@ -66,4 +101,10 @@ export interface ObstacleDestroyedEvent {
   readonly obstacle: string;
 }
 
-export type TickEvent = CollisionEvent | DamageEvent | DisabledEvent | ObstacleDestroyedEvent;
+export type TickEvent =
+  | CollisionEvent
+  | FiredEvent
+  | ImpactEvent
+  | DamageEvent
+  | DisabledEvent
+  | ObstacleDestroyedEvent;

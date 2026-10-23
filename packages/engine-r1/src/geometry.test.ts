@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contact, headingVector, placeShape, shapesOverlap, type WorldShape } from "./geometry.js";
+import { contact, headingVector, placeShape, rayEntry, rayExit, shapesOverlap, type WorldShape } from "./geometry.js";
 
 const square = (x: number, y: number, half: number): WorldShape => ({
   shape: "polygon",
@@ -57,5 +57,34 @@ describe("contact", () => {
         expect(b.point.y).toBeCloseTo(a.point.y, 12);
       }
     }
+  });
+});
+
+describe("rayEntry", () => {
+  const right = { x: 1, y: 0 };
+
+  it("finds where a ray first meets a circle or polygon, within its length", () => {
+    const circle: WorldShape = { shape: "circle", x: 10, y: 0, radius: 2 };
+    expect(rayEntry({ x: 0, y: 0 }, right, 20, circle)).toBe(8);
+    expect(rayEntry({ x: 0, y: 0 }, right, 7, circle)).toBeNull();
+    expect(rayEntry({ x: 0, y: 3 }, right, 20, circle)).toBeNull();
+    expect(rayEntry({ x: 20, y: 0 }, right, 20, circle)).toBeNull(); // behind
+    expect(rayEntry({ x: 0, y: 0 }, right, 20, square(10, 0, 2))).toBe(8);
+    expect(rayEntry({ x: 0, y: 2 }, right, 20, square(10, 0, 2))).toBe(8); // grazing an edge
+    expect(rayEntry({ x: 0, y: 2.1 }, right, 20, square(10, 0, 2))).toBeNull();
+  });
+
+  it("is 0 from inside the shape", () => {
+    expect(rayEntry({ x: 10, y: 0 }, right, 5, square(10, 0, 2))).toBe(0);
+    expect(rayEntry({ x: 10, y: 0 }, right, 5, { shape: "circle", x: 10, y: 0, radius: 2 })).toBe(0);
+  });
+});
+
+describe("rayExit", () => {
+  it("finds where a ray leaves a box", () => {
+    const box = { minX: 0, minY: 0, maxX: 100, maxY: 50 };
+    expect(rayExit({ x: 10, y: 10 }, { x: 1, y: 0 }, box)).toBe(90);
+    expect(rayExit({ x: 10, y: 10 }, { x: 0, y: -1 }, box)).toBe(10);
+    expect(rayExit({ x: 10, y: 10 }, { x: -0.6, y: 0.8 }, box)).toBeCloseTo(10 / 0.6, 12);
   });
 });

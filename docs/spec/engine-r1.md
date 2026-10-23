@@ -1,6 +1,6 @@
 # Simulation Rules, Ruleset r1
 
-How the r1 engine (`packages/engine-r1`) moves Bots and resolves collisions. [v1.md §2](v1.md#2-simulation) states what the simulation does; this document fixes how, so that Players and LLM agents can predict it. Like the rest of a Ruleset, these rules are frozen once r1 is released.
+How the r1 engine (`packages/engine-r1`) moves Bots and resolves collisions and weapon fire. [v1.md §2](v1.md#2-simulation) states what the simulation does; this document fixes how, so that Players and LLM agents can predict it. Like the rest of a Ruleset, these rules are frozen once r1 is released.
 
 Constants marked _provisional_ are balance numbers to confirm in the starter catalog session (aumohta-0ka.3).
 
@@ -20,8 +20,14 @@ Rulesets declare open-ended stat sets ([ADR-0004](../adr/0004-extensibility-thro
 | | `motorTerrain` | Per-Terrain `{speed, accel}` multipliers |
 | every side-mounted kind | `armor` | Damage absorbed per hit on that side |
 | any kind (optional) | `mass` | Added to the Bot's mass, in kg |
+| `componentKinds.weapon` (slot-mounted) | `category` | Enum: `melee`, `projectile` or `beam` |
+| | `arcWidth` | Firing Arc width in degrees, 0 to 360, centred on the Slot direction |
+| | `range` | How far a shot reaches from the Slot, in meters |
+| | `reloadTicks` | Ticks between shots, a whole number of at least 1 |
+| | `damage` | Raw damage per hit |
+| | `projectileSpeed` | Projectile speed in m/s, greater than 0 for Projectile Weapons; ignored by the others |
 
-Weapon and sensor stats are added by the tasks that implement them.
+Sensor stats are added by the task that implements them.
 
 ## 2. Figures derived from a Build
 
@@ -73,14 +79,36 @@ where `RAM_DAMAGE_PER_JOULE` is _provisional_ 0.04, and `m` is the reduced mass 
 
 Each pair of Bots rams at most once per substep. Friends ram each other like anyone else.
 
-## 6. Damage and Disabling
+## 6. Weapons
+
+A weapon fires from its **muzzle**: its Slot's position on the Bot.
+
+**Aiming.** `fire` aims at a point, along the line from the muzzle to it, or at a bearing relative to the Heading; `fireAbs` aims at an absolute bearing. The aim only sets the direction: a shot carries on past the point aimed at.
+
+**Legality.** Judged against the snapshot at the start of the Tick, a shot is legal when:
+
+1. the Bot is active, not Disabled;
+2. the weapon has reloaded: its `ticksUntilReady` is 0;
+3. the aim is within the Firing Arc: its bearing relative to the Heading differs from the Slot direction by at most half the `arcWidth`, inclusive. An arc of 360° covers every direction;
+4. line of fire is clear. When aiming at a point, the first thing the line from the muzzle to that point meets, ignoring the firing Bot, must not be an Obstacle or wreck that the point lies outside. So a Bot may fire at an Obstacle, but not at a Bot behind one. A bearing has no target to be blocked from. Aiming at the muzzle itself is illegal.
+
+An illegal shot does nothing. Range is not part of legality: a shot at something out of range is legal, and misses.
+
+**Firing.** Every legal shot fires at the start of the Tick, before movement, from the snapshot positions. Firing sets the weapon's `ticksUntilReady` to its `reloadTicks`; at the end of every Tick, each `ticksUntilReady` above 0 drops by 1. So a weapon fires at most once every `reloadTicks` Ticks, and every Tick when that is 1.
+
+- **Melee and Beam** shots hit at once. Each travels in a straight line from the muzzle, up to `range` meters, and hits the first Bot, wreck, Obstacle or Map boundary it meets in the snapshot. Every such shot is traced before any of their damage is applied, so two Bots that Disable each other in the same Tick both fire. The two categories resolve alike; they differ in their stats.
+- **Projectiles** are points launched from the muzzle at `projectileSpeed` along the aim, moving from the Tick they are fired. They move in step with the Bots: in each substep (§4), after the Bots move, every Projectile advances by its share of the Tick's travel and hits the first Bot, wreck, Obstacle or boundary its path meets. A Tick in which no Bot moves is a single substep. A Projectile that has travelled `range` meters without hitting anything is spent. Projectiles pass through each other.
+
+**Hits** are purely geometric. A Bot takes the weapon's `damage` on the side struck, judged from the point where the shot meets its outline (as for ramming, §5), and that side's Armor absorbs up to its value. A destructible Obstacle takes the damage in full. Permanent Obstacles, wrecks and the boundary stop the shot and take nothing. Shots hit Friends like Foes, but a Bot's own shots pass through it, and through its wreck.
+
+## 7. Damage and Disabling
 
 - Damage dealt is capped at the target's remaining Hit Points. Each damage event records the raw damage, the part Armor absorbed, the damage dealt, the side struck, the impact point and the absorbing entity (always the Chassis in r1).
 - A Bot at 0 Hit Points is **Disabled** (`destroyed`) at once, mid-Tick: it stops dead, its commands are cleared, and it becomes an indestructible wreck in place ([language-r1.md §10.4](language-r1.md#104-disabled-bots)).
-- A destructible Obstacle at 0 Hit Points still blocks for the rest of the Tick and is gone from the next.
+- A destructible Obstacle at 0 Hit Points still blocks movement and shots for the rest of the Tick, taking no more damage, and is gone from the next.
 - `stopped` is a Bot status reserved for later Rulesets (overheating). r1 never enters it.
 
-## 7. Game start
+## 8. Game start
 
 - The world's random stream is stream 0 of the Game seed; each Bot's `random()` stream is its Bot id (from 1).
 - Bots are numbered from 1 in Entry order, then in order within each Entry.

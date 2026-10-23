@@ -256,6 +256,56 @@ export function contact(s: WorldShape, t: WorldShape): Contact {
   return best;
 }
 
+/**
+ * How far along the ray from `from` in the unit direction `dir` it first
+ * meets the closed shape: 0 if `from` is inside it, or null if it does not
+ * within `maxDistance`.
+ */
+export function rayEntry(from: Point, dir: Point, maxDistance: number, s: WorldShape): number | null {
+  if (pointInShape(from, s)) return 0;
+  if (s.shape === "circle") {
+    const fx = from.x - s.x;
+    const fy = from.y - s.y;
+    const b = fx * dir.x + fy * dir.y;
+    const disc = b * b - (fx * fx + fy * fy - s.radius * s.radius);
+    if (disc < 0) return null;
+    const t = -b - Math.sqrt(disc);
+    return t >= 0 && t <= maxDistance ? t : null;
+  }
+  let best: number | null = null;
+  for (let i = 0; i < s.points.length; i++) {
+    const p = at(s.points, i);
+    const q = at(s.points, i + 1);
+    const ex = q.x - p.x;
+    const ey = q.y - p.y;
+    const wx = p.x - from.x;
+    const wy = p.y - from.y;
+    const denom = dir.x * ey - dir.y * ex;
+    let t: number;
+    if (denom === 0) {
+      if (wx * dir.y - wy * dir.x !== 0) continue; // parallel, not on the ray's line
+      // Along the ray's line: it meets the edge at its nearer end ahead.
+      const tp = wx * dir.x + wy * dir.y;
+      const tq = (q.x - from.x) * dir.x + (q.y - from.y) * dir.y;
+      if (tp < 0 && tq < 0) continue;
+      t = tp < 0 || tq < 0 ? 0 : Math.min(tp, tq);
+    } else {
+      t = (wx * ey - wy * ex) / denom;
+      const u = (wx * dir.y - wy * dir.x) / denom;
+      if (t < 0 || u < 0 || u > 1) continue;
+    }
+    if (t <= maxDistance && (best === null || t < best)) best = t;
+  }
+  return best;
+}
+
+/** How far the ray from `from`, inside the box, travels in the unit direction `dir` before leaving it. */
+export function rayExit(from: Point, dir: Point, b: Bounds): number {
+  const tx = dir.x > 0 ? (b.maxX - from.x) / dir.x : dir.x < 0 ? (b.minX - from.x) / dir.x : Infinity;
+  const ty = dir.y > 0 ? (b.maxY - from.y) / dir.y : dir.y < 0 ? (b.minY - from.y) / dir.y : Infinity;
+  return Math.max(0, Math.min(tx, ty));
+}
+
 export interface Bounds {
   readonly minX: number;
   readonly minY: number;

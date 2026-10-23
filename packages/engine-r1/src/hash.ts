@@ -32,7 +32,7 @@ class Hasher {
   }
 }
 
-/** A hex digest of the Tick, every Bot's state and every live Obstacle's Hit Points. */
+/** A hex digest of the Tick, every Bot's state, every live Obstacle's Hit Points and every Projectile. */
 export function hashWorld(world: World): string {
   const h = new Hasher();
   h.number(world.tick);
@@ -49,11 +49,20 @@ export function hashWorld(world: World): string {
     h.number(bot.hitPoints);
     h.string(bot.status);
     h.string(bot.disabledCause ?? "");
+    for (const w of bot.weapons) h.number(w.ticksUntilReady);
   }
   h.number(world.obstacles.length);
   for (const o of world.obstacles) {
     h.string(o.obstacle.id);
     h.number(o.hitPoints ?? -1);
   }
+  h.number(world.projectiles.length);
+  for (const p of world.projectiles) {
+    h.number(p.id);
+    h.number(p.x);
+    h.number(p.y);
+    h.number(p.remaining);
+  }
+  h.number(world.nextProjectileId);
   return h.digest();
 }

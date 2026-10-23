@@ -1,6 +1,6 @@
 /**
- * The r1 Tick: commands, kinematics, movement and collisions (spec section 2;
- * the rules are in docs/spec/engine-r1.md).
+ * The r1 Tick: commands, weapon fire, kinematics, movement, collisions and
+ * Projectiles (spec section 2; the rules are in docs/spec/engine-r1.md).
  *
  * Movement is resolved in substeps short enough that nothing tunnels through
  * a thin Obstacle. In each substep every moving Bot proposes its full move;
@@ -27,6 +27,7 @@ import {
 } from "./geometry.js";
 import { normalizeAbsAngle } from "./math.js";
 import { terrainAt } from "./terrain.js";
+import { advanceProjectiles, fireWeapons, reloadWeapons, type FireTarget } from "./weapons.js";
 import { botShape, withinMap, type BotState, type World } from "./world.js";
 
 /** The longest distance any point of a Bot may travel in one substep, in meters. */
@@ -38,10 +39,14 @@ export const MIN_RAM_SPEED = 2;
 /** Ramming damage per joule of collision energy. Provisional until aumohta-0ka.3. */
 export const RAM_DAMAGE_PER_JOULE = 0.04;
 
-/** The commands a Bot's Program issued this Tick; omitted ones keep their previous value. */
+/**
+ * The commands a Bot's Program issued this Tick. Omitted movement commands
+ * keep their previous value; `fire` gives this Tick's aim per weapon id.
+ */
 export interface BotCommands {
   readonly throttle?: number;
   readonly turn?: number;
+  readonly fire?: Readonly<Record<string, FireTarget>>;
 }
 
 function clampCommand(v: number, what: string): number {
@@ -116,7 +121,7 @@ function staticHits(world: World, wrecks: readonly { bot: BotState; pose: Pose }
   const hits: Collider[] = [];
   if (!withinMap(world.map, pose.bounds)) hits.push({ kind: "boundary" });
   for (const o of world.obstacles) {
-    if (o.hitPoints === 0) continue; // destroyed this Tick; removed at its end
+    // One destroyed this Tick still blocks until it is removed at the Tick's end.
     if (boundsOverlap(pose.bounds, o.bounds) && shapesOverlap(pose.shape, o.shape)) {
       hits.push({ kind: "obstacle", id: o.obstacle.id });
     }
@@ -295,7 +300,8 @@ function substep(world: World, movers: readonly Mover[], distances: readonly num
 /**
  * Advances the world by one Tick. `commands` holds what each Bot's Program
  * issued this Tick, by Bot id; Bots without an entry keep their commands.
- * Commands for Bots that are not active are ignored. Returns what happened.
+ * Commands for Bots that are not active are ignored, and illegal shots do
+ * nothing. Returns what happened.
  */
 export function step(world: World, commands: ReadonlyMap<number, BotCommands> = new Map()): TickEvent[] {
   world.tick += 1;
@@ -308,6 +314,9 @@ export function step(world: World, commands: ReadonlyMap<number, BotCommands> = 
     if (c.throttle !== undefined) bot.throttle = clampCommand(c.throttle, "throttle");
     if (c.turn !== undefined) bot.turn = clampCommand(c.turn, "turn");
   }
+  const orders = new Map<number, Readonly<Record<string, FireTarget>>>();
+  for (const [id, c] of commands) if (c.fire !== undefined) orders.set(id, c.fire);
+  fireWeapons(world, orders, events);
   for (const bot of world.bots) updateKinematics(world, bot);
 
   // The farthest any point of a Bot moves this Tick: along its Heading, plus
@@ -317,20 +326,23 @@ export function step(world: World, commands: ReadonlyMap<number, BotCommands> = 
     if (bot.status === "disabled") continue;
     travel = Math.max(travel, Math.abs(bot.speed) * dt + ((Math.abs(bot.turnRate) * dt * Math.PI) / 180) * bot.spec.reach);
   }
-  if (travel > 0) {
-    const substeps = Math.min(MAX_SUBSTEPS, Math.ceil(travel / SUBSTEP_LENGTH));
-    // Every Bot takes part, so moving Bots also run into stationary ones and wrecks.
-    const movers: Mover[] = world.bots.map((bot) => ({
-      bot,
-      dHeading: bot.status === "disabled" ? 0 : (bot.turnRate * dt) / substeps,
-      translating: bot.status !== "disabled",
-    }));
-    for (let k = 0; k < substeps; k++) {
+  // Projectiles move in step with the Bots, after them in each substep.
+  const substeps = travel > 0 ? Math.min(MAX_SUBSTEPS, Math.ceil(travel / SUBSTEP_LENGTH)) : 1;
+  // Every Bot takes part, so moving Bots also run into stationary ones and wrecks.
+  const movers: Mover[] = world.bots.map((bot) => ({
+    bot,
+    dHeading: bot.status === "disabled" ? 0 : (bot.turnRate * dt) / substeps,
+    translating: bot.status !== "disabled",
+  }));
+  for (let k = 0; k < substeps; k++) {
+    if (travel > 0) {
       const distances = movers.map((m) => (m.translating ? (m.bot.speed * dt) / substeps : 0));
       substep(world, movers, distances, events);
     }
+    if (world.projectiles.length > 0) advanceProjectiles(world, dt / substeps, events);
   }
 
+  reloadWeapons(world);
   world.obstacles = world.obstacles.filter((o) => o.hitPoints !== 0);
   return events;
 }
