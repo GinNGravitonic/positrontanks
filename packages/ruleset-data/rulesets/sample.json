@@ -1,0 +1,166 @@
+{
+  "version": "sample",
+  "tickRate": 10,
+  "pointBudget": { "min": 100, "max": 1000 },
+  "mapFormats": [1],
+  "terrains": [
+    { "name": "grass", "speed": 1, "accel": 1 },
+    { "name": "road", "speed": 1.2, "accel": 1.1 },
+    { "name": "sand", "speed": 0.6, "accel": 0.5 }
+  ],
+  "limits": {
+    "initBudgetMultiplier": 20,
+    "memoryCells": 10000,
+    "maxCallDepth": 64,
+    "maxCollectionLength": 10000,
+    "maxSourceBytes": 65536,
+    "logLinesPerTick": 50,
+    "logLineLength": 200
+  },
+  "slotTypes": ["weapon", "sensor", "motor", "utility"],
+  "chassisStats": {
+    "mass": { "type": "number", "min": 1 },
+    "hitPoints": { "type": "number", "min": 1, "integer": true },
+    "operationBudget": { "type": "number", "min": 1, "integer": true }
+  },
+  "componentKinds": {
+    "weapon": {
+      "mount": "slot",
+      "stats": {
+        "category": { "type": "enum", "values": ["melee", "projectile", "beam"] },
+        "arcWidth": { "type": "number", "min": 0, "max": 360 },
+        "range": { "type": "number", "min": 0 },
+        "reloadTicks": { "type": "number", "min": 1, "integer": true },
+        "damage": { "type": "number", "min": 0 },
+        "mass": { "type": "number", "min": 0 }
+      }
+    },
+    "sensor": {
+      "mount": "slot",
+      "stats": {
+        "kind": { "type": "enum", "values": ["radar", "rangefinder", "projectileDetector"] },
+        "arcWidth": { "type": "number", "min": 0, "max": 360 },
+        "range": { "type": "number", "min": 0 },
+        "mass": { "type": "number", "min": 0 }
+      }
+    },
+    "motor": {
+      "mount": "slot",
+      "stats": {
+        "force": { "type": "number", "min": 0 },
+        "turnRate": { "type": "number", "min": 0 },
+        "mass": { "type": "number", "min": 0 },
+        "motorTerrain": { "type": "terrainModifiers" }
+      }
+    },
+    "processor": {
+      "mount": "slot",
+      "stats": {
+        "operationBudget": { "type": "number", "min": 1, "integer": true },
+        "mass": { "type": "number", "min": 0 }
+      }
+    },
+    "armor": {
+      "mount": "side",
+      "stats": {
+        "armor": { "type": "number", "min": 0 },
+        "mass": { "type": "number", "min": 0 }
+      }
+    }
+  },
+  "chassis": [
+    {
+      "id": "scout",
+      "name": "Scout",
+      "cost": 60,
+      "shape": { "shape": "circle", "radius": 0.5 },
+      "slots": [
+        { "id": "gun", "type": "weapon", "x": 0, "y": -0.4, "direction": 0 },
+        { "id": "eye", "type": "sensor", "x": 0, "y": 0, "direction": 0 },
+        { "id": "drive", "type": "motor", "x": 0, "y": 0.3, "direction": 180 }
+      ],
+      "stats": { "mass": 40, "hitPoints": 60, "operationBudget": 1000 }
+    },
+    {
+      "id": "brawler",
+      "name": "Brawler",
+      "cost": 150,
+      "shape": {
+        "shape": "polygon",
+        "points": [
+          { "x": -0.8, "y": -1 },
+          { "x": 0.8, "y": -1 },
+          { "x": 0.8, "y": 1 },
+          { "x": -0.8, "y": 1 }
+        ]
+      },
+      "slots": [
+        { "id": "ram", "type": "weapon", "x": 0, "y": -1, "direction": 0 },
+        { "id": "leftGun", "type": "weapon", "x": -0.8, "y": 0, "direction": -90 },
+        { "id": "rightGun", "type": "weapon", "x": 0.8, "y": 0, "direction": 90 },
+        { "id": "radar", "type": "sensor", "x": 0, "y": 0, "direction": 0 },
+        { "id": "drive", "type": "motor", "x": 0, "y": 0.8, "direction": 180 },
+        { "id": "bay", "type": "utility", "x": 0, "y": 0.5, "direction": 180 }
+      ],
+      "stats": { "mass": 120, "hitPoints": 200, "operationBudget": 1000 },
+      "artwork": "art/brawler.svg"
+    }
+  ],
+  "components": [
+    {
+      "id": "spike",
+      "name": "Spike",
+      "kind": "weapon",
+      "cost": 20,
+      "slotTypes": ["weapon"],
+      "stats": { "category": "melee", "arcWidth": 30, "range": 0.2, "reloadTicks": 5, "damage": 25, "mass": 5 }
+    },
+    {
+      "id": "cannon",
+      "name": "Cannon",
+      "kind": "weapon",
+      "cost": 60,
+      "slotTypes": ["weapon"],
+      "stats": { "category": "projectile", "arcWidth": 20, "range": 60, "reloadTicks": 20, "damage": 30, "mass": 15 }
+    },
+    {
+      "id": "radar",
+      "name": "Radar",
+      "kind": "sensor",
+      "cost": 30,
+      "slotTypes": ["sensor"],
+      "stats": { "kind": "radar", "arcWidth": 120, "range": 80, "mass": 3 }
+    },
+    {
+      "id": "wheels",
+      "name": "Wheels",
+      "kind": "motor",
+      "cost": 25,
+      "slotTypes": ["motor"],
+      "stats": { "force": 400, "turnRate": 180, "mass": 10, "motorTerrain": { "road": { "speed": 1.2, "accel": 1 } } }
+    },
+    {
+      "id": "tracks",
+      "name": "Tracks",
+      "kind": "motor",
+      "cost": 40,
+      "slotTypes": ["motor"],
+      "stats": { "force": 600, "turnRate": 120, "mass": 25, "motorTerrain": { "sand": { "speed": 1.5, "accel": 1.5 } } }
+    },
+    {
+      "id": "coprocessor",
+      "name": "Coprocessor",
+      "kind": "processor",
+      "cost": 50,
+      "slotTypes": ["utility"],
+      "stats": { "operationBudget": 2000, "mass": 2 }
+    },
+    {
+      "id": "plate",
+      "name": "Armor plate",
+      "kind": "armor",
+      "cost": 15,
+      "stats": { "armor": 5, "mass": 10 }
+    }
+  ]
+}

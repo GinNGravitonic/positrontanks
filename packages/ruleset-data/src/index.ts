@@ -1,4 +1,32 @@
 export {
+  ARMOR_SIDES,
+  SUPPORTED_MAP_FORMATS,
+  parseRuleset,
+  terrainNames,
+  validateBuild,
+  validateRuleset,
+} from "./ruleset.js";
+export type {
+  ArmorSide,
+  Build,
+  BuildResult,
+  Chassis,
+  ChassisShape,
+  Component,
+  ComponentKind,
+  Ruleset,
+  RulesetError,
+  RulesetLimits,
+  RulesetResult,
+  Slot,
+  StatDefinition,
+  StatValue,
+  Stats,
+  Terrain,
+  TerrainModifiers,
+  TerrainMultipliers,
+} from "./ruleset.js";
+export {
   MIN_SPAWN_ZONES,
   checkMapTerrains,
   entryFitsMap,
