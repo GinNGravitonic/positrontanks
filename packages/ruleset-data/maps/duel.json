@@ -1,0 +1,19 @@
+{
+  "format": 1,
+  "width": 60,
+  "height": 40,
+  "baseTerrain": "grass",
+  "terrainRegions": [
+    { "terrain": "road", "shape": "polygon", "points": [{ "x": 0, "y": 18 }, { "x": 60, "y": 18 }, { "x": 60, "y": 22 }, { "x": 0, "y": 22 }] },
+    { "terrain": "sand", "shape": "circle", "x": 30, "y": 20, "radius": 6 }
+  ],
+  "obstacles": [
+    { "id": "pillar", "destructible": false, "shape": "circle", "x": 30, "y": 20, "radius": 2 },
+    { "id": "crate-north", "destructible": true, "hitPoints": 150, "shape": "polygon", "points": [{ "x": 28, "y": 6 }, { "x": 32, "y": 6 }, { "x": 32, "y": 10 }, { "x": 28, "y": 10 }] },
+    { "id": "crate-south", "destructible": true, "hitPoints": 150, "shape": "polygon", "points": [{ "x": 28, "y": 30 }, { "x": 32, "y": 30 }, { "x": 32, "y": 34 }, { "x": 28, "y": 34 }] }
+  ],
+  "spawnZones": [
+    { "heading": 90, "capacity": 4, "shape": "polygon", "points": [{ "x": 2, "y": 10 }, { "x": 12, "y": 10 }, { "x": 12, "y": 30 }, { "x": 2, "y": 30 }] },
+    { "heading": 270, "capacity": 4, "shape": "polygon", "points": [{ "x": 48, "y": 10 }, { "x": 58, "y": 10 }, { "x": 58, "y": 30 }, { "x": 48, "y": 30 }] }
+  ]
+}

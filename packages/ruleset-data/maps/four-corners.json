@@ -1,0 +1,22 @@
+{
+  "format": 1,
+  "width": 80,
+  "height": 80,
+  "baseTerrain": "sand",
+  "terrainRegions": [
+    { "terrain": "road", "shape": "polygon", "points": [{ "x": 38, "y": 0 }, { "x": 42, "y": 0 }, { "x": 42, "y": 80 }, { "x": 38, "y": 80 }] },
+    { "terrain": "road", "shape": "polygon", "points": [{ "x": 0, "y": 38 }, { "x": 80, "y": 38 }, { "x": 80, "y": 42 }, { "x": 0, "y": 42 }] }
+  ],
+  "obstacles": [
+    { "id": "keep", "destructible": false, "shape": "polygon", "points": [{ "x": 40, "y": 32 }, { "x": 48, "y": 40 }, { "x": 40, "y": 48 }, { "x": 32, "y": 40 }] },
+    { "id": "rock-1", "destructible": false, "shape": "circle", "x": 20, "y": 40, "radius": 3 },
+    { "id": "rock-2", "destructible": false, "shape": "circle", "x": 60, "y": 40, "radius": 3 },
+    { "id": "barrel", "destructible": true, "hitPoints": 40, "shape": "circle", "x": 40, "y": 15, "radius": 1 }
+  ],
+  "spawnZones": [
+    { "heading": 135, "capacity": 3, "shape": "circle", "x": 10, "y": 10, "radius": 7 },
+    { "heading": 225, "capacity": 3, "shape": "circle", "x": 70, "y": 10, "radius": 7 },
+    { "heading": 315, "capacity": 3, "shape": "circle", "x": 70, "y": 70, "radius": 7 },
+    { "heading": 45, "capacity": 2, "shape": "circle", "x": 10, "y": 70, "radius": 5 }
+  ]
+}
