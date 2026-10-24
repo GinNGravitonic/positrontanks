@@ -7,8 +7,18 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./rulesets": {
+      "types": "./dist/rulesets.d.ts",
+      "default": "./dist/rulesets.js"
+    },
+    "./rulesets/*.json": "./rulesets/*.json"
   },
+  "files": [
+    "dist",
+    "rulesets",
+    "maps"
+  ],
   "scripts": {
     "build": "tsc -b"
   }
