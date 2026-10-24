@@ -22,8 +22,25 @@ export {
   deriveBotSpec,
 } from "./bot-spec.js";
 export type { BotSpec, SensorKind, SensorSpec, WeaponCategory, WeaponSpec } from "./bot-spec.js";
-export { createGame, playTick, programSlots } from "./game.js";
-export type { BotProgram, Game, GameSetup, IssuedCommands, ProgramBotSetup, ProgramRun, RunState, TickReport } from "./game.js";
+export { createGame, playGame, playTick, programSlots } from "./game.js";
+export type {
+  BotProgram,
+  Game,
+  GameSetup,
+  IssuedCommands,
+  ProgramBotSetup,
+  ProgramEntrySetup,
+  ProgramLog,
+  ProgramRun,
+  RunState,
+  TickReport,
+} from "./game.js";
+export { addFoeDamage, judge, remainingPlayers } from "./outcome.js";
+export type { GameEnd, GameResult, Standing } from "./outcome.js";
+export { gameRecord, programLogs, replayGame, replayOf } from "./record.js";
+export type { GameRecord, RecordedBot, RecordedEntry, StartingPosition } from "./record.js";
+export { replayTick } from "./replay.js";
+export type { BotFrame, ProjectileFrame, Replay, ReplayBot, ReplayEntry, ReplayTick } from "./replay.js";
 export { incoming, rangefind, scan } from "./sensors.js";
 export type { IncomingProjectile, RadarContact, RangefinderReading } from "./sensors.js";
 export { damageBot, damageObstacle, disableBot, struckSide } from "./damage.js";

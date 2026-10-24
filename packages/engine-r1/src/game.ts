@@ -7,6 +7,10 @@
  * against the snapshot at the start of the Tick, collects the commands they
  * issued, and steps the world. Programs see the world only through the
  * built-in values and functions bound here.
+ *
+ * After each Tick the Game is judged (outcome.ts), and once it has a result
+ * no further Tick may be played. The Game also keeps what its Replay and its
+ * Program logs are made of (record.ts).
  */
 
 import {
@@ -27,8 +31,10 @@ import type { BotSpec } from "./bot-spec.js";
 import { disableBot } from "./damage.js";
 import type { TickEvent } from "./events.js";
 import { absBearing, headingVector, type Point, type WorldShape } from "./geometry.js";
+import { addFoeDamage, judge, remainingPlayers, type GameResult } from "./outcome.js";
 import { acosDeg, asinDeg, atan2Deg, cosDeg, hypot, normalizeAbsAngle, normalizeAngle, sinDeg, tanDeg } from "./math.js";
 import { SeededRandom } from "./random.js";
+import { replayTick, type ReplayTick } from "./replay.js";
 import { incoming, rangefind, scan } from "./sensors.js";
 import { terrainAt } from "./terrain.js";
 import { step, type BotCommands } from "./tick.js";
@@ -40,8 +46,17 @@ export interface ProgramBotSetup extends BotSetup {
   readonly program: string;
 }
 
+export interface ProgramEntrySetup {
+  /**
+   * The Player who submitted the Entry. A Player may have several Entries;
+   * an Entry without one is a Player of its own, `entry:<Entry index>`.
+   */
+  readonly player?: string;
+  readonly bots: readonly ProgramBotSetup[];
+}
+
 export interface GameSetup extends WorldSetup {
-  readonly entries: readonly { readonly bots: readonly ProgramBotSetup[] }[];
+  readonly entries: readonly ProgramEntrySetup[];
   /** The Game's time limit, in Ticks; Programs read it as `game.timeLimitTicks`. */
   readonly timeLimitTicks: number;
 }
@@ -82,7 +97,19 @@ export interface BotProgram {
   readonly run: RunState;
 }
 
+/** One Bot's Program log, which only its owner may see (language-r1 section 10.5). */
+export interface ProgramLog {
+  readonly bot: number;
+  readonly name: string;
+  readonly player: string;
+  /** Every run of the Program, from the init phase (Tick 0), in Tick order. */
+  readonly runs: { readonly tick: number; readonly result: RunResult }[];
+}
+
 export interface Game {
+  readonly setup: GameSetup;
+  /** The Player of each Entry, by Entry index. */
+  readonly players: readonly string[];
   readonly world: World;
   readonly timeLimitTicks: number;
   /** The init phase: each Program's run, and the Bots it Disabled. */
@@ -91,6 +118,14 @@ export interface Game {
   readonly programs: readonly BotProgram[];
   /** The `game` value, the same for every run. */
   readonly gameValue: Value;
+  /** Damage each Player's Bots have dealt to Foes so far, by Player. */
+  readonly foeDamage: Map<string, number>;
+  /** Every Tick played, from the init phase, for the Replay. */
+  readonly history: ReplayTick[];
+  /** One per Bot, in Bot id order. */
+  readonly logs: readonly ProgramLog[];
+  /** Set once the Game has ended; then no Tick may be played. */
+  result: GameResult | null;
 }
 
 /** The Slot ids a Program may name in `fire`, `fireAbs` and `rangefind`, for `check`. */
@@ -309,6 +344,8 @@ export function createGame(setup: GameSetup): Game {
 
   const gameValue = fromHost({ tickRate: ruleset.tickRate, timeLimitTicks, playerCount: setup.entries.length });
   const map = mapValue(world);
+  const players = setup.entries.map((e, i) => e.player ?? `entry:${String(i)}`);
+  const before = remainingPlayers(world, players);
   const runs: ProgramRun[] = [];
   const events: TickEvent[] = [];
   for (const p of programs) {
@@ -319,7 +356,30 @@ export function createGame(setup: GameSetup): Game {
     runs.push({ bot: p.bot.id, result });
     if (result.halt !== null) disableBot(p.bot, "programHalted", 0, events);
   }
-  return { world, timeLimitTicks, start: { tick: 0, runs, events }, programs, gameValue };
+  const game: Game = {
+    setup,
+    players,
+    world,
+    timeLimitTicks,
+    start: { tick: 0, runs, events },
+    programs,
+    gameValue,
+    foeDamage: new Map(players.map((p) => [p, 0])),
+    history: [],
+    logs: world.bots.map((b) => ({ bot: b.id, name: b.name, player: players[b.entry] ?? "", runs: [] })),
+    result: null,
+  };
+  finishTick(game, game.start, before);
+  return game;
+}
+
+/** Records a Tick just played and judges the Game; `before` holds the Players remaining at its start. */
+function finishTick(game: Game, report: TickReport, before: ReadonlySet<string>): void {
+  const { world, players } = game;
+  for (const run of report.runs) game.logs[run.bot - 1]?.runs.push({ tick: report.tick, result: run.result });
+  game.history.push(replayTick(world, report.events));
+  addFoeDamage(world, players, report.events, game.foeDamage);
+  game.result = judge(world, players, game.foeDamage, before, game.timeLimitTicks);
 }
 
 /**
@@ -327,9 +387,13 @@ export function createGame(setup: GameSetup): Game {
  * halted, in Bot id order, against the world as it stands, then steps the
  * world with the commands they issued. A Program that halts at the end of its
  * run Disables its Bot before the Tick resolves, so its commands are dropped.
+ * Then the Game is judged, setting `game.result` if it has ended. Throws if
+ * the Game had already ended.
  */
 export function playTick(game: Game): TickReport {
   const { world } = game;
+  if (game.result !== null) throw new Error(`the Game ended in Tick ${String(game.result.tick)}`);
+  const before = remainingPlayers(world, game.players);
   const tick = world.tick + 1;
   const map = mapValue(world);
   const runs: ProgramRun[] = [];
@@ -358,5 +422,13 @@ export function playTick(game: Game): TickReport {
   const events: TickEvent[] = [];
   for (const bot of halted) disableBot(bot, "programHalted", tick, events);
   events.push(...step(world, commands));
-  return { tick, runs, events };
+  const report = { tick, runs, events };
+  finishTick(game, report, before);
+  return report;
+}
+
+/** Plays Ticks until the Game ends, and returns its result. */
+export function playGame(game: Game): GameResult {
+  while (game.result === null) playTick(game);
+  return game.result;
 }
