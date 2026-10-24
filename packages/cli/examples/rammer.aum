@@ -1,0 +1,22 @@
+// Rammer: heads for the middle of the Map, then charges the nearest Foe
+// and swings its Hammer when the Foe is in reach.
+
+let center = null;
+
+function init() {
+  center = {x: map.width / 2, y: map.height / 2};
+  log("heading for " + str(center));
+}
+
+function tick() {
+  const foes = scan().filter((c) => c.isFoe);
+  if (foes.length > 0) {
+    const foe = foes.sort((a, b) => a.distance - b.distance)[0];
+    turn(clamp(foe.bearing / 15, -1, 1));
+    throttle(abs(foe.bearing) < 45 ? 1 : 0.4);
+    fire("prow", foe);
+  } else {
+    turn(clamp(bearingTo(center.x, center.y) / 15, -1, 1));
+    throttle(distanceTo(center.x, center.y) > 8 ? 1 : 0.3);
+  }
+}

@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "aumohta": "./dist/main.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -11,5 +14,10 @@
   },
   "scripts": {
     "build": "tsc -b"
+  },
+  "dependencies": {
+    "@aumohta/engine-r1": "workspace:*",
+    "@aumohta/language": "workspace:*",
+    "@aumohta/ruleset-data": "workspace:*"
   }
 }
