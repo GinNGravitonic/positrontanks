@@ -195,24 +195,24 @@ describe("Program bindings", () => {
 
 describe("Halting", () => {
   it("Disables a Bot whose init phase fails, which then shows as a wreck in map.obstacles", () => {
-    const g = game([[{ program: "function init() { const x = 1 / 0; } function tick() {}" }], [{ program: "function tick() { log(map.obstacles.map((o) => o.id)); }" }]]);
+    const g = game([[{ program: "function init() { const x = 1 / 0; } function tick() {}" }], [{ program: "function tick() { log(map.obstacles.map((o) => o.id)); }" }], [{ program: idle }]]);
     expect(g.start.events).toEqual([{ type: "disabled", tick: 0, bot: 1, cause: "programHalted" }]);
     expect(runOf(g.start, 1).halt).toMatch(/init phase failed/);
     const report = playTick(g);
-    expect(report.runs.map((r) => r.bot)).toEqual([2]);
+    expect(report.runs.map((r) => r.bot)).toEqual([2, 3]);
     expect(logOf(report, 2)).toEqual(['["wreck:1"]']);
   });
 
   it("Disables a Bot over the memory cap before its commands take effect", () => {
     const small: Ruleset = { ...ruleset, limits: { ...ruleset.limits, memoryCells: 50 } };
     const program = "let xs = []; function tick() { throttle(1); for (let i = 0; i < 60; i++) { xs.push(i); } }";
-    const g = game([[{ program }], [{ program: idle }]], { ruleset: small });
+    const g = game([[{ program }], [{ program: idle }], [{ program: idle }]], { ruleset: small });
     const { x, y } = bot(g.world, 1);
     const report = playTick(g);
     expect(runOf(report, 1).halt).toMatch(/memory cap/);
     expect(report.events[0]).toEqual({ type: "disabled", tick: 1, bot: 1, cause: "programHalted" });
     expect(bot(g.world, 1)).toMatchObject({ x, y, speed: 0, throttle: 0, status: "disabled" });
-    expect(playTick(g).runs.map((r) => r.bot)).toEqual([2]);
+    expect(playTick(g).runs.map((r) => r.bot)).toEqual([2, 3]);
   });
 
   it("refuses a Program that does not check against its Build", () => {

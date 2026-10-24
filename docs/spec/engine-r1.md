@@ -137,3 +137,21 @@ Each Bot's Program runs in the r1 interpreter ([language-r1.md](language-r1.md))
 - **Halting**: a Program that halts at the end of its `tick()` (over the memory cap) Disables its Bot at once, before the Tick resolves, so that Tick's commands from it are dropped.
 - **`map.obstacles`** lists the live Obstacles in Map order, then wrecks in Bot id order, each with id `wreck:<Bot id>`, `destructible: false` and the Bot's outline at the moment it was Disabled.
 - `terrainAt` and `checkTerrain` are runtime errors for points outside the Map; points on the boundary are on it.
+
+## 11. End of the Game
+
+The Game is judged after the init phase (Tick 0) and after every Tick; once it has ended, no further Tick is played.
+
+- **Players**: survival and the tiebreaks are counted per Player, over all of the Player's Entries. A Bot counts toward its Player's survival unless it is Disabled.
+- **Last standing**: when exactly one Player has any Bot not Disabled, that Player is the Winner. A Game whose Entries all belong to one Player ends at Tick 0.
+- **Time limit**: after Tick `timeLimitTicks`, with several Players remaining, the tiebreaks decide among those Players only.
+- **None standing**: when the last Players are all Disabled in the same Tick, the tiebreaks decide among the Players remaining at the start of that Tick.
+- **Tiebreaks**, in order: the most damage dealt to Foes over the whole Game, then the most remaining Hit Points (the total of the Player's Bots that are not Disabled), then a **Draw**. Totals are compared exactly.
+- **Foe damage** is the `dealt` of each damage event on a Bot of another Entry (§7): what got past Armor, capped at the target's remaining Hit Points. A shot counts for the Bot that fired it, even if that Bot is Disabled before it lands; a ram counts for the other Bot. Damage from wrecks, Obstacles and the boundary counts for no one, and damage between Friends neither counts nor subtracts. Two Entries of the same Player are Foes of each other, as Foe is judged by Entry.
+- The result records the Tick the Game ended in, why it ended, the Winner or Draw, what decided it, and each Player's Foe damage, remaining Hit Points and survival.
+
+## 12. Game Record, Replay and Program logs
+
+- The **Game Record** holds the Ruleset version, the Map, each Entry's Player and Bots (Bot Name, Build, Program), the seed, the time limit and the starting positions; for information it also holds the last Tick played, each Program's operations per Tick, and the result. Replaying it under the same Ruleset reproduces every Tick exactly, so a Game can be resumed from its Game Record at any Tick; replaying checks that every Bot starts where the record says.
+- The **Replay** holds the Ruleset version, Tick rate, Map, time limit, each Entry's Player and Bots (id, Bot Name, Build), and for every Tick from 0 its events and a frame of every Bot (position, Heading, speed, Hit Points, status) and Projectile (position) at its end, plus the result. It holds no Program, no Program log and no seed.
+- A Bot's **Program log** holds every run from the init phase on: operations used, outcome, runtime error, halt and `log()` output. Only the Bot's owner sees it.
