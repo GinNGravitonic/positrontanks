@@ -51,7 +51,7 @@ export interface FiredEvent {
   readonly bot: number;
   readonly weapon: string;
   readonly category: WeaponCategory;
-  /** The muzzle. */
+  /** Where the shot starts: the firing Bot's centre. */
   readonly from: Point;
   /** The absolute direction of the shot. */
   readonly absBearing: number;

@@ -3,17 +3,18 @@
  * in flight (spec section 2, Weapons; the rules are in docs/spec/engine-r1.md
  * section 6).
  *
- * Every shot is traced as a ray from the muzzle, the weapon's Slot position.
- * Rays stop at the first Bot, wreck, Obstacle or Map boundary they meet, and
- * never at the Bot that fired them.
+ * Every shot is aimed, measured and traced as a ray (rays.ts) from the Bot's
+ * centre, whichever Slot the weapon is in, and never stops at the Bot that
+ * fired it. The Slot sets only the direction of the Firing Arc.
  */
 
 import type { WeaponSpec } from "./bot-spec.js";
 import { damageBot, damageObstacle } from "./damage.js";
 import type { Collider, TickEvent, WeaponSource } from "./events.js";
-import { headingVector, pointInShape, rayEntry, rayExit, type Point, type WorldShape } from "./geometry.js";
-import { atan2Deg, cosDeg, normalizeAbsAngle, normalizeAngle, sinDeg } from "./math.js";
-import { botShape, type BotState, type ProjectileState, type World } from "./world.js";
+import { headingVector, inArc, pointInShape, type Point } from "./geometry.js";
+import { atan2Deg, normalizeAbsAngle } from "./math.js";
+import { along, castRay, type RayHit } from "./rays.js";
+import type { BotState, ProjectileState, World } from "./world.js";
 
 /** What a `fire` or `fireAbs` call aims at: a point, a bearing relative to the Heading, or an absolute bearing. */
 export type FireTarget =
@@ -29,19 +30,12 @@ export function weaponOf(bot: BotState, weaponId: string): { spec: WeaponSpec; i
   return { spec, index };
 }
 
-/** The weapon's muzzle in world coordinates. */
-export function muzzle(bot: BotState, weapon: WeaponSpec): Point {
-  const s = sinDeg(bot.heading);
-  const c = cosDeg(bot.heading);
-  return { x: bot.x + weapon.x * c - weapon.y * s, y: bot.y + weapon.x * s + weapon.y * c };
-}
-
 function finite(v: number, what: string): number {
   if (!Number.isFinite(v)) throw new RangeError(`${what} must be finite, got ${String(v)}`);
   return v;
 }
 
-/** The absolute direction of a shot from `from`, or null when aimed at the muzzle itself. */
+/** The absolute direction of a shot from `from`, or null when aimed at `from` itself. */
 function aimBearing(bot: BotState, from: Point, target: FireTarget): number | null {
   switch (target.kind) {
     case "point": {
@@ -59,47 +53,10 @@ function aimBearing(bot: BotState, from: Point, target: FireTarget): number | nu
 
 /** Whether an absolute bearing lies within the weapon's Firing Arc, ends included. */
 export function inFiringArc(bot: BotState, weapon: WeaponSpec, absBearing: number): boolean {
-  const offset = normalizeAngle(normalizeAngle(absBearing - bot.heading) - weapon.direction);
-  return Math.abs(offset) <= weapon.arcWidth / 2;
+  return inArc(bot.heading, weapon.direction, weapon.arcWidth, absBearing);
 }
 
-interface RayHit {
-  readonly distance: number;
-  /** Null when the ray reached its full length. */
-  readonly target: Collider | null;
-  readonly shape: WorldShape | null;
-}
-
-/**
- * The first thing a ray from `from` meets within `length`, ignoring the Bot
- * `shooter`. Ties go to Bots in id order, then Obstacles in Map order, then
- * the boundary. Destructible Obstacles destroyed this Tick still count.
- */
-function castRay(world: World, from: Point, dir: Point, length: number, shooter: number, boundary: boolean): RayHit {
-  let best: RayHit = { distance: length, target: null, shape: null };
-  const consider = (shape: WorldShape, target: Collider) => {
-    const t = rayEntry(from, dir, best.distance, shape);
-    if (t !== null && (best.target === null || t < best.distance)) best = { distance: t, target, shape };
-  };
-  for (const b of world.bots) {
-    if (b.id === shooter) continue;
-    consider(botShape(b), { kind: b.status === "disabled" ? "wreck" : "bot", id: b.id });
-  }
-  for (const o of world.obstacles) consider(o.shape, { kind: "obstacle", id: o.obstacle.id });
-  if (boundary) {
-    const exit = rayExit(from, dir, { minX: 0, minY: 0, maxX: world.map.width, maxY: world.map.height });
-    if (exit < best.distance || (exit === best.distance && best.target === null)) {
-      best = { distance: exit, target: { kind: "boundary" }, shape: null };
-    }
-  }
-  return best;
-}
-
-function along(from: Point, dir: Point, distance: number): Point {
-  return { x: from.x + dir.x * distance, y: from.y + dir.y * distance };
-}
-
-/** A legal shot: its weapon, muzzle and absolute direction. */
+/** A legal shot: its weapon, where it starts and its absolute direction. */
 interface Shot {
   readonly weapon: WeaponSpec;
   readonly index: number;
@@ -111,7 +68,7 @@ function aim(world: World, bot: BotState, weaponId: string, target: FireTarget):
   const { spec: weapon, index } = weaponOf(bot, weaponId);
   if (bot.status !== "active") return null;
   if ((bot.weapons[index]?.ticksUntilReady ?? 0) > 0) return null;
-  const from = muzzle(bot, weapon);
+  const from = { x: bot.x, y: bot.y };
   const absBearing = aimBearing(bot, from, target);
   if (absBearing === null || !inFiringArc(bot, weapon, absBearing)) return null;
   if (target.kind === "point") {

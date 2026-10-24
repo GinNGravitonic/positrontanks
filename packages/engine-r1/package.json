@@ -13,6 +13,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
+    "@aumohta/language": "workspace:*",
     "@aumohta/ruleset-data": "workspace:*"
   }
 }

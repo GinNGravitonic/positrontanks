@@ -260,13 +260,15 @@ Bearings are relative to the Bot's Heading, in degrees within (-180, 180], posit
 | `rangefind(sensorId)` | `{distance, hit}`, where `hit` is `"bot"`, `"obstacle"` or `"boundary"` (wrecks count as `"obstacle"`), or `null` if nothing is within range. It is a runtime error if `sensorId` is not one of the Bot's rangefinders. |
 | `incoming()` | A list of `{bearing, ticksToImpact, category}` for Projectiles on a collision course, as detected by the Bot's Projectile Detectors ([v1.md §2](v1.md#sensors-and-knowledge)). With no detector, the list is empty. |
 
+What each sensor sees, and where distances and bearings are measured from, is in [engine-r1.md §9](engine-r1.md#9-sensors).
+
 ### 7.3 Terrain (Map knowledge; these see through Obstacles)
 
 | Signature | Returns |
 |---|---|
 | `terrainHere()` | The Terrain name under the Bot's centre |
 | `terrainAt(x, y)` | The Terrain name at a point. Out-of-Map points are a runtime error. |
-| `checkTerrain(bearing, distance)` | The Terrain name at a relative bearing and distance from the Bot's centre |
+| `checkTerrain(bearing, distance)` | The Terrain name at a relative bearing and distance from the Bot's centre. Out-of-Map points are a runtime error. |
 | `terrainTable()` | `{terrainName: {speed, accel}}` multipliers from the Ruleset |
 
 ### 7.4 Math and geometry

@@ -10,7 +10,7 @@
  * touch overlap. World coordinates are Map coordinates (meters, y down).
  */
 
-import { cosDeg, sinDeg } from "./math.js";
+import { atan2Deg, cosDeg, normalizeAbsAngle, normalizeAngle, sinDeg } from "./math.js";
 
 export interface Point {
   readonly x: number;
@@ -30,6 +30,21 @@ export type LocalShape =
 /** The unit vector of an absolute Heading (0 is up the Map, clockwise). */
 export function headingVector(heading: number): Point {
   return { x: sinDeg(heading), y: -cosDeg(heading) };
+}
+
+/** The absolute bearing from one point to another, in [0, 360); 0 when they coincide. */
+export function absBearing(from: Point, to: Point): number {
+  return normalizeAbsAngle(atan2Deg(to.x - from.x, from.y - to.y));
+}
+
+/**
+ * Whether an absolute bearing lies within an arc `arcWidth` degrees wide,
+ * centred on `direction` relative to `heading`, ends included. An arc of 360
+ * covers every bearing.
+ */
+export function inArc(heading: number, direction: number, arcWidth: number, bearing: number): boolean {
+  const offset = normalizeAngle(normalizeAngle(bearing - heading) - direction);
+  return Math.abs(offset) <= arcWidth / 2;
 }
 
 /** Places a Bot-frame shape at a world position and absolute Heading. */

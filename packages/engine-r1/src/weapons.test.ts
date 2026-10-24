@@ -62,16 +62,16 @@ describe("Beam Weapons", () => {
     expect(toWall?.target).toEqual({ kind: "boundary" });
     expect(toWall?.point.x).toBeCloseTo(0, 9);
     expect(spent?.target).toBeNull();
-    expect(spent?.point.x).toBeCloseTo(20.4 + 50, 9);
+    expect(spent?.point.x).toBeCloseTo(20 + 50, 9);
   });
 
-  it("pass through the Bot that fired them", () => {
+  it("start from the firing Bot's centre, whatever the Slot, and pass through that Bot", () => {
     const world = worldWith([
       { build: armed(discBuild, { tail: "turret" }), x: 20, y: 50, heading: 90 },
       { build: discBuild, x: 30, y: 50, heading: 90 },
     ]);
     const events = fire(world, { 1: { tail: ahead } });
-    expect(events[0]).toMatchObject({ type: "fired", from: { x: expect.closeTo(19.6, 9) as number } });
+    expect(events[0]).toMatchObject({ type: "fired", from: { x: 20, y: 50 } });
     expect(impacts(events)[0]?.target).toEqual({ kind: "bot", id: 2 });
     expect(damage(events).map((e) => [e.target, e.side])).toEqual([[{ kind: "bot", id: 2 }, "rear"]]);
   });
@@ -91,19 +91,19 @@ describe("Beam Weapons", () => {
 });
 
 describe("Melee Weapons", () => {
-  it("hit only within their short range of the muzzle", () => {
+  it("hit only within their short range of the Bot's centre", () => {
     const world = worldWith([
       { build: armed(discBuild, { gun: "spike" }), x: 20, y: 50, heading: 90 },
-      { build: discBuild, x: 21.5, y: 50, heading: 270 },
+      { build: discBuild, x: 21.6, y: 50, heading: 270 },
     ]);
     const [miss] = impacts(fire(world, { 1: { gun: ahead } }));
     expect(miss?.target).toBeNull();
-    expect(miss?.point.x).toBeCloseTo(20.9, 9);
+    expect(miss?.point.x).toBeCloseTo(21, 9);
 
-    bot(world, 2).x = 21.3;
+    bot(world, 2).x = 21.4;
     step(world); // reloading
     const events = fire(world, { 1: { gun: ahead } });
-    expect(impacts(events)[0]?.point.x).toBeCloseTo(20.8, 9);
+    expect(impacts(events)[0]?.point.x).toBeCloseTo(20.9, 9);
     expect(damage(events).map((e) => [e.target, e.side, e.dealt])).toEqual([[{ kind: "bot", id: 2 }, "front", 40]]);
   });
 });
@@ -117,7 +117,7 @@ describe("Projectile Weapons", () => {
     const first = fire(world, { 1: { gun: ahead } });
     expect(first).toMatchObject([{ type: "fired", category: "projectile", projectile: 1 }]);
     expect(world.projectiles).toHaveLength(1);
-    expect(world.projectiles[0]?.x).toBeCloseTo(22.4, 9);
+    expect(world.projectiles[0]?.x).toBeCloseTo(22, 9);
 
     const later: TickEvent[] = [];
     for (let t = 2; t <= 5; t++) later.push(...step(world));
@@ -139,7 +139,7 @@ describe("Projectile Weapons", () => {
     expect(damage(events)).toEqual([]);
     const [spent] = impacts(events);
     expect(spent).toMatchObject({ tick: 20, target: null });
-    expect(spent?.point.x).toBeCloseTo(60.4, 9);
+    expect(spent?.point.x).toBeCloseTo(60, 9);
     expect(world.projectiles).toEqual([]);
   });
 
@@ -173,7 +173,7 @@ describe("firing rules", () => {
     expect(canFire(world, b, "gun", { kind: "point", x: 60, y: 52 })).toBe(true);
     expect(canFire(world, b, "gun", { kind: "point", x: 50, y: 60 })).toBe(false);
     for (const bearing of [0, 90, 180, -135]) expect(canFire(world, b, "tail", { kind: "bearing", bearing })).toBe(true);
-    expect(canFire(world, b, "gun", { kind: "point", x: 50.4, y: 50 })).toBe(false); // the muzzle itself
+    expect(canFire(world, b, "gun", { kind: "point", x: 50, y: 50 })).toBe(false); // the Bot's centre itself
     expect(() => canFire(world, b, "drive", ahead)).toThrow(RangeError);
   });
 
@@ -282,7 +282,7 @@ describe("damage from weapons", () => {
     expect(world.obstacles).toEqual([]);
     const [through] = impacts(fire(world, { 1: { tail: ahead } }));
     expect(through?.target).toBeNull();
-    expect(through?.point.x).toBeCloseTo(19.6 + 50, 9);
+    expect(through?.point.x).toBeCloseTo(20 + 50, 9);
   });
 });
 

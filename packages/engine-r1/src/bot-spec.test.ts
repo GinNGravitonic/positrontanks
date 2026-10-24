@@ -32,11 +32,11 @@ describe("deriveBotSpec", () => {
     expect(spec.reach).toBeCloseTo(Math.sqrt(1.25), 12);
   });
 
-  it("lists installed weapons in Slot order with their Slot's muzzle and direction", () => {
+  it("lists installed weapons in Slot order with their Slot's direction", () => {
     const spec = deriveBotSpec(ruleset, armed(discBuild, { tail: "turret", gun: "cannon" }));
     expect(spec.weapons).toEqual([
-      { id: "gun", category: "projectile", x: 0, y: -0.4, direction: 0, arcWidth: 20, range: 40, reloadTicks: 5, damage: 30, projectileSpeed: 20 },
-      { id: "tail", category: "beam", x: 0, y: 0.4, direction: 180, arcWidth: 360, range: 50, reloadTicks: 1, damage: 10, projectileSpeed: 0 },
+      { id: "gun", category: "projectile", direction: 0, arcWidth: 20, range: 40, reloadTicks: 5, damage: 30, projectileSpeed: 20 },
+      { id: "tail", category: "beam", direction: 180, arcWidth: 360, range: 50, reloadTicks: 1, damage: 10, projectileSpeed: 0 },
     ]);
     expect(deriveBotSpec(ruleset, discBuild).weapons).toEqual([]);
   });
@@ -45,6 +45,20 @@ describe("deriveBotSpec", () => {
     const spec = deriveBotSpec(ruleset, { ...discBuild, components: {} });
     expect([spec.topSpeed, spec.accel, spec.turnRate]).toEqual([0, 0, 0]);
     expect(spec.motorTerrain).toEqual({});
+  });
+
+  it("lists installed sensors in Slot order with their Slot's direction", () => {
+    const spec = deriveBotSpec(ruleset, armed(discBuild, { ear: "detector", eye: "lidar" }));
+    expect(spec.sensors).toEqual([
+      { id: "eye", kind: "rangefinder", direction: 0, arcWidth: 0, range: 20 },
+      { id: "ear", kind: "projectileDetector", direction: 180, arcWidth: 360, range: 50 },
+    ]);
+    expect(deriveBotSpec(ruleset, discBuild).sensors).toEqual([]);
+  });
+
+  it("takes the Operation Budget from the Chassis or a better Processor", () => {
+    expect(deriveBotSpec(ruleset, discBuild).operationBudget).toBe(1000);
+    expect(deriveBotSpec(ruleset, armed(discBuild, { bay: "cpu" })).operationBudget).toBe(3000);
   });
 });
 
@@ -67,7 +81,7 @@ describe("checkRuleset", () => {
     ]);
   });
 
-  it("requires Chassis mass and Hit Points, and armor on side-mounted kinds", () => {
+  it("requires Chassis mass, Hit Points and Operation Budget, and armor on side-mounted kinds", () => {
     const broken: Ruleset = {
       ...ruleset,
       chassisStats: { mass: { type: "enum", values: ["light"] } },
@@ -76,6 +90,7 @@ describe("checkRuleset", () => {
     expect(checkRuleset(broken).map((e) => e.path)).toEqual([
       "ruleset.chassisStats.mass",
       "ruleset.chassisStats.hitPoints",
+      "ruleset.chassisStats.operationBudget",
       "ruleset.componentKinds.armor.stats.armor",
     ]);
   });
@@ -111,6 +126,46 @@ describe("checkRuleset", () => {
     expect(check({ reloadTicks: 0.5 })).toEqual(["reloadTicks"]);
     expect(check({ range: -1, damage: -1 })).toEqual(["range", "damage"]);
     expect(check({ category: "projectile" })).toEqual(["projectileSpeed"]);
+  });
+
+  it("requires the sensor kind and its stats, and checks a processor kind if there is one", () => {
+    expect(checkRuleset({ ...ruleset, componentKinds: without(ruleset.componentKinds, "sensor") })).toEqual([
+      { path: "ruleset.componentKinds.sensor", message: "is required by engine-r1" },
+    ]);
+    expect(checkRuleset({ ...ruleset, componentKinds: without(ruleset.componentKinds, "processor") })).toEqual([]);
+    const { sensor, processor } = ruleset.componentKinds;
+    if (sensor === undefined || processor === undefined) throw new Error("fixture lacks sensor or processor");
+    const broken: Ruleset = {
+      ...ruleset,
+      componentKinds: {
+        ...ruleset.componentKinds,
+        sensor: { mount: "side", stats: { ...without(sensor.stats, "range"), kind: { type: "number" } } },
+        processor: { ...processor, stats: {} },
+      },
+    };
+    expect(checkRuleset(broken).map((e) => e.path)).toEqual([
+      "ruleset.componentKinds.sensor.mount",
+      "ruleset.componentKinds.sensor.stats.kind",
+      "ruleset.componentKinds.sensor.stats.range",
+      "ruleset.componentKinds.processor.stats.operationBudget",
+      "ruleset.componentKinds.sensor.stats.armor", // side-mounted kinds need armor
+    ]);
+  });
+
+  it("rejects sensor and Operation Budget stats the engine cannot use", () => {
+    const part = (kind: string, stats: Record<string, number | string>) => ({ id: "odd", name: "Odd", kind, cost: 5, slotTypes: [kind], stats });
+    const check = (kind: string, stats: Record<string, number | string>) =>
+      checkRuleset({ ...ruleset, components: [...ruleset.components, part(kind, stats)] }).map((e) => e.path.split(".").pop());
+    const sensor = { kind: "radar", arcWidth: 90, range: 10 };
+    expect(check("sensor", sensor)).toEqual([]);
+    expect(check("sensor", { ...sensor, kind: "sonar" })).toEqual(["kind"]);
+    expect(check("sensor", { ...sensor, arcWidth: -1, range: -1 })).toEqual(["arcWidth", "range"]);
+    expect(check("processor", { operationBudget: 0 })).toEqual(["operationBudget"]);
+    expect(check("processor", { operationBudget: 1.5 })).toEqual(["operationBudget"]);
+    const [disc, box] = ruleset.chassis;
+    if (disc === undefined || box === undefined) throw new Error("fixture lacks Chassis");
+    const broken: Ruleset = { ...ruleset, chassis: [{ ...disc, stats: { ...disc.stats, operationBudget: 0 } }, box] };
+    expect(checkRuleset(broken).map((e) => e.path)).toEqual(["ruleset.chassis[0].stats.operationBudget"]);
   });
 
   it("rejects a massless Chassis", () => {

@@ -29,31 +29,50 @@ export const MOTOR_KIND = "motor";
 /** The Component kind whose Components fire. */
 export const WEAPON_KIND = "weapon";
 
+/** The Component kind whose Components detect things around the Bot. */
+export const SENSOR_KIND = "sensor";
+/** The Component kind whose Components raise the Operation Budget; optional in a Ruleset. */
+export const PROCESSOR_KIND = "processor";
+
 export const WEAPON_CATEGORIES = ["melee", "projectile", "beam"] as const;
 export type WeaponCategory = (typeof WEAPON_CATEGORIES)[number];
 
-const CHASSIS_STATS = ["mass", "hitPoints"] as const;
+export const SENSOR_KINDS = ["radar", "rangefinder", "projectileDetector"] as const;
+export type SensorKind = (typeof SENSOR_KINDS)[number];
+
+const CHASSIS_STATS = ["mass", "hitPoints", "operationBudget"] as const;
 const MOTOR_STATS = ["force", "maxSpeed", "turnRate"] as const;
 const WEAPON_STATS = ["arcWidth", "range", "reloadTicks", "damage", "projectileSpeed"] as const;
+const SENSOR_STATS = ["arcWidth", "range"] as const;
 
 /** An installed weapon, as the simulation uses it. */
 export interface WeaponSpec {
   /** The Slot name, which Programs use as the weapon id. */
   readonly id: string;
   readonly category: WeaponCategory;
-  /** The muzzle: the Slot's position in the Bot frame. */
-  readonly x: number;
-  readonly y: number;
   /** The Slot direction relative to the Heading, in (-180, 180]: the centre of the Firing Arc. */
   readonly direction: number;
   /** Degrees, in [0, 360]. */
   readonly arcWidth: number;
-  /** Meters from the muzzle. */
+  /** Meters from the Bot's centre. */
   readonly range: number;
   readonly reloadTicks: number;
   readonly damage: number;
   /** m/s; 0 for weapons other than Projectile Weapons. */
   readonly projectileSpeed: number;
+}
+
+/** An installed sensor, as the simulation uses it. */
+export interface SensorSpec {
+  /** The Slot name, which Programs use as the sensor id. */
+  readonly id: string;
+  readonly kind: SensorKind;
+  /** The Slot direction relative to the Heading, in (-180, 180]: the centre of the sensor's arc. */
+  readonly direction: number;
+  /** Degrees, in [0, 360]. A Rangefinder looks along the Slot direction only. */
+  readonly arcWidth: number;
+  /** Meters from the Bot's centre. */
+  readonly range: number;
 }
 
 /** The figures the simulation uses for one Bot, derived from its Build. */
@@ -76,6 +95,10 @@ export interface BotSpec {
   readonly armor: Readonly<Record<ArmorSide, number>>;
   /** In Slot order. */
   readonly weapons: readonly WeaponSpec[];
+  /** In Slot order. */
+  readonly sensors: readonly SensorSpec[];
+  /** Operations per Tick: the highest `operationBudget` of the Chassis and any installed Processor. */
+  readonly operationBudget: number;
 }
 
 function requireNumberStat(
@@ -96,6 +119,32 @@ function statNumber(stats: Stats, name: string): number {
 
 function isWeaponCategory(v: unknown): v is WeaponCategory {
   return WEAPON_CATEGORIES.some((c) => c === v);
+}
+
+function isSensorKind(v: unknown): v is SensorKind {
+  return SENSOR_KINDS.some((k) => k === v);
+}
+
+function checkWholeNumber(errors: RulesetError[], stats: Stats, name: string, path: string): void {
+  const v = statNumber(stats, name);
+  if (!Number.isInteger(v) || v < 1) {
+    errors.push({ path: `${path}.stats.${name}`, message: "must be a whole number of at least 1 for engine-r1" });
+  }
+}
+
+function checkArcWidth(errors: RulesetError[], stats: Stats, path: string): void {
+  const arcWidth = statNumber(stats, "arcWidth");
+  if (arcWidth < 0 || arcWidth > 360) errors.push({ path: `${path}.stats.arcWidth`, message: "must be from 0 to 360 for engine-r1" });
+}
+
+/** The kind's definition, if the Ruleset declares it. */
+function kindOf(ruleset: Ruleset, name: string) {
+  return Object.hasOwn(ruleset.componentKinds, name) ? ruleset.componentKinds[name] : undefined;
+}
+
+function checkEnumStat(errors: RulesetError[], stats: Readonly<Record<string, StatDefinition>>, name: string, path: string): void {
+  const def = Object.hasOwn(stats, name) ? stats[name] : undefined;
+  if (def?.type !== "enum") errors.push({ path: `${path}.stats.${name}`, message: 'must be of type "enum" for engine-r1' });
 }
 
 function checkNonNegative(errors: RulesetError[], stats: Stats, name: string, path: string, positive = false): void {
@@ -126,17 +175,31 @@ export function checkRuleset(ruleset: Ruleset): RulesetError[] {
     }
   }
 
-  const weapon = Object.hasOwn(ruleset.componentKinds, WEAPON_KIND) ? ruleset.componentKinds[WEAPON_KIND] : undefined;
+  const weapon = kindOf(ruleset, WEAPON_KIND);
   if (weapon === undefined) {
     errors.push({ path: `ruleset.componentKinds.${WEAPON_KIND}`, message: "is required by engine-r1" });
   } else {
     const path = `ruleset.componentKinds.${WEAPON_KIND}`;
     if (weapon.mount !== "slot") errors.push({ path: `${path}.mount`, message: 'must be "slot" for engine-r1' });
-    const category = Object.hasOwn(weapon.stats, "category") ? weapon.stats.category : undefined;
-    if (category?.type !== "enum") {
-      errors.push({ path: `${path}.stats.category`, message: 'must be of type "enum" for engine-r1' });
-    }
+    checkEnumStat(errors, weapon.stats, "category", path);
     for (const name of WEAPON_STATS) requireNumberStat(errors, weapon.stats, name, `${path}.stats`);
+  }
+
+  const sensor = kindOf(ruleset, SENSOR_KIND);
+  if (sensor === undefined) {
+    errors.push({ path: `ruleset.componentKinds.${SENSOR_KIND}`, message: "is required by engine-r1" });
+  } else {
+    const path = `ruleset.componentKinds.${SENSOR_KIND}`;
+    if (sensor.mount !== "slot") errors.push({ path: `${path}.mount`, message: 'must be "slot" for engine-r1' });
+    checkEnumStat(errors, sensor.stats, "kind", path);
+    for (const name of SENSOR_STATS) requireNumberStat(errors, sensor.stats, name, `${path}.stats`);
+  }
+
+  const processor = kindOf(ruleset, PROCESSOR_KIND);
+  if (processor !== undefined) {
+    const path = `ruleset.componentKinds.${PROCESSOR_KIND}`;
+    if (processor.mount !== "slot") errors.push({ path: `${path}.mount`, message: 'must be "slot" for engine-r1' });
+    requireNumberStat(errors, processor.stats, "operationBudget", `${path}.stats`);
   }
 
   for (const [kindName, kind] of Object.entries(ruleset.componentKinds)) {
@@ -152,6 +215,7 @@ export function checkRuleset(ruleset: Ruleset): RulesetError[] {
     const path = `ruleset.chassis[${String(i)}]`;
     checkNonNegative(errors, c.stats, "mass", path, true);
     checkNonNegative(errors, c.stats, "hitPoints", path, true);
+    checkWholeNumber(errors, c.stats, "operationBudget", path);
   });
   ruleset.components.forEach((c, i) => {
     const path = `ruleset.components[${String(i)}]`;
@@ -159,24 +223,34 @@ export function checkRuleset(ruleset: Ruleset): RulesetError[] {
     if (c.kind === MOTOR_KIND) for (const name of MOTOR_STATS) checkNonNegative(errors, c.stats, name, path);
     if (ruleset.componentKinds[c.kind]?.mount === "side") checkNonNegative(errors, c.stats, "armor", path);
     if (c.kind === WEAPON_KIND) checkWeapon(errors, c, path);
+    if (c.kind === SENSOR_KIND) checkSensor(errors, c, path);
+    if (c.kind === PROCESSOR_KIND) checkWholeNumber(errors, c.stats, "operationBudget", path);
   });
   return errors;
+}
+
+function oneOf(values: readonly string[]): string {
+  return values.map((v) => `"${v}"`).join(", ");
 }
 
 function checkWeapon(errors: RulesetError[], c: Component, path: string): void {
   const category = c.stats.category;
   if (!isWeaponCategory(category)) {
-    errors.push({ path: `${path}.stats.category`, message: `must be one of ${WEAPON_CATEGORIES.map((w) => `"${w}"`).join(", ")} for engine-r1` });
+    errors.push({ path: `${path}.stats.category`, message: `must be one of ${oneOf(WEAPON_CATEGORIES)} for engine-r1` });
   }
-  const arcWidth = statNumber(c.stats, "arcWidth");
-  if (arcWidth < 0 || arcWidth > 360) errors.push({ path: `${path}.stats.arcWidth`, message: "must be from 0 to 360 for engine-r1" });
+  checkArcWidth(errors, c.stats, path);
   checkNonNegative(errors, c.stats, "range", path);
-  const reloadTicks = statNumber(c.stats, "reloadTicks");
-  if (!Number.isInteger(reloadTicks) || reloadTicks < 1) {
-    errors.push({ path: `${path}.stats.reloadTicks`, message: "must be a whole number of at least 1 for engine-r1" });
-  }
+  checkWholeNumber(errors, c.stats, "reloadTicks", path);
   checkNonNegative(errors, c.stats, "damage", path);
   checkNonNegative(errors, c.stats, "projectileSpeed", path, category === "projectile");
+}
+
+function checkSensor(errors: RulesetError[], c: Component, path: string): void {
+  if (!isSensorKind(c.stats.kind)) {
+    errors.push({ path: `${path}.stats.kind`, message: `must be one of ${oneOf(SENSOR_KINDS)} for engine-r1` });
+  }
+  checkArcWidth(errors, c.stats, path);
+  checkNonNegative(errors, c.stats, "range", path);
 }
 
 function motorModifier(motor: Component, terrain: string): TerrainMultipliers {
@@ -255,8 +329,6 @@ export function deriveBotSpec(ruleset: Ruleset, build: Build): BotSpec {
       {
         id: slot.id,
         category,
-        x: slot.x,
-        y: slot.y,
         direction: slot.direction,
         arcWidth: statNumber(c.stats, "arcWidth"),
         range: statNumber(c.stats, "range"),
@@ -266,6 +338,25 @@ export function deriveBotSpec(ruleset: Ruleset, build: Build): BotSpec {
       },
     ];
   });
+
+  const sensors = mounted.flatMap(({ slot, component: c }): SensorSpec[] => {
+    const kind = c.stats.kind;
+    if (c.kind !== SENSOR_KIND || !isSensorKind(kind)) return [];
+    return [
+      {
+        id: slot.id,
+        kind,
+        direction: slot.direction,
+        arcWidth: statNumber(c.stats, "arcWidth"),
+        range: statNumber(c.stats, "range"),
+      },
+    ];
+  });
+
+  let operationBudget = statNumber(chassis.stats, "operationBudget");
+  for (const c of installed) {
+    if (c.kind === PROCESSOR_KIND) operationBudget = Math.max(operationBudget, statNumber(c.stats, "operationBudget"));
+  }
 
   const shape: LocalShape =
     chassis.shape.shape === "circle"
@@ -283,5 +374,7 @@ export function deriveBotSpec(ruleset: Ruleset, build: Build): BotSpec {
     motorTerrain,
     armor,
     weapons,
+    sensors,
+    operationBudget,
   };
 }
