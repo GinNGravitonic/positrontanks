@@ -33,4 +33,54 @@ describe("loadConfig", () => {
     expect((error as ConfigError).problems).toHaveLength(3);
     expect((error as ConfigError).message).toContain("AUMOHTA_PORT");
   });
+
+  describe("storage", () => {
+    const problems = (env: Record<string, string>): readonly string[] => {
+      try {
+        loadConfig(env);
+        return [];
+      } catch (e) {
+        return (e as ConfigError).problems;
+      }
+    };
+
+    it("defaults to a local directory", () => {
+      expect(loadConfig({}).storage).toEqual({ kind: "local", directory: "data/objects" });
+      expect(loadConfig({ AUMOHTA_STORAGE_DIRECTORY: "/srv/objects" }).storage).toEqual({
+        kind: "local",
+        directory: "/srv/objects",
+      });
+    });
+
+    it("reads S3 settings", () => {
+      expect(loadConfig({ AUMOHTA_STORAGE: "s3", AUMOHTA_S3_BUCKET: "aumohta" }).storage).toEqual({
+        kind: "s3",
+        bucket: "aumohta",
+        keyPrefix: "",
+      });
+      expect(
+        loadConfig({
+          AUMOHTA_STORAGE: "s3",
+          AUMOHTA_S3_BUCKET: "aumohta",
+          AUMOHTA_S3_KEY_PREFIX: "objects/",
+          AUMOHTA_S3_REGION: "eu-west-1",
+          AUMOHTA_S3_ENDPOINT: "http://127.0.0.1:9000",
+        }).storage,
+      ).toEqual({
+        kind: "s3",
+        bucket: "aumohta",
+        keyPrefix: "objects/",
+        region: "eu-west-1",
+        endpoint: "http://127.0.0.1:9000",
+      });
+    });
+
+    it("reports invalid storage settings", () => {
+      expect(problems({ AUMOHTA_STORAGE: "ftp" })).toHaveLength(1);
+      expect(problems({ AUMOHTA_STORAGE: "s3" })).toEqual([expect.stringContaining("AUMOHTA_S3_BUCKET")]);
+      expect(problems({ AUMOHTA_STORAGE: "s3", AUMOHTA_S3_BUCKET: "b", AUMOHTA_S3_KEY_PREFIX: "objects" })).toEqual([
+        expect.stringContaining("AUMOHTA_S3_KEY_PREFIX"),
+      ]);
+    });
+  });
 });
