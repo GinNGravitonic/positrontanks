@@ -83,4 +83,41 @@ describe("loadConfig", () => {
       ]);
     });
   });
+
+  describe("litestream", () => {
+    const problems = (env: Record<string, string>): readonly string[] => {
+      try {
+        loadConfig(env);
+        return [];
+      } catch (e) {
+        return (e as ConfigError).problems;
+      }
+    };
+
+    it("is off unless a replica URL is set", () => {
+      expect(loadConfig({}).litestream).toBeUndefined();
+      expect(loadConfig({ AUMOHTA_LITESTREAM_REPLICA_URL: "" }).litestream).toBeUndefined();
+    });
+
+    it("reads the replica URL", () => {
+      expect(loadConfig({ AUMOHTA_LITESTREAM_REPLICA_URL: "s3://aumohta-db/prod" }).litestream).toEqual({
+        replicaUrl: "s3://aumohta-db/prod",
+      });
+      expect(loadConfig({ AUMOHTA_LITESTREAM_REPLICA_URL: "file:///backups/aumohta" }).litestream).toEqual({
+        replicaUrl: "file:///backups/aumohta",
+      });
+    });
+
+    it("reports an invalid replica URL", () => {
+      expect(problems({ AUMOHTA_LITESTREAM_REPLICA_URL: "aumohta-db/prod" })).toEqual([
+        expect.stringContaining("AUMOHTA_LITESTREAM_REPLICA_URL"),
+      ]);
+    });
+
+    it("rejects replicating an in-memory database", () => {
+      expect(
+        problems({ AUMOHTA_LITESTREAM_REPLICA_URL: "s3://aumohta-db/prod", AUMOHTA_DATABASE_PATH: ":memory:" }),
+      ).toEqual([expect.stringContaining("in-memory")]);
+    });
+  });
 });

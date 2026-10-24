@@ -1,6 +1,7 @@
 /**
  * Process entry point: `node dist/main.js`. Configured by `AUMOHTA_*`
- * environment variables (see config.ts).
+ * environment variables (see config.ts). The Docker image runs this through
+ * docker/entrypoint.sh.
  */
 
 import { mkdirSync } from "node:fs";
@@ -12,7 +13,12 @@ const config = loadConfig(process.env);
 if (config.databasePath !== ":memory:") mkdirSync(dirname(config.databasePath), { recursive: true });
 
 const running = await startServer(config);
-jsonLogger.info("Server listening", { url: running.url, database: config.databasePath });
+jsonLogger.info("Server listening", {
+  url: running.url,
+  database: config.databasePath,
+  // Replication itself is run by the Docker entrypoint (docker/entrypoint.sh).
+  litestream: config.litestream !== undefined,
+});
 
 let stopping = false;
 const stop = (signal: string): void => {

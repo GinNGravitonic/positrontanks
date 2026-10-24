@@ -51,7 +51,20 @@ export interface ServerConfig {
   /** SQLite file path, or `:memory:` for a throwaway database. */
   readonly databasePath: string;
   readonly storage: StorageConfig;
+  /**
+   * Continuous replication of the database by Litestream (ADR-0003). Unset
+   * means no replication. The server itself does not replicate: the Docker
+   * entrypoint reads the same variable and runs the server under
+   * `litestream replicate -exec`, restoring from the replica first if the
+   * database file is missing. Validated here so a bad value fails at startup.
+   */
+  readonly litestream?: LitestreamConfig;
   readonly limits: Limits;
+}
+
+export interface LitestreamConfig {
+  /** Litestream replica URL, e.g. `s3://bucket/path` or `file:///backups/aumohta`. */
+  readonly replicaUrl: string;
 }
 
 export const defaultConfig: ServerConfig = {
@@ -132,11 +145,26 @@ export function loadConfig(env: Env): ServerConfig {
     return { kind: "local", directory: string("AUMOHTA_STORAGE_DIRECTORY", "data/objects") };
   };
 
+  const litestream = (databasePath: string): LitestreamConfig | undefined => {
+    const replicaUrl = optional("AUMOHTA_LITESTREAM_REPLICA_URL");
+    if (replicaUrl === undefined) return undefined;
+    if (!/^[a-z][a-z0-9+.-]*:\/\/\S+$/i.test(replicaUrl) || !URL.canParse(replicaUrl)) {
+      problems.push(`AUMOHTA_LITESTREAM_REPLICA_URL must be a URL such as s3://bucket/path, got "${replicaUrl}"`);
+    }
+    if (databasePath === ":memory:") {
+      problems.push(`AUMOHTA_LITESTREAM_REPLICA_URL cannot be used with an in-memory database`);
+    }
+    return { replicaUrl };
+  };
+
+  const databasePath = string("AUMOHTA_DATABASE_PATH", d.databasePath);
+  const replication = litestream(databasePath);
   const config: ServerConfig = {
     host: string("AUMOHTA_HOST", d.host),
     port: integer("AUMOHTA_PORT", d.port, 0, 65535),
-    databasePath: string("AUMOHTA_DATABASE_PATH", d.databasePath),
+    databasePath,
     storage: storage(),
+    ...(replication === undefined ? {} : { litestream: replication }),
     limits: {
       maxRequestBodyBytes: integer("AUMOHTA_MAX_REQUEST_BODY_BYTES", l.maxRequestBodyBytes, 1),
       map: {
