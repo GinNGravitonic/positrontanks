@@ -16,13 +16,14 @@ import { ApiError, notFound } from "./http/errors.js";
 import { buildOpenApiDocument } from "./http/openapi.js";
 import { Router, type ApiModule, type Json, type Reply, type Services } from "./http/router.js";
 import { accountsModule } from "./routes/accounts.js";
+import { gamesModule } from "./routes/games.js";
 import { garageModule } from "./routes/garage.js";
 import { mapsModule } from "./routes/maps.js";
 import { systemModule } from "./routes/system.js";
 import { defaultRulesetCatalog, type RulesetCatalog } from "./rulesets/catalog.js";
 
 /** The feature areas served in production, besides the system endpoints. */
-export const apiModules: readonly ApiModule[] = [accountsModule, garageModule, mapsModule];
+export const apiModules: readonly ApiModule[] = [accountsModule, garageModule, mapsModule, gamesModule];
 
 export interface Logger {
   info(message: string, fields?: Record<string, unknown>): void;
@@ -44,6 +45,8 @@ export interface AppOptions {
   readonly logger?: Logger;
   /** The hosted Ruleset versions; defaults to every version ruleset-data ships. */
   readonly rulesets?: RulesetCatalog;
+  /** The current time; defaults to the system clock. */
+  readonly clock?: () => Date;
 }
 
 export type RequestListener = (request: IncomingMessage, response: ServerResponse) => void;
@@ -125,7 +128,7 @@ export interface RunningServer {
 export async function startServer(config: ServerConfig, options: AppOptions = {}): Promise<RunningServer> {
   const rulesets = options.rulesets ?? defaultRulesetCatalog();
   const db = Database.open(config.databasePath);
-  const services: Services = { config, db, rulesets };
+  const services: Services = { config, db, rulesets, clock: options.clock ?? (() => new Date()) };
   const server = createServer(createApp(services, options));
   try {
     await new Promise<void>((resolve, reject) => {

@@ -14,7 +14,8 @@
  *
  * "Deleting" a design archives it: it disappears from listings and accepts
  * no new Revisions, but it and its Revisions stay readable by the owner,
- * since Games may reference them.
+ * since Games may reference them. A Revision no Game uses, other than the
+ * latest, may be truly deleted.
  *
  * Everything here is owner-only. Programs are visible only to their owner,
  * ever, so another Player's design answers 404 exactly as a missing one does.
@@ -581,6 +582,42 @@ export const garageModule: ApiModule = {
           throw notFound(`You have no Bot Design ${id} with Revision ${context.params.revision ?? ""}`);
         }
         return { body: revisionJson(revision) };
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/bot-designs/{designId}/revisions/{revision}",
+      operation: {
+        operationId: "deleteBotDesignRevision",
+        summary: "Delete a Revision of one of your Bot Designs that no Game uses",
+        description:
+          "Truly deletes the Revision; its number is not reused. Refused with 409 `revision_in_use` if any Game " +
+          "uses it (an Entry in any state, withdrawn Entries aside), and with 409 `latest_revision` for the " +
+          "design's latest Revision, which is its current state (archive the design instead). Revisions of " +
+          "archived designs can be deleted too.",
+        tags: [TAG],
+        security: bearer,
+        parameters: [designIdParameter, revisionParameter],
+        responses: {
+          "204": { description: "Deleted." },
+          "401": errorResponse,
+          "404": errorResponse,
+          "409": errorResponse,
+        },
+      },
+      handler: (context) => {
+        const { player } = authenticate(context);
+        const id = context.params.designId ?? "";
+        const number = revisionNumber(context.params.revision);
+        const result =
+          number === undefined ? "not_found" : context.services.db.garage.deleteRevision(player.id, id, number);
+        const label = `Revision ${context.params.revision ?? ""} of Bot Design ${id}`;
+        if (result === "not_found") throw notFound(`You have no Bot Design ${id} with Revision ${context.params.revision ?? ""}`);
+        if (result === "latest") {
+          throw new ApiError(409, "latest_revision", `${label} is its latest Revision; archive the design instead`);
+        }
+        if (result === "in_use") throw new ApiError(409, "revision_in_use", `${label} is used by a Game`);
+        return {};
       },
     },
     {

@@ -39,6 +39,8 @@ export interface Services {
   readonly db: Database;
   /** The Ruleset versions this server hosts. */
   readonly rulesets: RulesetCatalog;
+  /** The current time; injectable so tests can move it (e.g. past a fill timeout). */
+  readonly clock: () => Date;
 }
 
 export interface RequestContext {

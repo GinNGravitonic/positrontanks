@@ -223,6 +223,31 @@ export class GarageStore {
       .all(designId) as unknown as RevisionSummary[];
   }
 
+  /**
+   * Truly deletes a Revision of one of the Player's designs, archived or
+   * not, unless it is the design's latest (which is the design's current
+   * state) or any Game uses it (any Entry, in any Game state, references
+   * it); otherwise says why not.
+   */
+  deleteRevision(playerId: string, designId: string, number: number): true | "not_found" | "latest" | "in_use" {
+    return this.#transaction(() => {
+      const row = this.#db
+        .prepare(
+          `SELECT d.latest_revision FROM bot_designs d JOIN bot_design_revisions r ON r.design_id = d.id
+           WHERE d.id = ? AND d.player_id = ? AND r.number = ?`,
+        )
+        .get(designId, playerId, number) as { latest_revision: number } | undefined;
+      if (row === undefined) return "not_found";
+      if (row.latest_revision === number) return "latest";
+      const used = this.#db
+        .prepare("SELECT 1 FROM game_entry_bots WHERE design_id = ? AND design_revision = ? LIMIT 1")
+        .get(designId, number);
+      if (used !== undefined) return "in_use";
+      this.#db.prepare("DELETE FROM bot_design_revisions WHERE design_id = ? AND number = ?").run(designId, number);
+      return true;
+    });
+  }
+
   /** Renames one of the Player's designs; false if it has no such design. */
   renameDesign(playerId: string, designId: string, name: string, now: Date): boolean {
     const result = this.#db

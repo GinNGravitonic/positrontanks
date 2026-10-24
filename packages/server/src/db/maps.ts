@@ -230,6 +230,35 @@ export class MapStore {
   }
 
   /**
+   * Truly deletes a Revision of a Map `playerId` created, archived or not,
+   * unless it is the Map's latest (which is the Map's current state) or any
+   * Game, in any state, uses it; otherwise says why not.
+   */
+  deleteRevision(
+    playerId: string,
+    mapId: string,
+    number: number,
+  ): true | "not_found" | "not_creator" | "latest" | "in_use" {
+    return this.#transaction(() => {
+      const row = this.#db
+        .prepare(
+          `SELECT m.player_id, m.latest_revision FROM maps m JOIN map_revisions r ON r.map_id = m.id
+           WHERE m.id = ? AND r.number = ?`,
+        )
+        .get(mapId, number) as { player_id: string; latest_revision: number } | undefined;
+      if (row === undefined) return "not_found";
+      if (row.player_id !== playerId) return "not_creator";
+      if (row.latest_revision === number) return "latest";
+      const used = this.#db
+        .prepare("SELECT 1 FROM games WHERE map_id = ? AND map_revision = ? LIMIT 1")
+        .get(mapId, number);
+      if (used !== undefined) return "in_use";
+      this.#db.prepare("DELETE FROM map_revisions WHERE map_id = ? AND number = ?").run(mapId, number);
+      return true;
+    });
+  }
+
+  /**
    * Archives a Map if `playerId` created it (a no-op if already archived);
    * otherwise says why not.
    */

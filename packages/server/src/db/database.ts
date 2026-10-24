@@ -14,6 +14,7 @@
 
 import { DatabaseSync } from "node:sqlite";
 import { AccountStore } from "./accounts.js";
+import { GameStore } from "./games.js";
 import { GarageStore } from "./garage.js";
 import { MapStore } from "./maps.js";
 import { migrate, migrations as defaultMigrations, type Migration } from "./migrations.js";
@@ -32,6 +33,8 @@ export class Database {
   readonly garage: GarageStore;
   /** Maps and their Revisions. */
   readonly maps: MapStore;
+  /** Games and their Entries. */
+  readonly games: GameStore;
 
   private constructor(db: DatabaseSync) {
     this.#db = db;
@@ -39,6 +42,7 @@ export class Database {
     this.accounts = new AccountStore(db, transaction);
     this.garage = new GarageStore(db, transaction);
     this.maps = new MapStore(db, transaction);
+    this.games = new GameStore(db, transaction);
   }
 
   /**
