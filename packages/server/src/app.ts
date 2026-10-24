@@ -18,11 +18,12 @@ import { Router, type ApiModule, type Json, type Reply, type Services } from "./
 import { accountsModule } from "./routes/accounts.js";
 import { garageModule } from "./routes/garage.js";
 import { mapsModule } from "./routes/maps.js";
+import { rulesetsModule } from "./routes/rulesets.js";
 import { systemModule } from "./routes/system.js";
 import { defaultRulesetCatalog, type RulesetCatalog } from "./rulesets/catalog.js";
 
 /** The feature areas served in production, besides the system endpoints. */
-export const apiModules: readonly ApiModule[] = [accountsModule, garageModule, mapsModule];
+export const apiModules: readonly ApiModule[] = [accountsModule, garageModule, mapsModule, rulesetsModule];
 
 export interface Logger {
   info(message: string, fields?: Record<string, unknown>): void;
