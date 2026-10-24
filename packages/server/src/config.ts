@@ -26,12 +26,31 @@ export interface Limits {
   readonly maxConcurrentUnthrottledGames: number;
 }
 
+/** Where blobs (Game Records, Replays, images) are kept; see storage/. */
+export type StorageConfig =
+  | {
+      readonly kind: "local";
+      /** Directory holding one file per object. */
+      readonly directory: string;
+    }
+  | {
+      readonly kind: "s3";
+      readonly bucket: string;
+      /** Prepended to every object key; empty or ending in `/`. */
+      readonly keyPrefix: string;
+      /** Unset uses the AWS SDK's default region resolution. */
+      readonly region?: string;
+      /** Custom endpoint (e.g. an S3-compatible emulator); uses path-style addressing. */
+      readonly endpoint?: string;
+    };
+
 export interface ServerConfig {
   readonly host: string;
   /** 0 picks a free port. */
   readonly port: number;
   /** SQLite file path, or `:memory:` for a throwaway database. */
   readonly databasePath: string;
+  readonly storage: StorageConfig;
   readonly limits: Limits;
 }
 
@@ -39,6 +58,7 @@ export const defaultConfig: ServerConfig = {
   host: "127.0.0.1",
   port: 8080,
   databasePath: "data/aumohta.db",
+  storage: { kind: "local", directory: "data/objects" },
   limits: {
     maxRequestBodyBytes: 1024 * 1024,
     map: { maxWidth: 200, maxHeight: 200, maxPolygonPoints: 64, maxFeatures: 100 },
@@ -84,10 +104,39 @@ export function loadConfig(env: Env): ServerConfig {
     return value;
   };
 
+  const optional = (name: string): string | undefined => {
+    const raw = env[name];
+    return raw === undefined || raw.trim() === "" ? undefined : raw;
+  };
+
+  const storage = (): StorageConfig => {
+    const kind = env.AUMOHTA_STORAGE ?? d.storage.kind;
+    if (kind === "s3") {
+      const bucket = optional("AUMOHTA_S3_BUCKET");
+      if (bucket === undefined) problems.push(`AUMOHTA_S3_BUCKET is required when AUMOHTA_STORAGE is "s3"`);
+      const keyPrefix = env.AUMOHTA_S3_KEY_PREFIX ?? "";
+      if (keyPrefix !== "" && !keyPrefix.endsWith("/")) {
+        problems.push(`AUMOHTA_S3_KEY_PREFIX must be empty or end with "/", got "${keyPrefix}"`);
+      }
+      const region = optional("AUMOHTA_S3_REGION");
+      const endpoint = optional("AUMOHTA_S3_ENDPOINT");
+      return {
+        kind: "s3",
+        bucket: bucket ?? "",
+        keyPrefix,
+        ...(region === undefined ? {} : { region }),
+        ...(endpoint === undefined ? {} : { endpoint }),
+      };
+    }
+    if (kind !== "local") problems.push(`AUMOHTA_STORAGE must be "local" or "s3", got "${kind}"`);
+    return { kind: "local", directory: string("AUMOHTA_STORAGE_DIRECTORY", "data/objects") };
+  };
+
   const config: ServerConfig = {
     host: string("AUMOHTA_HOST", d.host),
     port: integer("AUMOHTA_PORT", d.port, 0, 65535),
     databasePath: string("AUMOHTA_DATABASE_PATH", d.databasePath),
+    storage: storage(),
     limits: {
       maxRequestBodyBytes: integer("AUMOHTA_MAX_REQUEST_BODY_BYTES", l.maxRequestBodyBytes, 1),
       map: {

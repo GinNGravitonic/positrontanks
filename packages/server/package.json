@@ -12,5 +12,11 @@
   "scripts": {
     "build": "tsc -b",
     "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1147.0"
+  },
+  "devDependencies": {
+    "aws-sdk-client-mock": "4.1.0"
   }
 }

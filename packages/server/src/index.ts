@@ -1,7 +1,7 @@
 export { apiModules, createApp, jsonLogger, startServer } from "./app.js";
 export type { AppOptions, Logger, RequestListener, RunningServer } from "./app.js";
 export { ConfigError, defaultConfig, loadConfig } from "./config.js";
-export type { Env, Limits, ServerConfig } from "./config.js";
+export type { Env, Limits, ServerConfig, StorageConfig } from "./config.js";
 export { Database } from "./db/database.js";
 export type { OpenOptions } from "./db/database.js";
 export { migrate, MigrationError, migrations } from "./db/migrations.js";
@@ -21,3 +21,9 @@ export type {
   Route,
   Services,
 } from "./http/router.js";
+export { createObjectStore } from "./storage/create.js";
+export { LocalObjectStore } from "./storage/local-object-store.js";
+export { assertValidKey, assertValidPrefix, InvalidKeyError, maxKeyLength } from "./storage/object-store.js";
+export type { ObjectStore } from "./storage/object-store.js";
+export { S3ObjectStore } from "./storage/s3-object-store.js";
+export type { S3ObjectStoreOptions } from "./storage/s3-object-store.js";
