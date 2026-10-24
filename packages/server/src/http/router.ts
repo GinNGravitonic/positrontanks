@@ -13,6 +13,7 @@
 import type { IncomingMessage } from "node:http";
 import type { ServerConfig } from "../config.js";
 import type { Database } from "../db/database.js";
+import type { RulesetCatalog } from "../rulesets/catalog.js";
 import { badRequest } from "./errors.js";
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -36,6 +37,8 @@ export interface Operation {
 export interface Services {
   readonly config: ServerConfig;
   readonly db: Database;
+  /** The Ruleset versions this server hosts. */
+  readonly rulesets: RulesetCatalog;
 }
 
 export interface RequestContext {

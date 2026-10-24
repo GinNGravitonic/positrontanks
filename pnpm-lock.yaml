@@ -204,6 +204,15 @@ importers:
 
   packages/server:
     dependencies:
+      '@aumohta/engine-r1':
+        specifier: workspace:*
+        version: link:../engine-r1
+      '@aumohta/language':
+        specifier: workspace:*
+        version: link:../language
+      '@aumohta/ruleset-data':
+        specifier: workspace:*
+        version: link:../ruleset-data
       '@aws-sdk/client-s3':
         specifier: 3.1147.0
         version: 3.1147.0

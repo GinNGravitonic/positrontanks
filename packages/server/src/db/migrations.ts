@@ -72,6 +72,43 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX api_keys_by_player ON api_keys (player_id);
     `,
   },
+  {
+    version: 3,
+    name: "garage",
+    // A Bot Design is authored against one Ruleset version and owns a
+    // numbered series of Revisions (1, 2, ...). Revisions are immutable: a
+    // trigger refuses updates, and Entries and Games will reference them by
+    // (design_id, number). Archiving sets archived_at and deletes nothing.
+    // The Build is stored as its JSON text.
+    sql: `
+      CREATE TABLE bot_designs (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        ruleset_version TEXT NOT NULL,
+        latest_revision INTEGER NOT NULL,
+        copied_from_design_id TEXT REFERENCES bot_designs (id) ON DELETE SET NULL,
+        copied_from_revision INTEGER,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        archived_at TEXT
+      ) STRICT;
+      CREATE INDEX bot_designs_by_player ON bot_designs (player_id, archived_at);
+      CREATE TABLE bot_design_revisions (
+        design_id TEXT NOT NULL REFERENCES bot_designs (id) ON DELETE CASCADE,
+        number INTEGER NOT NULL CHECK (number >= 1),
+        build TEXT NOT NULL,
+        program TEXT NOT NULL,
+        cost INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (design_id, number)
+      ) STRICT;
+      CREATE TRIGGER bot_design_revisions_immutable BEFORE UPDATE ON bot_design_revisions
+      BEGIN
+        SELECT RAISE(ABORT, 'Revisions are immutable');
+      END;
+    `,
+  },
 ];
 
 export class MigrationError extends Error {
