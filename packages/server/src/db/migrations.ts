@@ -33,6 +33,45 @@ export const migrations: readonly Migration[] = [
       INSERT INTO meta (key, value) VALUES ('created_at', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
     `,
   },
+  {
+    version: 2,
+    name: "accounts",
+    // A Player is the identity; how it signs in lives in separate credential
+    // tables (only passwords in v1), so OAuth can add its own table later.
+    // Session tokens and API keys are stored only as SHA-256 hashes.
+    sql: `
+      CREATE TABLE players (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        username_key TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE password_credentials (
+        player_id TEXT PRIMARY KEY REFERENCES players (id) ON DELETE CASCADE,
+        password_hash TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE TABLE sessions (
+        token_hash TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX sessions_by_player ON sessions (player_id);
+      CREATE INDEX sessions_by_expiry ON sessions (expires_at);
+      CREATE TABLE api_keys (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        prefix TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        last_used_at TEXT,
+        revoked_at TEXT
+      ) STRICT;
+      CREATE INDEX api_keys_by_player ON api_keys (player_id);
+    `,
+  },
 ];
 
 export class MigrationError extends Error {

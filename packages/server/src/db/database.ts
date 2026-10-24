@@ -13,6 +13,7 @@
  */
 
 import { DatabaseSync } from "node:sqlite";
+import { AccountStore } from "./accounts.js";
 import { migrate, migrations as defaultMigrations, type Migration } from "./migrations.js";
 
 export interface OpenOptions {
@@ -23,9 +24,12 @@ export interface OpenOptions {
 export class Database {
   readonly #db: DatabaseSync;
   #depth = 0;
+  /** Players and their credentials, sessions and API keys. */
+  readonly accounts: AccountStore;
 
   private constructor(db: DatabaseSync) {
     this.#db = db;
+    this.accounts = new AccountStore(db, (fn) => this.transaction(fn));
   }
 
   /**

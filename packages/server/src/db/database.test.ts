@@ -18,13 +18,21 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-const extra: Migration = { version: 2, name: "things", sql: "CREATE TABLE things (id INTEGER PRIMARY KEY) STRICT" };
+const next = migrations.length + 1;
+const extra: Migration = { version: next, name: "things", sql: "CREATE TABLE things (id INTEGER PRIMARY KEY) STRICT" };
 
 describe("migrations", () => {
   it("bring a fresh database to the newest version", () => {
     const db = Database.open(path);
     expect(db.schemaVersion()).toBe(migrations.length);
-    expect(db.tableNames()).toEqual(["meta", "schema_migrations"]);
+    expect(db.tableNames()).toEqual([
+      "api_keys",
+      "meta",
+      "password_credentials",
+      "players",
+      "schema_migrations",
+      "sessions",
+    ]);
     db.close();
   });
 
@@ -39,26 +47,26 @@ describe("migrations", () => {
     Database.open(path).close();
     const raw = new DatabaseSync(path);
     expect(migrate(raw)).toEqual([]);
-    expect(migrate(raw, [...migrations, extra])).toEqual([2]);
+    expect(migrate(raw, [...migrations, extra])).toEqual([next]);
     raw.close();
     const db = Database.open(path, { migrations: [...migrations, extra] });
-    expect(db.schemaVersion()).toBe(2);
+    expect(db.schemaVersion()).toBe(next);
     expect(db.tableNames()).toContain("things");
     db.close();
   });
 
   it("roll back a failing migration and leave the previous version", () => {
-    const broken: Migration = { version: 2, name: "broken", sql: "CREATE TABLE half (id INTEGER); SELECT nonsense FROM" };
+    const broken: Migration = { version: next, name: "broken", sql: "CREATE TABLE half (id INTEGER); SELECT nonsense FROM" };
     expect(() => Database.open(path, { migrations: [...migrations, broken] })).toThrow(MigrationError);
     const db = Database.open(path);
-    expect(db.schemaVersion()).toBe(1);
+    expect(db.schemaVersion()).toBe(migrations.length);
     expect(db.tableNames()).not.toContain("half");
     db.close();
   });
 
   it("refuse a database written by a newer server", () => {
     Database.open(path, { migrations: [...migrations, extra] }).close();
-    expect(() => Database.open(path)).toThrow(/schema version 2/);
+    expect(() => Database.open(path)).toThrow(`schema version ${String(next)}`);
   });
 
   it("refuse edited history", () => {

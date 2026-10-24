@@ -15,10 +15,11 @@ import { readJsonBody } from "./http/body.js";
 import { ApiError, notFound } from "./http/errors.js";
 import { buildOpenApiDocument } from "./http/openapi.js";
 import { Router, type ApiModule, type Json, type Reply, type Services } from "./http/router.js";
+import { accountsModule } from "./routes/accounts.js";
 import { systemModule } from "./routes/system.js";
 
 /** The feature areas served in production, besides the system endpoints. */
-export const apiModules: readonly ApiModule[] = [];
+export const apiModules: readonly ApiModule[] = [accountsModule];
 
 export interface Logger {
   info(message: string, fields?: Record<string, unknown>): void;

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "./app.js";
 import { defaultConfig, type ServerConfig } from "./config.js";
+import { migrations } from "./db/migrations.js";
 import { validationFailed } from "./http/errors.js";
 import type { ApiModule } from "./http/router.js";
 
@@ -70,7 +71,7 @@ describe("server", () => {
   it("boots on a fresh database with migrations applied", async () => {
     const server = await boot();
     expect(server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/);
-    expect(server.services.db.schemaVersion()).toBe(1);
+    expect(server.services.db.schemaVersion()).toBe(migrations.length);
   });
 
   it("reports health", async () => {
