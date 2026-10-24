@@ -147,6 +147,64 @@ export const migrations: readonly Migration[] = [
       END;
     `,
   },
+  {
+    version: 5,
+    name: "games",
+    // A Game references one Map Revision and, through its Entries, Bot
+    // Design Revisions; the foreign keys (no ON DELETE action) make any
+    // Revision a Game uses undeletable. state is open, running, finished or
+    // cancelled; fill_deadline is when an Open Game that is not yet full is
+    // cancelled (cancel_reason 'fill_timeout', ended_at = fill_deadline).
+    // Withdrawing an Entry deletes it; Entries of Cancelled Games are kept.
+    // Each Entry's Bots are numbered from 0 in submission order, and Bot
+    // Names are unique within a Game by name_key (lower-cased).
+    sql: `
+      CREATE TABLE games (
+        id TEXT PRIMARY KEY,
+        initiator_id TEXT NOT NULL REFERENCES players (id),
+        ruleset_version TEXT NOT NULL,
+        map_id TEXT NOT NULL,
+        map_revision INTEGER NOT NULL,
+        player_count INTEGER NOT NULL CHECK (player_count >= 2),
+        point_budget INTEGER NOT NULL CHECK (point_budget >= 1),
+        time_limit_seconds INTEGER NOT NULL CHECK (time_limit_seconds >= 1),
+        pace TEXT NOT NULL CHECK (pace IN ('realtime', 'unthrottled')),
+        fill_timeout_seconds INTEGER NOT NULL CHECK (fill_timeout_seconds >= 1),
+        state TEXT NOT NULL CHECK (state IN ('open', 'running', 'finished', 'cancelled')),
+        created_at TEXT NOT NULL,
+        fill_deadline TEXT NOT NULL,
+        started_at TEXT,
+        ended_at TEXT,
+        cancel_reason TEXT CHECK (cancel_reason IN ('initiator', 'fill_timeout')),
+        FOREIGN KEY (map_id, map_revision) REFERENCES map_revisions (map_id, number)
+      ) STRICT;
+      CREATE INDEX games_by_state ON games (state, fill_deadline);
+      CREATE INDEX games_by_initiator ON games (initiator_id);
+      CREATE INDEX games_by_map_revision ON games (map_id, map_revision);
+      CREATE TABLE game_entries (
+        id TEXT PRIMARY KEY,
+        game_id TEXT NOT NULL REFERENCES games (id),
+        player_id TEXT NOT NULL REFERENCES players (id),
+        cost INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX game_entries_by_game ON game_entries (game_id);
+      CREATE INDEX game_entries_by_player ON game_entries (player_id);
+      CREATE TABLE game_entry_bots (
+        entry_id TEXT NOT NULL REFERENCES game_entries (id) ON DELETE CASCADE,
+        position INTEGER NOT NULL CHECK (position >= 0),
+        game_id TEXT NOT NULL REFERENCES games (id),
+        name TEXT NOT NULL,
+        name_key TEXT NOT NULL,
+        design_id TEXT NOT NULL,
+        design_revision INTEGER NOT NULL,
+        PRIMARY KEY (entry_id, position),
+        UNIQUE (game_id, name_key),
+        FOREIGN KEY (design_id, design_revision) REFERENCES bot_design_revisions (design_id, number)
+      ) STRICT;
+      CREATE INDEX game_entry_bots_by_revision ON game_entry_bots (design_id, design_revision);
+    `,
+  },
 ];
 
 export class MigrationError extends Error {

@@ -17,7 +17,8 @@
  *
  * "Deleting" a Map archives it: it disappears from listings (unless asked
  * for) and accepts no new Revisions, but it and its Revisions stay readable
- * by everyone, since Games may reference them.
+ * by everyone, since Games may reference them. A Revision no Game uses,
+ * other than the latest, may be truly deleted by the creator.
  */
 
 import { randomUUID } from "node:crypto";
@@ -544,6 +545,43 @@ export const mapsModule: ApiModule = {
           throw notFound(`There is no Map ${id} with Revision ${context.params.revision ?? ""}`);
         }
         return { body: revisionJson(revision) };
+      },
+    },
+    {
+      method: "DELETE",
+      path: "/maps/{mapId}/revisions/{revision}",
+      operation: {
+        operationId: "deleteMapRevision",
+        summary: "Delete a Revision of a Map you created that no Game uses",
+        description:
+          "Truly deletes the Revision; its number is not reused. Refused with 409 `revision_in_use` if any Game, " +
+          "in any state, uses it, and with 409 `latest_revision` for the Map's latest Revision, which is its " +
+          "current state (archive the Map instead). Only the Map's creator may delete Revisions; those of " +
+          "archived Maps can be deleted too.",
+        tags: [TAG],
+        security: bearer,
+        parameters: [mapIdParameter, revisionParameter],
+        responses: {
+          "204": { description: "Deleted." },
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+          "409": errorResponse,
+        },
+      },
+      handler: (context) => {
+        const { player } = authenticate(context);
+        const id = context.params.mapId ?? "";
+        const number = revisionNumber(context.params.revision);
+        const result = number === undefined ? "not_found" : context.services.db.maps.deleteRevision(player.id, id, number);
+        const label = `Revision ${context.params.revision ?? ""} of Map ${id}`;
+        if (result === "not_found") throw notFound(`There is no Map ${id} with Revision ${context.params.revision ?? ""}`);
+        if (result === "not_creator") throw notCreator(id);
+        if (result === "latest") {
+          throw new ApiError(409, "latest_revision", `${label} is its latest Revision; archive the Map instead`);
+        }
+        if (result === "in_use") throw new ApiError(409, "revision_in_use", `${label} is used by a Game`);
+        return {};
       },
     },
   ],

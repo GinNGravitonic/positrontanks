@@ -7,6 +7,20 @@ export type { Credential, Principal } from "./accounts/auth.js";
 export { AccountStore } from "./db/accounts.js";
 export type { ApiKeyRecord, PlayerRecord } from "./db/accounts.js";
 export { Database } from "./db/database.js";
+export { botNameKey, GAME_STATES, GameStore, PACES } from "./db/games.js";
+export type {
+  CancelReason,
+  EntryBotRecord,
+  EntryRecord,
+  EntryRefusal,
+  GameRecord,
+  GameState,
+  NewEntry,
+  NewEntryBot,
+  NewGame,
+  OpenGameFilters,
+  Pace,
+} from "./db/games.js";
 export { GarageStore } from "./db/garage.js";
 export type { DesignRecord, ListOptions, NewDesign, NewRevision, RevisionRecord, RevisionSummary } from "./db/garage.js";
 export { MapStore } from "./db/maps.js";
@@ -28,6 +42,7 @@ export type { ErrorBody, ErrorDetail } from "./http/errors.js";
 export { buildOpenApiDocument } from "./http/openapi.js";
 export { Router } from "./http/router.js";
 export { accountsModule } from "./routes/accounts.js";
+export { gamesModule } from "./routes/games.js";
 export { garageModule } from "./routes/garage.js";
 export { mapsModule } from "./routes/maps.js";
 export { rulesetsModule } from "./routes/rulesets.js";

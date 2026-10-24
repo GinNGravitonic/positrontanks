@@ -543,6 +543,7 @@ describe("the OpenAPI document", () => {
       "copyBotDesignToRuleset",
       "createBotDesign",
       "createBotDesignRevision",
+      "deleteBotDesignRevision",
       "getBotDesign",
       "getBotDesignRevision",
       "listBotDesignRevisions",

@@ -302,8 +302,8 @@ describe("Revisions", () => {
     await call("POST", `/maps/${map.id}/revisions`, { token: ada, body: { map: FOUR_CORNERS } });
     await call("POST", `/maps/${map.id}/revisions`, { token: ada, body: { map: { ...DUEL, height: 50 } } });
 
-    // There is no way to change a Revision through the API.
-    for (const method of ["PUT", "PATCH", "DELETE", "POST"]) {
+    // There is no way to change a Revision through the API (only to delete an unused one).
+    for (const method of ["PUT", "PATCH", "POST"]) {
       const response = await call(method, `/maps/${map.id}/revisions/1`, { token: ada, body: { map: FOUR_CORNERS } });
       expect(response.status, method).toBe(405);
       expect(errorOf(response).code).toBe("method_not_allowed");
@@ -409,6 +409,7 @@ describe("the OpenAPI document", () => {
       "archiveMap",
       "createMap",
       "createMapRevision",
+      "deleteMapRevision",
       "getMap",
       "getMapRevision",
       "listMapRevisions",
