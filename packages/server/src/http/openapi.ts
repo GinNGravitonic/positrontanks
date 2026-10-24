@@ -49,6 +49,13 @@ export function buildOpenApiDocument(modules: readonly ApiModule[]): Record<stri
           content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
         },
       },
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+          description: "A session token (from `logIn`) or an API key (from `createApiKey`).",
+        },
+      },
     },
   };
 }
