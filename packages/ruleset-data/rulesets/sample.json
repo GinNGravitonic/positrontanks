@@ -32,6 +32,7 @@
         "range": { "type": "number", "min": 0 },
         "reloadTicks": { "type": "number", "min": 1, "integer": true },
         "damage": { "type": "number", "min": 0 },
+        "projectileSpeed": { "type": "number", "min": 0 },
         "mass": { "type": "number", "min": 0 }
       }
     },
@@ -113,7 +114,7 @@
       "kind": "weapon",
       "cost": 20,
       "slotTypes": ["weapon"],
-      "stats": { "category": "melee", "arcWidth": 30, "range": 0.2, "reloadTicks": 5, "damage": 25, "mass": 5 }
+      "stats": { "category": "melee", "arcWidth": 30, "range": 0.2, "reloadTicks": 5, "damage": 25, "projectileSpeed": 0, "mass": 5 }
     },
     {
       "id": "cannon",
@@ -121,7 +122,7 @@
       "kind": "weapon",
       "cost": 60,
       "slotTypes": ["weapon"],
-      "stats": { "category": "projectile", "arcWidth": 20, "range": 60, "reloadTicks": 20, "damage": 30, "mass": 15 }
+      "stats": { "category": "projectile", "arcWidth": 20, "range": 60, "reloadTicks": 20, "damage": 30, "projectileSpeed": 30, "mass": 15 }
     },
     {
       "id": "radar",
