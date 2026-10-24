@@ -1,0 +1,33 @@
+// Hunter: closes on the nearest Foe it can see and shoots at it,
+// and sweeps the Map in a wide circle while it sees no one.
+
+let lastSeen = null;
+
+function nearestFoe() {
+  let best = null;
+  for (const c of scan()) {
+    if (c.isFoe && (best == null || c.distance < best.distance)) {
+      best = c;
+    }
+  }
+  return best;
+}
+
+function tick() {
+  const foe = nearestFoe();
+  if (foe != null) {
+    lastSeen = {x: foe.x, y: foe.y};
+    turn(clamp(foe.bearing / 20, -1, 1));
+    throttle(foe.distance > 12 ? 1 : 0.3);
+    fire("gun", foe);
+  } else if (lastSeen != null) {
+    turn(clamp(bearingTo(lastSeen.x, lastSeen.y) / 20, -1, 1));
+    throttle(0.8);
+    if (distanceTo(lastSeen.x, lastSeen.y) < 3) {
+      lastSeen = null;
+    }
+  } else {
+    turn(0.4);
+    throttle(0.7);
+  }
+}

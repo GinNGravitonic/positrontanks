@@ -185,7 +185,17 @@ importers:
         specifier: ^5.0.5
         version: 5.0.5(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2))
 
-  packages/cli: {}
+  packages/cli:
+    dependencies:
+      '@aumohta/engine-r1':
+        specifier: workspace:*
+        version: link:../engine-r1
+      '@aumohta/language':
+        specifier: workspace:*
+        version: link:../language
+      '@aumohta/ruleset-data':
+        specifier: workspace:*
+        version: link:../ruleset-data
 
   packages/engine-r1:
     dependencies:
