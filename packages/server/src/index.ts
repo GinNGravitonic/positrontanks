@@ -9,17 +9,27 @@ export type { ApiKeyRecord, PlayerRecord } from "./db/accounts.js";
 export { Database } from "./db/database.js";
 export { GarageStore } from "./db/garage.js";
 export type { DesignRecord, ListOptions, NewDesign, NewRevision, RevisionRecord, RevisionSummary } from "./db/garage.js";
+export { MapStore } from "./db/maps.js";
+export type {
+  MapChangeRefusal,
+  MapListOptions,
+  MapRecord,
+  MapRevisionRecord,
+  MapRevisionSummary,
+  NewMap,
+} from "./db/maps.js";
 export { checkDesign } from "./garage/design-check.js";
 export type { DesignCheck } from "./garage/design-check.js";
 export type { OpenOptions } from "./db/database.js";
 export { migrate, MigrationError, migrations } from "./db/migrations.js";
 export type { Migration } from "./db/migrations.js";
-export { ApiError, badRequest, errorDetailSchema, notFound, validationFailed } from "./http/errors.js";
+export { ApiError, badRequest, errorDetailSchema, forbidden, notFound, validationFailed } from "./http/errors.js";
 export type { ErrorBody, ErrorDetail } from "./http/errors.js";
 export { buildOpenApiDocument } from "./http/openapi.js";
 export { Router } from "./http/router.js";
 export { accountsModule } from "./routes/accounts.js";
 export { garageModule } from "./routes/garage.js";
+export { mapsModule } from "./routes/maps.js";
 export { defaultRulesetCatalog, engineR1Ruleset, RulesetCatalog } from "./rulesets/catalog.js";
 export type { HostedRuleset } from "./rulesets/catalog.js";
 export type {

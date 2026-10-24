@@ -67,6 +67,9 @@ export const validationFailed = (details: readonly ErrorDetail[]): ApiError =>
 
 export const notFound = (message = "Not found"): ApiError => new ApiError(404, "not_found", message);
 
+/** For something the caller may see but not change; private things answer notFound instead. */
+export const forbidden = (message: string): ApiError => new ApiError(403, "forbidden", message);
+
 /** The JSON Schema of ErrorDetail, for the OpenAPI document. */
 export const errorDetailSchema = {
   type: "object",
