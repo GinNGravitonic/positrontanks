@@ -1,0 +1,15 @@
+# Only the workspace sources go into the build context; the image builds them.
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/data
+.git
+.beads
+.dolt
+.agents
+.claude
+.codex
+.cursor
+docs
+*.md
+!packages/**/*.md

@@ -71,6 +71,8 @@ pnpm test    # vitest; tests are packages/*/src/**/*.test.ts
 
 TypeScript is pinned to 6.0.x because typescript-eslint does not yet support TS >= 6.1.
 
+The server's Docker image (`Dockerfile`, `docker/`) and its environment interface are described in `docs/docker.md`.
+
 ## Architecture Overview
 
 _Add a brief overview of your project architecture_
