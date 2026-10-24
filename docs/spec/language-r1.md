@@ -2,7 +2,7 @@
 
 This document is the detailed language specification for Ruleset r1. It fills in the structure fixed by [v1.md §4](v1.md#4-the-aumohta-language-structure-only) and [ADR-0002](../adr/0002-counted-operation-budget.md). Vocabulary follows [GLOSSARY.md](../../GLOSSARY.md).
 
-Numeric limits marked _provisional_ are Ruleset data and are finalised in the starter catalog design session (aumohta-0ka.3). This document defines what they mean, not their final values.
+Numeric limits are Ruleset data. This document defines what they mean and states the r1 values, which [catalog-r1.md](catalog-r1.md) confirms.
 
 ---
 
@@ -19,7 +19,7 @@ Numeric limits marked _provisional_ are Ruleset data and are finalised in the st
 
 ## 2. Lexical structure
 
-- **Source**: UTF-8, at most `maxSourceBytes` bytes (_provisional_: 65,536).
+- **Source**: UTF-8, at most `maxSourceBytes` bytes (r1: 65,536).
 - **Whitespace**: spaces, tabs and newlines separate tokens and are otherwise insignificant.
 - **Comments**: `// to end of line` and `/* block */`. Block comments do not nest.
 - **Identifiers**: `[A-Za-z_$][A-Za-z0-9_$]*`. Case-sensitive.
@@ -135,7 +135,7 @@ There are no classes, modules, I/O, networking, exceptions or `this`.
 - `list[i]` requires `i` to be an integer with `0 <= i < list.length`. Anything else is a runtime error. Assigning to `list[list.length]` is also a runtime error: use `.push`.
 - `string[i]` is not supported. Use `.slice(i, i + 1)`.
 - Record keys used with `[]` must be strings.
-- No list or string may exceed `maxCollectionLength` elements or code units (_provisional_: 10,000). Any operation that would create a longer one is a runtime error.
+- No list or string may exceed `maxCollectionLength` elements or code units (r1: 10,000). Any operation that would create a longer one is a runtime error.
 
 ### 4.5 Read-only values
 
@@ -161,7 +161,7 @@ function tick() {           // required
 ### 5.1 Entry points
 
 - `tick()` is required. `init()` is optional. Both take no parameters, and their return values are ignored. A missing `tick`, or either function declared with parameters, is a save-time error.
-- At Game start, top-level initializers run in source order, followed by `init()` if it is declared. This whole phase shares one **init budget** of `initBudgetMultiplier` × the Bot's per-Tick Operation Budget (_provisional_ multiplier: 20).
+- At Game start, top-level initializers run in source order, followed by `init()` if it is declared. This whole phase shares one **init budget** of `initBudgetMultiplier` × the Bot's per-Tick Operation Budget (r1 multiplier: 50).
 - `tick()` runs once every Tick, from Tick 1, with the Bot's per-Tick Operation Budget. Budget does not carry over between Ticks.
 - Persistent state is anything reachable from top-level variables. Local variables are discarded when the function returns, unless a closure stored in persistent state captures them.
 
@@ -358,8 +358,8 @@ Reading `self.*`, `game.*` and `map.*` is ordinary member access: 1 per node. `.
 
 ### 8.3 Budget sizes
 
-- The per-Tick budget is set by the Bot's Processor (Parts Catalog). _Provisional_: the minimal Processor every Chassis includes gives 1,000 operations per Tick.
-- The init budget is `initBudgetMultiplier` × the per-Tick budget. _Provisional_ multiplier: 20.
+- The per-Tick budget is set by the Bot's Processor (Parts Catalog). In r1, the minimal Processor every Chassis includes gives 1,000 operations per Tick ([catalog-r1.md §5.4](catalog-r1.md#54-processors)).
+- The init budget is `initBudgetMultiplier` × the per-Tick budget. r1 multiplier: 50.
 - Per-Tick usage is reported in CLI output, the owner's Program log and the Game Record, and by the check-tick-cost endpoint.
 
 ---
@@ -379,7 +379,7 @@ Reading `self.*`, `game.*` and `map.*` is ordinary member access: 1 per node. `.
 | function declared at top level | 0 (it is code, not state) |
 | any other function value | 1 + number of captured variables (plus the cells of what they reach) |
 
-- The cap is `memoryCells` (_provisional_: 10,000).
+- The cap is `memoryCells` (r1: 10,000).
 - **Exceeding the cap halts the Program for the rest of the Game** (§10.3). The other Bots are unaffected. The CLI and the check-tick-cost endpoint report memory use so players can see the limit approaching.
 - Values that are only temporary are bounded by the Operation Budget and `maxCollectionLength`, not by the memory cap.
 
@@ -406,7 +406,7 @@ When a Bot Design Revision is saved or copied to a Ruleset, the checker reports 
 
 Running out of budget, or any runtime error (a type mismatch, NaN/Infinity, a missing field, an index out of range, exceeding `maxCollectionLength`, exceeding `maxCallDepth`, …), **ends that Tick's execution**. Commands already issued still apply. The error is logged as `{tick, line, column, message}`, and `tick()` runs normally next Tick. Since execution stops at the first error, at most one runtime error is logged per Tick.
 
-`maxCallDepth` (_provisional_: 64) counts nested user-function and callback calls. `tick()` itself is depth 1.
+`maxCallDepth` (r1: 64) counts nested user-function and callback calls. `tick()` itself is depth 1.
 
 ### 10.3 Halting
 
@@ -430,18 +430,18 @@ Every Disabled Bot follows the same rules, whatever the cause (`destroyed` when 
 
 ### 10.5 Program log
 
-The owner-only Program log records runtime errors, halts, per-Tick budget usage and `log()` output. `log()` output is capped at `logLinesPerTick` lines (_provisional_: 50) of at most `logLineLength` characters each (_provisional_: 200). Excess lines are dropped, with a single "truncated" marker for the Tick, and over-long lines are cut. These caps limit what is written, not what is charged: each `log()` call still costs its 2 operations.
+The owner-only Program log records runtime errors, halts, per-Tick budget usage and `log()` output. `log()` output is capped at `logLinesPerTick` lines (r1: 50) of at most `logLineLength` characters each (r1: 200). Excess lines are dropped, with a single "truncated" marker for the Tick, and over-long lines are cut. These caps limit what is written, not what is charged: each `log()` call still costs its 2 operations.
 
 ---
 
 ## 11. Ruleset limits
 
-Every value below is Ruleset data. The values are _provisional_ until aumohta-0ka.3.
+Every value below is Ruleset data, confirmed for r1 in [catalog-r1.md §7](catalog-r1.md#7-language-limits).
 
-| Key | Provisional r1 value |
+| Key | r1 value |
 |---|---|
 | Per-Tick Operation Budget | Per Processor; minimal Processor 1,000 |
-| `initBudgetMultiplier` | 20 |
+| `initBudgetMultiplier` | 50 |
 | `memoryCells` | 10,000 |
 | `maxCallDepth` | 64 |
 | `maxCollectionLength` | 10,000 |

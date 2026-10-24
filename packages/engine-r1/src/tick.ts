@@ -34,10 +34,10 @@ import { botShape, withinMap, type BotState, type World } from "./world.js";
 export const SUBSTEP_LENGTH = 0.05;
 /** The most substeps one Tick is split into. */
 export const MAX_SUBSTEPS = 100;
-/** Collisions closing slower than this, in m/s, deal no damage. Provisional until aumohta-0ka.3. */
-export const MIN_RAM_SPEED = 2;
-/** Ramming damage per joule of collision energy. Provisional until aumohta-0ka.3. */
-export const RAM_DAMAGE_PER_JOULE = 0.04;
+/** Collisions closing slower than this, in m/s, deal no damage (catalog-r1 §6). */
+export const MIN_RAM_SPEED = 3;
+/** Ramming damage per joule of collision energy (catalog-r1 §6). */
+export const RAM_DAMAGE_PER_JOULE = 0.01;
 
 /**
  * The commands a Bot's Program issued this Tick. Omitted movement commands

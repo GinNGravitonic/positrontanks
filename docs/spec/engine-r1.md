@@ -2,7 +2,7 @@
 
 How the r1 engine (`packages/engine-r1`) moves Bots, resolves collisions and weapon fire, takes sensor readings and runs Programs. [v1.md §2](v1.md#2-simulation) states what the simulation does; this document fixes how, so that Players and LLM agents can predict it. Like the rest of a Ruleset, these rules are frozen once r1 is released.
 
-Constants marked _provisional_ are balance numbers to confirm in the starter catalog session (aumohta-0ka.3).
+The balance numbers, including the ramming constants in §5, are confirmed in [catalog-r1.md](catalog-r1.md).
 
 ---
 
@@ -72,11 +72,11 @@ There is no sliding along walls and no pushing: a blocked Bot simply stops.
 
 When a Bot's translation is blocked, it **collides** with what blocked it. The contact point is midway between the two shapes' nearest points, and the **closing speed** is the relative velocity of the two bodies along the contact normal. Against the boundary, the contact is the overshot wall at the point level with the Bot's centre.
 
-If the closing speed is at least `MIN_RAM_SPEED` (_provisional_: 2 m/s), the collision deals
+If the closing speed is at least `MIN_RAM_SPEED` (3 m/s), the collision deals
 
     raw damage = RAM_DAMAGE_PER_JOULE × ½ × m × closing speed²
 
-where `RAM_DAMAGE_PER_JOULE` is _provisional_ 0.04, and `m` is the reduced mass `m₁m₂ / (m₁ + m₂)` for two Bots, or the Bot's mass against anything immobile. Both parties take the same raw damage:
+where `RAM_DAMAGE_PER_JOULE` is 0.01, and `m` is the reduced mass `m₁m₂ / (m₁ + m₂)` for two Bots, or the Bot's mass against anything immobile. Both parties take the same raw damage:
 
 - A Bot takes it on the side struck: the side facing the contact point, judged from the Bot's Heading (front and rear within 45° inclusive, otherwise left or right). That side's Armor absorbs up to its value; the rest comes off its Hit Points.
 - A destructible Obstacle takes it in full. The boundary, permanent Obstacles and wrecks take none.

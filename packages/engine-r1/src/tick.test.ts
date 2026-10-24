@@ -138,7 +138,8 @@ describe("collisions", () => {
   });
 
   it("damages and destroys a destructible Obstacle, which then stops blocking", () => {
-    const crate = { id: "crate", destructible: true as const, hitPoints: 30, shape: "circle" as const, x: 60, y: 50, radius: 1 };
+    const hitPoints = 1.5 * ram(5, 50);
+    const crate = { id: "crate", destructible: true as const, hitPoints, shape: "circle" as const, x: 60, y: 50, radius: 1 };
     const world = worldWith([{ build: discBuild, x: 58.2, y: 50, heading: 90 }], testMap({ obstacles: [crate] }));
     const b = bot(world, 1);
     b.speed = 5;
@@ -148,12 +149,12 @@ describe("collisions", () => {
       [{ kind: "bot", id: 1 }, ram(5, 50)],
       [{ kind: "obstacle", id: "crate" }, ram(5, 50)],
     ]);
-    expect(world.obstacles[0]?.hitPoints).toBe(30 - ram(5, 50));
+    expect(world.obstacles[0]?.hitPoints).toBe(hitPoints - ram(5, 50));
 
     b.speed = 5;
     const second = run(world, 1);
     expect(second).toContainEqual({ type: "obstacleDestroyed", tick: 2, obstacle: "crate" });
-    expect(damage(second)[1]?.dealt).toBe(30 - ram(5, 50));
+    expect(damage(second)[1]?.dealt).toBe(hitPoints - ram(5, 50));
     expect(world.obstacles).toEqual([]);
     run(world, 10);
     expect(b.x).toBeGreaterThan(62);
