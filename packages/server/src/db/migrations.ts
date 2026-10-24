@@ -109,6 +109,44 @@ export const migrations: readonly Migration[] = [
       END;
     `,
   },
+  {
+    version: 4,
+    name: "maps",
+    // A Map is public and owns a numbered series of Revisions (1, 2, ...),
+    // like a Bot Design but independent of Rulesets. Revisions are
+    // immutable: a trigger refuses updates, and Games will reference them by
+    // (map_id, number). Archiving sets archived_at and deletes nothing. The
+    // content is stored as its JSON text; format, size and Spawn Zone count
+    // are copied out of it for listings (and, later, Game filters).
+    sql: `
+      CREATE TABLE maps (
+        id TEXT PRIMARY KEY,
+        player_id TEXT NOT NULL REFERENCES players (id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        latest_revision INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        archived_at TEXT
+      ) STRICT;
+      CREATE INDEX maps_by_archived ON maps (archived_at, updated_at);
+      CREATE INDEX maps_by_player ON maps (player_id);
+      CREATE TABLE map_revisions (
+        map_id TEXT NOT NULL REFERENCES maps (id) ON DELETE CASCADE,
+        number INTEGER NOT NULL CHECK (number >= 1),
+        content TEXT NOT NULL,
+        format INTEGER NOT NULL,
+        width REAL NOT NULL,
+        height REAL NOT NULL,
+        spawn_zones INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (map_id, number)
+      ) STRICT;
+      CREATE TRIGGER map_revisions_immutable BEFORE UPDATE ON map_revisions
+      BEGIN
+        SELECT RAISE(ABORT, 'Revisions are immutable');
+      END;
+    `,
+  },
 ];
 
 export class MigrationError extends Error {

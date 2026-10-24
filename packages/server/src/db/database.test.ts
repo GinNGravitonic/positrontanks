@@ -29,6 +29,8 @@ describe("migrations", () => {
       "api_keys",
       "bot_design_revisions",
       "bot_designs",
+      "map_revisions",
+      "maps",
       "meta",
       "password_credentials",
       "players",
@@ -146,6 +148,32 @@ describe("Garage schema", () => {
     raw.close();
     const reopened = Database.open(path);
     expect(reopened.garage.getRevision("p1", "d1", 1)?.program).toBe("function tick() {}");
+    reopened.close();
+  });
+});
+
+describe("Map schema", () => {
+  it("refuses to change a saved Revision", () => {
+    const db = Database.open(path);
+    expect(db.accounts.createPasswordPlayer("p1", "ada", "hash", new Date())).toBeDefined();
+    const zone = { heading: 0, capacity: 1, shape: "circle", x: 5, y: 5, radius: 1 } as const;
+    const content = {
+      format: 1,
+      width: 20,
+      height: 10,
+      baseTerrain: "grass",
+      terrainRegions: [],
+      obstacles: [],
+      spawnZones: [zone, { ...zone, x: 15 }],
+    } as const;
+    db.maps.createMap({ id: "m1", playerId: "p1", name: "Field" }, content, new Date());
+    db.close();
+
+    const raw = new DatabaseSync(path);
+    expect(() => raw.prepare("UPDATE map_revisions SET width = 99 WHERE map_id = 'm1'").run()).toThrow(/immutable/);
+    raw.close();
+    const reopened = Database.open(path);
+    expect(reopened.maps.getRevision("m1", 1)?.map).toEqual(content);
     reopened.close();
   });
 });

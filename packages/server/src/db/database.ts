@@ -15,6 +15,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { AccountStore } from "./accounts.js";
 import { GarageStore } from "./garage.js";
+import { MapStore } from "./maps.js";
 import { migrate, migrations as defaultMigrations, type Migration } from "./migrations.js";
 
 export interface OpenOptions {
@@ -29,12 +30,15 @@ export class Database {
   readonly accounts: AccountStore;
   /** Bot Designs and their Revisions. */
   readonly garage: GarageStore;
+  /** Maps and their Revisions. */
+  readonly maps: MapStore;
 
   private constructor(db: DatabaseSync) {
     this.#db = db;
     const transaction = <T>(fn: () => T): T => this.transaction(fn);
     this.accounts = new AccountStore(db, transaction);
     this.garage = new GarageStore(db, transaction);
+    this.maps = new MapStore(db, transaction);
   }
 
   /**
