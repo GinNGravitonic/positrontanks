@@ -30,6 +30,7 @@ export { Router } from "./http/router.js";
 export { accountsModule } from "./routes/accounts.js";
 export { garageModule } from "./routes/garage.js";
 export { mapsModule } from "./routes/maps.js";
+export { rulesetsModule } from "./routes/rulesets.js";
 export { defaultRulesetCatalog, engineR1Ruleset, RulesetCatalog } from "./rulesets/catalog.js";
 export type { HostedRuleset } from "./rulesets/catalog.js";
 export type {
