@@ -1,0 +1,153 @@
+{
+  "name": "four-corners-time-limit",
+  "description": "Three Players on a sand Map crossed by roads, with a keep, rocks and a destructible barrel: an Autocannon Rover, a Cannon Turret Brawler on tracks and a hover Rocket Scout wander, dodge with Projectile Detectors and fire at random Foes. Ends at the time limit, decided by Foe damage.",
+  "record": {
+    "ruleset": "r1",
+    "map": {
+      "format": 1,
+      "width": 80,
+      "height": 80,
+      "baseTerrain": "sand",
+      "terrainRegions": [
+        {
+          "terrain": "road",
+          "shape": "polygon",
+          "points": [{ "x": 38, "y": 0 }, { "x": 42, "y": 0 }, { "x": 42, "y": 80 }, { "x": 38, "y": 80 }]
+        },
+        {
+          "terrain": "road",
+          "shape": "polygon",
+          "points": [{ "x": 0, "y": 38 }, { "x": 80, "y": 38 }, { "x": 80, "y": 42 }, { "x": 0, "y": 42 }]
+        }
+      ],
+      "obstacles": [
+        {
+          "id": "keep",
+          "destructible": false,
+          "shape": "polygon",
+          "points": [{ "x": 40, "y": 32 }, { "x": 48, "y": 40 }, { "x": 40, "y": 48 }, { "x": 32, "y": 40 }]
+        },
+        { "id": "rock-1", "destructible": false, "shape": "circle", "x": 20, "y": 40, "radius": 3 },
+        { "id": "rock-2", "destructible": false, "shape": "circle", "x": 60, "y": 40, "radius": 3 },
+        { "id": "barrel", "destructible": true, "hitPoints": 40, "shape": "circle", "x": 40, "y": 15, "radius": 1 }
+      ],
+      "spawnZones": [
+        { "heading": 135, "capacity": 3, "shape": "circle", "x": 10, "y": 10, "radius": 7 },
+        { "heading": 225, "capacity": 3, "shape": "circle", "x": 70, "y": 10, "radius": 7 },
+        { "heading": 315, "capacity": 3, "shape": "circle", "x": 70, "y": 70, "radius": 7 },
+        { "heading": 45, "capacity": 2, "shape": "circle", "x": 10, "y": 70, "radius": 5 }
+      ]
+    },
+    "entries": [
+      {
+        "player": "cat",
+        "bots": [
+          {
+            "name": "Twin",
+            "build": {
+              "chassis": "rover",
+              "components": {
+                "leftGun": "autocannon",
+                "rightGun": "autocannon",
+                "eye": "radar",
+                "rearEye": "detector",
+                "drive": "wheels",
+                "bay": "coprocessor"
+              },
+              "armor": { "front": "mediumPlate", "left": "lightPlate", "right": "lightPlate", "rear": null }
+            },
+            "program": "\nconst guns = [\"leftGun\", \"rightGun\"];\nlet heading = 0;\n\nfunction init() {\n  heading = random() * 360;\n  log(\"start \" + terrainHere() + \" \" + str(map.obstacles.length) + \" obstacles\");\n}\n\nfunction tick() {\n  const threats = incoming();\n  if (threats.length > 0) {\n    const t = threats[0];\n    turn(t.bearing > 0 ? -1 : 1);\n    throttle(1);\n    log(\"dodge \" + str(t.ticksToImpact));\n  } else {\n    if (random() < 0.05) { heading = random() * 360; }\n    if (self.x < 6 || self.y < 6 || self.x > map.width - 6 || self.y > map.height - 6) {\n      heading = absBearingTo(map.width / 2, map.height / 2);\n    }\n    turn(clamp(normalizeAngle(heading - self.heading) / 45, -1, 1));\n    throttle(terrainHere() == \"road\" ? 1 : 0.7);\n  }\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length > 0) {\n    const foe = foes[floor(random() * foes.length)];\n    for (const g of guns) { fire(g, foe); }\n  }\n}"
+          }
+        ]
+      },
+      {
+        "player": "dan",
+        "bots": [
+          {
+            "name": "Bulwark",
+            "build": {
+              "chassis": "brawler",
+              "components": {
+                "nose": "cannonTurret",
+                "eye": "domeRadar",
+                "rearEye": "detector",
+                "leftDrive": "tracks",
+                "rightDrive": "tracks",
+                "bay": "fastProcessor"
+              },
+              "armor": { "front": "heavyPlate", "left": "mediumPlate", "right": "mediumPlate", "rear": "mediumPlate" }
+            },
+            "program": "\nconst guns = [\"nose\"];\nlet heading = 0;\n\nfunction init() {\n  heading = random() * 360;\n  log(\"start \" + terrainHere() + \" \" + str(map.obstacles.length) + \" obstacles\");\n}\n\nfunction tick() {\n  const threats = incoming();\n  if (threats.length > 0) {\n    const t = threats[0];\n    turn(t.bearing > 0 ? -1 : 1);\n    throttle(1);\n    log(\"dodge \" + str(t.ticksToImpact));\n  } else {\n    if (random() < 0.05) { heading = random() * 360; }\n    if (self.x < 6 || self.y < 6 || self.x > map.width - 6 || self.y > map.height - 6) {\n      heading = absBearingTo(map.width / 2, map.height / 2);\n    }\n    turn(clamp(normalizeAngle(heading - self.heading) / 45, -1, 1));\n    throttle(terrainHere() == \"road\" ? 1 : 0.7);\n  }\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length > 0) {\n    const foe = foes[floor(random() * foes.length)];\n    for (const g of guns) { fire(g, foe); }\n  }\n}"
+          }
+        ]
+      },
+      {
+        "player": "eve",
+        "bots": [
+          {
+            "name": "Skipper",
+            "build": {
+              "chassis": "scout",
+              "components": { "gun": "rocketPod", "eye": "domeRadar", "drive": "hover" },
+              "armor": { "front": null, "left": null, "right": null, "rear": null }
+            },
+            "program": "\nconst guns = [\"gun\"];\nlet heading = 0;\n\nfunction init() {\n  heading = random() * 360;\n  log(\"start \" + terrainHere() + \" \" + str(map.obstacles.length) + \" obstacles\");\n}\n\nfunction tick() {\n  const threats = incoming();\n  if (threats.length > 0) {\n    const t = threats[0];\n    turn(t.bearing > 0 ? -1 : 1);\n    throttle(1);\n    log(\"dodge \" + str(t.ticksToImpact));\n  } else {\n    if (random() < 0.05) { heading = random() * 360; }\n    if (self.x < 6 || self.y < 6 || self.x > map.width - 6 || self.y > map.height - 6) {\n      heading = absBearingTo(map.width / 2, map.height / 2);\n    }\n    turn(clamp(normalizeAngle(heading - self.heading) / 45, -1, 1));\n    throttle(terrainHere() == \"road\" ? 1 : 0.7);\n  }\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length > 0) {\n    const foe = foes[floor(random() * foes.length)];\n    for (const g of guns) { fire(g, foe); }\n  }\n}"
+          }
+        ]
+      }
+    ],
+    "seed": 987654321,
+    "timeLimitTicks": 240,
+    "startingPositions": [
+      { "bot": 1, "x": 69.41443207607932, "y": 7.969633845236627, "heading": 225 },
+      { "bot": 2, "x": 6.254546112913452, "y": 13.132175082020337, "heading": 135 },
+      { "bot": 3, "x": 70.67160446396974, "y": 63.84822793897975, "heading": 315 }
+    ],
+    "tick": 240,
+    "operations": [
+      {
+        "bot": 1,
+        "perTick": [26, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 83, 83, 83, 83, 83, 83, 87, 83, 83, 83, 83, 83, 87, 83, 110, 110, 110, 110, 110, 110, 110, 110, 112, 112, 112, 114, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 112, 116, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 112, 112, 112, 112, 112, 112, 114, 118, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 114, 112, 112, 112, 112, 112, 112, 112, 112, 85, 87, 87, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 112, 85, 85, 87, 112, 114, 114, 85, 87, 85, 112, 112, 114, 87, 85, 85, 112, 112, 112, 85, 85, 112, 112, 112, 112, 114, 114, 114, 114, 114, 118, 85, 87, 85, 116, 112, 112, 58, 85, 112, 112, 85, 85, 58, 58, 112, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 85, 112, 112, 112, 85, 85, 85, 112, 112, 112, 85, 84, 85, 112, 112, 112, 85, 84, 85, 84, 112, 85, 58, 57, 58, 57, 85, 85, 58, 57, 58, 57, 57, 85, 58, 58, 57, 58, 57, 85, 58, 57, 58, 57, 58, 85, 58, 57, 58, 57, 58, 85, 57, 58, 57, 58, 57, 85, 58]
+      },
+      {
+        "bot": 2,
+        "perTick": [24, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 89, 85, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 89, 85, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 83, 87, 83, 83, 83, 83, 83, 83, 83, 83, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 104, 104, 104, 108, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 108, 104, 104, 104, 104, 108, 104, 104, 104, 104, 104, 104, 108, 104, 104, 104, 104, 104, 104, 106, 79, 79, 79, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 110, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 110, 106, 106, 106, 106, 106, 106, 106, 106, 106, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 108]
+      },
+      {
+        "bot": 3,
+        "perTick": [24, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 89, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 104, 106, 106, 110, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 110, 106, 106, 106, 106, 106, 106, 106, 106, 110, 106, 106, 106, 106, 110, 106, 106, 110, 106, 106, 106, 106, 106, 106, 106, 106, 106, 106, 110, 106, 106, 106, 106, 106, 106, 106, 106, 106, 110, 106, 106, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]
+      }
+    ],
+    "result": {
+      "tick": 240,
+      "end": "timeLimit",
+      "winner": "dan",
+      "decidedBy": "foeDamage",
+      "standings": [
+        { "player": "cat", "foeDamage": 58.175404831198634, "hitPoints": 64, "remaining": true },
+        { "player": "dan", "foeDamage": 106, "hitPoints": 300, "remaining": true },
+        { "player": "eve", "foeDamage": 0, "hitPoints": 0, "remaining": false }
+      ]
+    }
+  },
+  "expected": {
+    "eventCounts": { "collision": 157, "damage": 18, "disabled": 1, "fired": 28, "impact": 27 },
+    "programRuns": { "Twin": { "completed": 241 }, "Bulwark": { "completed": 241 }, "Skipper": { "completed": 203 } },
+    "worldHashes": {
+      "0": "a6fb381750d2ba51",
+      "25": "158a76df13405d3c",
+      "50": "c6fcc6c136bac641",
+      "75": "1da76cd9ff26f5b9",
+      "100": "318b1eaa873f0b3d",
+      "125": "d4654232ab310f0a",
+      "150": "bc41704b540d0608",
+      "175": "f3f153b08891d2f7",
+      "200": "ff52558742085615",
+      "225": "a46721945bbeed57",
+      "240": "6ff07c42d92f6b9f"
+    },
+    "allWorldHashes": "2b29db2195dc980130eb024f917b46a4a80213ba2ab982bb4a08c30ea355a768",
+    "replay": "1be34ac9c3d4aee45299e805dca54074e99a75379ab97b7e316fd522a277d7d6",
+    "programLogs": "096f5066444a4e071846c3bb79151339191c1d9c97bdbd3b2152306ea2d98ba1"
+  }
+}
