@@ -4,5 +4,6 @@
     "rootDir": "src",
     "outDir": "dist"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "../engine-r1" }, { "path": "../language" }, { "path": "../ruleset-data" }]
 }

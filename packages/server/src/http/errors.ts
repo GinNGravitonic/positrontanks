@@ -9,12 +9,16 @@
  * branch on; `message` is for people and may change. `details` is present
  * only for errors about specific parts of the request, one entry per problem,
  * each with a `path` into the request such as `map.obstacles[2].hitPoints`
- * (the same shape ruleset-data's validators report).
+ * (the same shape ruleset-data's validators report). Problems in a Program
+ * also carry the 1-based `line` and `column` the language checker reports.
  */
 
 export interface ErrorDetail {
   readonly path: string;
   readonly message: string;
+  /** For a problem in source text (a Program): where it is, 1-based. */
+  readonly line?: number;
+  readonly column?: number;
 }
 
 export interface ErrorBody {
@@ -63,6 +67,19 @@ export const validationFailed = (details: readonly ErrorDetail[]): ApiError =>
 
 export const notFound = (message = "Not found"): ApiError => new ApiError(404, "not_found", message);
 
+/** The JSON Schema of ErrorDetail, for the OpenAPI document. */
+export const errorDetailSchema = {
+  type: "object",
+  required: ["path", "message"],
+  additionalProperties: false,
+  properties: {
+    path: { type: "string" },
+    message: { type: "string" },
+    line: { type: "integer", minimum: 1, description: "For a problem in a Program: its line." },
+    column: { type: "integer", minimum: 1, description: "For a problem in a Program: its column." },
+  },
+} as const;
+
 /** The JSON Schema of ErrorBody, for the OpenAPI document. */
 export const errorSchema = {
   type: "object",
@@ -79,12 +96,7 @@ export const errorSchema = {
         details: {
           type: "array",
           description: "One entry per problem with a specific part of the request.",
-          items: {
-            type: "object",
-            required: ["path", "message"],
-            additionalProperties: false,
-            properties: { path: { type: "string" }, message: { type: "string" } },
-          },
+          items: errorDetailSchema,
         },
       },
     },

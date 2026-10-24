@@ -27,6 +27,8 @@ describe("migrations", () => {
     expect(db.schemaVersion()).toBe(migrations.length);
     expect(db.tableNames()).toEqual([
       "api_keys",
+      "bot_design_revisions",
+      "bot_designs",
       "meta",
       "password_credentials",
       "players",
@@ -122,5 +124,28 @@ describe("Database", () => {
     expect(() => {
       db.ping();
     }).toThrow();
+  });
+});
+
+describe("Garage schema", () => {
+  it("refuses to change a saved Revision", () => {
+    const db = Database.open(path);
+    expect(db.accounts.createPasswordPlayer("p1", "ada", "hash", new Date())).toBeDefined();
+    const build = { chassis: "scout", components: {}, armor: { front: null, left: null, right: null, rear: null } };
+    db.garage.createDesign(
+      { id: "d1", playerId: "p1", name: "Scout", rulesetVersion: "r1" },
+      { build, program: "function tick() {}", cost: 40 },
+      new Date(),
+    );
+    db.close();
+
+    const raw = new DatabaseSync(path);
+    expect(() => raw.prepare("UPDATE bot_design_revisions SET program = 'x' WHERE design_id = 'd1'").run()).toThrow(
+      /immutable/,
+    );
+    raw.close();
+    const reopened = Database.open(path);
+    expect(reopened.garage.getRevision("p1", "d1", 1)?.program).toBe("function tick() {}");
+    reopened.close();
   });
 });
