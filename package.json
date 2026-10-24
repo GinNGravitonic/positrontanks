@@ -10,7 +10,8 @@
     "build": "tsc -b",
     "clean": "tsc -b --clean",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "golden:update": "tsc -b && vitest run packages/engine-r1/src/golden.test.ts --mode update-goldens"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

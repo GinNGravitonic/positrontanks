@@ -1,0 +1,117 @@
+{
+  "name": "duel-last-standing",
+  "description": "Two Scouts on grass with a road, a sand patch, a pillar and two destructible crates: a hover Laser Scout hunts a wheeled Pellet Gun Scout. Beam against Projectile weapons; ends with one Player left standing.",
+  "record": {
+    "ruleset": "r1",
+    "map": {
+      "format": 1,
+      "width": 60,
+      "height": 40,
+      "baseTerrain": "grass",
+      "terrainRegions": [
+        {
+          "terrain": "road",
+          "shape": "polygon",
+          "points": [{ "x": 0, "y": 18 }, { "x": 60, "y": 18 }, { "x": 60, "y": 22 }, { "x": 0, "y": 22 }]
+        },
+        { "terrain": "sand", "shape": "circle", "x": 30, "y": 20, "radius": 6 }
+      ],
+      "obstacles": [
+        { "id": "pillar", "destructible": false, "shape": "circle", "x": 30, "y": 20, "radius": 2 },
+        {
+          "id": "crate-north",
+          "destructible": true,
+          "hitPoints": 150,
+          "shape": "polygon",
+          "points": [{ "x": 28, "y": 6 }, { "x": 32, "y": 6 }, { "x": 32, "y": 10 }, { "x": 28, "y": 10 }]
+        },
+        {
+          "id": "crate-south",
+          "destructible": true,
+          "hitPoints": 150,
+          "shape": "polygon",
+          "points": [{ "x": 28, "y": 30 }, { "x": 32, "y": 30 }, { "x": 32, "y": 34 }, { "x": 28, "y": 34 }]
+        }
+      ],
+      "spawnZones": [
+        {
+          "heading": 90,
+          "capacity": 2,
+          "shape": "polygon",
+          "points": [{ "x": 2, "y": 10 }, { "x": 12, "y": 10 }, { "x": 12, "y": 30 }, { "x": 2, "y": 30 }]
+        },
+        {
+          "heading": 270,
+          "capacity": 2,
+          "shape": "polygon",
+          "points": [{ "x": 48, "y": 10 }, { "x": 58, "y": 10 }, { "x": 58, "y": 30 }, { "x": 48, "y": 30 }]
+        }
+      ]
+    },
+    "entries": [
+      {
+        "player": "ann",
+        "bots": [
+          {
+            "name": "Glint",
+            "build": {
+              "chassis": "scout",
+              "components": { "gun": "laser", "eye": "radar", "drive": "hover" },
+              "armor": { "front": "lightPlate", "left": null, "right": null, "rear": null }
+            },
+            "program": "\nlet sweep = 1;\n\nfunction nearest(contacts) {\n  return contacts.reduce((best, c) => best == null || c.distance < best.distance ? c : best, null);\n}\n\nfunction tick() {\n  const foe = nearest(scan().filter((c) => c.isFoe));\n  if (foe == null) {\n    const cx = map.width / 2;\n    const cy = map.height / 2;\n    if (distanceTo(cx, cy) > 6) {\n      turn(clamp(bearingTo(cx, cy) / 30, -1, 1));\n      throttle(0.8);\n    } else {\n      turn(sweep);\n      throttle(0.2);\n      if (self.tick % 40 == 0) { sweep = -sweep; }\n    }\n    return;\n  }\n  turn(clamp(foe.bearing / 20, -1, 1));\n  throttle(foe.distance > 12 ? 1 : -0.3);\n  if (abs(foe.bearing) < 12) {\n    if (fire(\"gun\", foe)) { log(\"fired at \" + foe.name + \" \" + str(round(foe.distance))); }\n  }\n}"
+          }
+        ]
+      },
+      {
+        "player": "bob",
+        "bots": [
+          {
+            "name": "Peashooter",
+            "build": {
+              "chassis": "scout",
+              "components": { "gun": "pelletGun", "eye": "shortRadar", "drive": "wheels" },
+              "armor": { "front": null, "left": null, "right": null, "rear": null }
+            },
+            "program": "\nlet sweep = 1;\n\nfunction nearest(contacts) {\n  return contacts.reduce((best, c) => best == null || c.distance < best.distance ? c : best, null);\n}\n\nfunction tick() {\n  const foe = nearest(scan().filter((c) => c.isFoe));\n  if (foe == null) {\n    const cx = map.width / 2;\n    const cy = map.height / 2;\n    if (distanceTo(cx, cy) > 6) {\n      turn(clamp(bearingTo(cx, cy) / 30, -1, 1));\n      throttle(0.8);\n    } else {\n      turn(sweep);\n      throttle(0.2);\n      if (self.tick % 40 == 0) { sweep = -sweep; }\n    }\n    return;\n  }\n  turn(clamp(foe.bearing / 20, -1, 1));\n  throttle(foe.distance > 8 ? 1 : -0.3);\n  if (abs(foe.bearing) < 12) {\n    if (fire(\"gun\", foe)) { log(\"fired at \" + foe.name + \" \" + str(round(foe.distance))); }\n  }\n}"
+          }
+        ]
+      }
+    ],
+    "seed": 1234,
+    "timeLimitTicks": 1200,
+    "startingPositions": [
+      { "bot": 1, "x": 49.18126969902905, "y": 10.940933167469682, "heading": 270 },
+      { "bot": 2, "x": 11.350726541072236, "y": 17.382499483703302, "heading": 90 }
+    ],
+    "tick": 49,
+    "operations": [
+      {
+        "bot": 1,
+        "perTick": [1, 81, 67, 67, 67, 67, 67, 67, 67, 81, 67, 67, 67, 67, 67, 67, 67, 81, 67, 67, 67, 67, 68, 68, 68, 82, 68, 68, 68, 68, 68, 68, 68, 82, 68, 68, 68, 68, 68, 68, 68, 82, 68, 68, 68, 68, 68, 68, 68, 82]
+      },
+      {
+        "bot": 2,
+        "perTick": [1, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 60, 81, 67, 67, 81, 67, 67, 81, 67, 67, 81, 67, 67, 81, 68, 68, 82, 68, 68, 82, 68, 68, 82, 68, 68, 82, 68, 68, 82, 68, 68, 82, 68, 68, 82, 68, 68, 82, 68]
+      }
+    ],
+    "result": {
+      "tick": 49,
+      "end": "lastStanding",
+      "winner": "ann",
+      "decidedBy": "survival",
+      "standings": [
+        { "player": "ann", "foeDamage": 80, "hitPoints": 41, "remaining": true },
+        { "player": "bob", "foeDamage": 39, "hitPoints": 0, "remaining": false }
+      ]
+    }
+  },
+  "expected": {
+    "eventCounts": { "damage": 19, "disabled": 1, "fired": 20, "impact": 20 },
+    "programRuns": { "Glint": { "completed": 50 }, "Peashooter": { "completed": 50 } },
+    "worldHashes": { "0": "3645f6c412cab1d3", "25": "001ef23cd65a4691", "49": "09baea0d02e31261" },
+    "allWorldHashes": "3fc51d06e2c5707ee1f158345140e9062b2d06e13d684c9f4e54e67e2925f8aa",
+    "replay": "0fedfe515e30b627ad8e92b63dc9b85e741b1b63ceab8f70f603b44a73c025e4",
+    "programLogs": "c6927a0ccb958065ebd4cd633e3ce6a2bb00acc8f66a868dabb45f09ac0baf85"
+  }
+}

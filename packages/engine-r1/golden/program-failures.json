@@ -1,0 +1,119 @@
+{
+  "name": "program-failures",
+  "description": "Three Players whose Programs fail in different ways: one halts in its init phase, one hits a runtime error some Ticks and runs out of budget in others, and one spins a Beam Turret. Exercises halting, error logging and budget use; ends with one Player left standing or at the time limit.",
+  "record": {
+    "ruleset": "r1",
+    "map": {
+      "format": 1,
+      "width": 40,
+      "height": 40,
+      "baseTerrain": "road",
+      "terrainRegions": [{ "terrain": "grass", "shape": "circle", "x": 20, "y": 20, "radius": 8 }],
+      "obstacles": [],
+      "spawnZones": [
+        { "heading": 180, "capacity": 1, "shape": "circle", "x": 20, "y": 6, "radius": 3 },
+        { "heading": 0, "capacity": 1, "shape": "circle", "x": 20, "y": 34, "radius": 3 },
+        { "heading": 90, "capacity": 1, "shape": "circle", "x": 6, "y": 20, "radius": 3 }
+      ]
+    },
+    "entries": [
+      {
+        "player": "fay",
+        "bots": [
+          {
+            "name": "Oops",
+            "build": {
+              "chassis": "scout",
+              "components": { "gun": "pelletGun", "eye": "shortRadar", "drive": "wheels" },
+              "armor": { "front": null, "left": null, "right": null, "rear": null }
+            },
+            "program": "\nconst plan = [1, 2, 3];\nfunction init() { log(\"planning\"); const step = plan[3]; }\nfunction tick() { throttle(1); }"
+          }
+        ]
+      },
+      {
+        "player": "gus",
+        "bots": [
+          {
+            "name": "Glitch",
+            "build": {
+              "chassis": "scout",
+              "components": { "gun": "spike", "eye": "shortRadar", "drive": "walker" },
+              "armor": { "front": "lightPlate", "left": null, "right": null, "rear": null }
+            },
+            "program": "\nlet n = 0;\nfunction tick() {\n  n += 1;\n  throttle(0.5);\n  turn(0.2);\n  if (n % 7 == 0) { const r = {}; log(r.missing); }\n  if (n % 11 == 0) { let i = 0; while (true) { i += 1; } }\n  fire(\"gun\", 0);\n}"
+          }
+        ]
+      },
+      {
+        "player": "hal",
+        "bots": [
+          {
+            "name": "Lighthouse",
+            "build": {
+              "chassis": "rover",
+              "components": { "leftGun": "beamTurret", "eye": "domeRadar", "drive": "wheels" },
+              "armor": { "front": null, "left": null, "right": null, "rear": null }
+            },
+            "program": "\nfunction tick() {\n  turn(1);\n  throttle(0.1);\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length > 0) {\n    const ok = fire(\"leftGun\", foes[0]);\n    log(ok ? \"zap \" + foes[0].name : \"reloading \" + str(self.weapons[0].ticksUntilReady));\n  }\n}"
+          }
+        ]
+      }
+    ],
+    "seed": 7,
+    "timeLimitTicks": 250,
+    "startingPositions": [
+      { "bot": 1, "x": 4.65283266517165, "y": 19.174069940556638, "heading": 90 },
+      { "bot": 2, "x": 20.476343241552108, "y": 33.73573783437487, "heading": 0 },
+      { "bot": 3, "x": 21.692983124150278, "y": 6.108736436262933, "heading": 180 }
+    ],
+    "tick": 195,
+    "operations": [
+      {
+        "bot": 1,
+        "perTick": [13, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]
+      },
+      {
+        "bot": 2,
+        "perTick": [1, 26, 26, 26, 26, 26, 26, 17, 26, 26, 26, 1000, 26, 26, 17, 26, 26, 26, 26, 26, 26, 17, 1000, 26, 26, 26, 26, 26, 17, 26, 26, 26, 26, 1000, 26, 17, 26, 26, 26, 26, 26, 26, 17, 26, 1000, 26, 26, 26, 26, 17, 26, 26, 26, 26, 26, 1000, 17, 26, 26, 26, 26, 26, 26, 17, 26, 26, 1000, 26, 26, 26, 17, 26, 26, 26, 26, 26, 26, 17, 26, 26, 26, 26, 26, 26, 17, 26, 26, 26, 1000, 26, 26, 17, 26, 26, 26, 26, 26, 26, 17, 1000, 26, 26, 26, 26, 26, 17, 26, 26, 26, 26, 1000, 26, 17, 26, 26, 26, 26, 26, 26, 17, 26, 1000, 26, 26, 26, 26, 17, 26, 26, 26, 26, 26, 1000, 17, 26, 26, 26, 26, 26, 26, 17, 26, 26, 1000, 26, 26, 26, 17, 26, 26, 26, 26, 26, 26, 17, 26, 26, 26, 26, 26, 26, 17, 26, 26, 26, 1000, 26, 26, 17, 26, 26, 26, 26, 26, 26, 17, 1000, 26, 26, 26, 26, 26, 17, 26, 26, 26, 26, 1000, 26, 17, 26, 26, 26, 26, 26, 26]
+      },
+      {
+        "bot": 3,
+        "perTick": [0, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 29, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50, 53, 53, 53, 53, 53, 53, 53, 53, 53, 50]
+      }
+    ],
+    "result": {
+      "tick": 195,
+      "end": "lastStanding",
+      "winner": "hal",
+      "decidedBy": "survival",
+      "standings": [
+        { "player": "fay", "foeDamage": 0, "hitPoints": 0, "remaining": false },
+        { "player": "gus", "foeDamage": 0, "hitPoints": 0, "remaining": false },
+        { "player": "hal", "foeDamage": 80, "hitPoints": 160, "remaining": true }
+      ]
+    }
+  },
+  "expected": {
+    "eventCounts": { "damage": 7, "disabled": 2, "fired": 33, "impact": 33 },
+    "programRuns": {
+      "Oops": { "halted": 1 },
+      "Glitch": { "completed": 154, "error": 27, "outOfBudget": 15 },
+      "Lighthouse": { "completed": 196 }
+    },
+    "worldHashes": {
+      "0": "1a2420e543fa79ea",
+      "25": "532d237a8ceca10c",
+      "50": "6fb9737c8a2b801e",
+      "75": "52ec9cb527fa811d",
+      "100": "5aa0b5239fc73682",
+      "125": "badb2bb4ffe6483d",
+      "150": "d986a030356da88d",
+      "175": "7747a33017e24407",
+      "195": "51f0dc9435b48269"
+    },
+    "allWorldHashes": "68a23a4b3dc20719f24bb91f1030d5fa001c7ee50c57824ceeafb6d2c29d5304",
+    "replay": "a6bdbc9824bdaf59a95b8e1f4fd71bc9dcbc8476c409e93c2344b5b6ce693810",
+    "programLogs": "0db0285707dd8d5f9998e48572e5c04812b5d9854fed6605f05373f8108b9179"
+  }
+}

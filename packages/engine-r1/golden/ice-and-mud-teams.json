@@ -1,0 +1,166 @@
+{
+  "name": "ice-and-mud-teams",
+  "description": "A two-Bot team (a tracked Hammer Wedge with a rangefinder and a walking Saw Brawler) against a Juggernaut with a Rocket Pod, Autocannons and a tail Pellet Gun, on ice and mud with destructible walls and a boulder. Melee, a rangefinder, Friends and every Terrain modifier.",
+  "record": {
+    "ruleset": "r1",
+    "map": {
+      "format": 1,
+      "width": 70,
+      "height": 50,
+      "baseTerrain": "grass",
+      "terrainRegions": [
+        {
+          "terrain": "ice",
+          "shape": "polygon",
+          "points": [{ "x": 15, "y": 0 }, { "x": 27, "y": 0 }, { "x": 27, "y": 50 }, { "x": 15, "y": 50 }]
+        },
+        {
+          "terrain": "mud",
+          "shape": "polygon",
+          "points": [{ "x": 43, "y": 0 }, { "x": 55, "y": 0 }, { "x": 55, "y": 50 }, { "x": 43, "y": 50 }]
+        },
+        { "terrain": "road", "shape": "circle", "x": 35, "y": 25, "radius": 5 }
+      ],
+      "obstacles": [
+        {
+          "id": "wall-north",
+          "destructible": true,
+          "hitPoints": 60,
+          "shape": "polygon",
+          "points": [{ "x": 33, "y": 8 }, { "x": 37, "y": 8 }, { "x": 37, "y": 16 }, { "x": 33, "y": 16 }]
+        },
+        {
+          "id": "wall-south",
+          "destructible": true,
+          "hitPoints": 60,
+          "shape": "polygon",
+          "points": [{ "x": 33, "y": 34 }, { "x": 37, "y": 34 }, { "x": 37, "y": 42 }, { "x": 33, "y": 42 }]
+        },
+        { "id": "boulder", "destructible": false, "shape": "circle", "x": 50, "y": 42, "radius": 2.5 }
+      ],
+      "spawnZones": [
+        {
+          "heading": 90,
+          "capacity": 2,
+          "shape": "polygon",
+          "points": [{ "x": 2, "y": 15 }, { "x": 12, "y": 15 }, { "x": 12, "y": 35 }, { "x": 2, "y": 35 }]
+        },
+        {
+          "heading": 270,
+          "capacity": 2,
+          "shape": "polygon",
+          "points": [{ "x": 58, "y": 15 }, { "x": 68, "y": 15 }, { "x": 68, "y": 35 }, { "x": 58, "y": 35 }]
+        }
+      ]
+    },
+    "entries": [
+      {
+        "player": "red",
+        "bots": [
+          {
+            "name": "Anvil",
+            "build": {
+              "chassis": "wedge",
+              "components": { "prow": "hammer", "eye": "rangefinder", "leftDrive": "tracks", "rightDrive": "tracks" },
+              "armor": { "front": "heavyPlate", "left": null, "right": null, "rear": null }
+            },
+            "program": "\nlet target = null;\n\nfunction tick() {\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length > 0) { target = foes[0]; }\n  const goal = target == null ? { x: map.width - 12, y: map.height / 2 } : target;\n  const r = rangefind(\"eye\");\n  if (r != null && r.hit == \"obstacle\" && r.distance < 5) { turn(1); throttle(-0.5); return; }\n  const b = bearingTo(goal.x, goal.y);\n  turn(clamp(b / 15, -1, 1));\n  throttle(abs(b) < 45 ? 1 : 0.3);\n  fire(\"prow\", 0);\n  if (checkTerrain(0, 3) == \"mud\") { log(\"mud ahead\"); }\n}"
+          },
+          {
+            "name": "Buzz",
+            "build": {
+              "chassis": "brawler",
+              "components": { "nose": "saw", "eye": "domeRadar", "leftDrive": "walker", "rightDrive": "walker" },
+              "armor": { "front": "mediumPlate", "left": "lightPlate", "right": "lightPlate", "rear": null }
+            },
+            "program": "\nlet target = null;\n\nfunction tick() {\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length > 0) { target = foes[0]; }\n  const goal = target == null ? { x: map.width - 12, y: map.height / 2 } : target;\n  const b = bearingTo(goal.x, goal.y);\n  turn(clamp(b / 15, -1, 1));\n  throttle(abs(b) < 45 ? 1 : 0.3);\n  fire(\"nose\", 0);\n  if (checkTerrain(0, 3) == \"mud\") { log(\"mud ahead\"); }\n}"
+          }
+        ]
+      },
+      {
+        "player": "blue",
+        "bots": [
+          {
+            "name": "Colossus",
+            "build": {
+              "chassis": "juggernaut",
+              "components": {
+                "leftNose": "rocketPod",
+                "leftGun": "autocannon",
+                "rightGun": "autocannon",
+                "tail": "pelletGun",
+                "eye": "longRadar",
+                "topEye": "domeRadar",
+                "rearEye": "detector",
+                "leftDrive": "tracks",
+                "rightDrive": "tracks",
+                "bay1": "fastProcessor"
+              },
+              "armor": { "front": "heavyPlate", "left": "heavyPlate", "right": "heavyPlate", "rear": "mediumPlate" }
+            },
+            "program": "\nfunction tick() {\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length == 0) { turn(0.4); throttle(0); return; }\n  const foe = foes.reduce((a, c) => c.distance < a.distance ? c : a, foes[0]);\n  turn(clamp(foe.bearing / 10, -1, 1));\n  throttle(foe.distance < 3 ? 0 : 0.3);\n  for (const g of [\"leftNose\", \"leftGun\", \"rightGun\", \"tail\"]) { fire(g, foe); }\n}"
+          }
+        ]
+      }
+    ],
+    "seed": 42,
+    "timeLimitTicks": 500,
+    "startingPositions": [
+      { "bot": 1, "x": 8.510043591927156, "y": 16.057749247872774, "heading": 90 },
+      { "bot": 2, "x": 4.622981240325052, "y": 18.887803219426473, "heading": 90 },
+      { "bot": 3, "x": 61.72480271459415, "y": 30.613916508496462, "heading": 270 }
+    ],
+    "tick": 417,
+    "operations": [
+      {
+        "bot": 1,
+        "perTick": [1, 93, 93, 93, 93, 93, 93, 93, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 101, 101, 97, 97, 97, 101, 101, 101, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, 97, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]
+      },
+      {
+        "bot": 2,
+        "perTick": [1, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 81, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 79, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 76, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74, 74]
+      },
+      {
+        "bot": 3,
+        "perTick": [0, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 108, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99, 99]
+      }
+    ],
+    "result": {
+      "tick": 417,
+      "end": "lastStanding",
+      "winner": "red",
+      "decidedBy": "survival",
+      "standings": [
+        { "player": "red", "foeDamage": 500, "hitPoints": 220, "remaining": true },
+        { "player": "blue", "foeDamage": 300, "hitPoints": 0, "remaining": false }
+      ]
+    }
+  },
+  "expected": {
+    "eventCounts": { "collision": 260, "damage": 210, "disabled": 2, "fired": 309, "impact": 309 },
+    "programRuns": { "Anvil": { "completed": 178 }, "Buzz": { "completed": 418 }, "Colossus": { "completed": 418 } },
+    "worldHashes": {
+      "0": "8b6af6fe9ad92a82",
+      "25": "840c6838ae1ac9ff",
+      "50": "8cd1362981b1160b",
+      "75": "7e7c2c4bab249cd9",
+      "100": "f3cd122f79c9ebb7",
+      "125": "a51cf6b6e3840db1",
+      "150": "a56053f8504152eb",
+      "175": "42e6c40fe8e0665b",
+      "200": "b14df650ec608825",
+      "225": "9a6a9650285eb72e",
+      "250": "81360650974bf09a",
+      "275": "889b96508a6453f9",
+      "300": "31c40650aa2f3d48",
+      "325": "44f586505bfc7b17",
+      "350": "fb3216500ad36f8e",
+      "375": "a8e926500154463d",
+      "400": "c0a216509f3b73fa",
+      "417": "1995c4e237fe2822"
+    },
+    "allWorldHashes": "28b2d149d0c912557ea2e03c2e64d4f9b8415f59b23d8983bbc9fb77b9fa4624",
+    "replay": "4757c3af889d07cb2aa9f6af802ba3cca761f3ec5c65c0274356214b6e22f99c",
+    "programLogs": "ae2738785fe49fa28e6dfb47114ba51b88ecc9c0784d4532643c2fef32dc05f9"
+  }
+}
