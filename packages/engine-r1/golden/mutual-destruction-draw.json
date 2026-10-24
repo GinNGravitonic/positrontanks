@@ -1,0 +1,94 @@
+{
+  "name": "mutual-destruction-draw",
+  "description": "Two identical Laser Scouts on wheels face each other across open grass and trade Beam shots without moving. Instant weapons all fire before any damage is dealt, so the last two Bots are Disabled in the same Tick: ends with none standing, tied on Foe damage and Hit Points, a Draw.",
+  "record": {
+    "ruleset": "r1",
+    "map": {
+      "format": 1,
+      "width": 40,
+      "height": 20,
+      "baseTerrain": "grass",
+      "terrainRegions": [],
+      "obstacles": [],
+      "spawnZones": [
+        {
+          "heading": 90,
+          "capacity": 1,
+          "shape": "polygon",
+          "points": [{ "x": 6, "y": 9 }, { "x": 8, "y": 9 }, { "x": 8, "y": 11 }, { "x": 6, "y": 11 }]
+        },
+        {
+          "heading": 270,
+          "capacity": 1,
+          "shape": "polygon",
+          "points": [{ "x": 32, "y": 9 }, { "x": 34, "y": 9 }, { "x": 34, "y": 11 }, { "x": 32, "y": 11 }]
+        }
+      ]
+    },
+    "entries": [
+      {
+        "player": "ivy",
+        "bots": [
+          {
+            "name": "Mirror",
+            "build": {
+              "chassis": "scout",
+              "components": { "gun": "laser", "eye": "radar", "drive": "wheels" },
+              "armor": { "front": "lightPlate", "left": null, "right": null, "rear": null }
+            },
+            "program": "\nfunction tick() {\n  throttle(0);\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length == 0) { return; }\n  const foe = foes[0];\n  turn(clamp(foe.bearing / 20, -1, 1));\n  if (fire(\"gun\", foe)) { log(\"hit \" + foe.name + \" at \" + str(self.hitPoints)); }\n}"
+          }
+        ]
+      },
+      {
+        "player": "jay",
+        "bots": [
+          {
+            "name": "Image",
+            "build": {
+              "chassis": "scout",
+              "components": { "gun": "laser", "eye": "radar", "drive": "wheels" },
+              "armor": { "front": "lightPlate", "left": null, "right": null, "rear": null }
+            },
+            "program": "\nfunction tick() {\n  throttle(0);\n  const foes = scan().filter((c) => c.isFoe);\n  if (foes.length == 0) { return; }\n  const foe = foes[0];\n  turn(clamp(foe.bearing / 20, -1, 1));\n  if (fire(\"gun\", foe)) { log(\"hit \" + foe.name + \" at \" + str(self.hitPoints)); }\n}"
+          }
+        ]
+      }
+    ],
+    "seed": 2024,
+    "timeLimitTicks": 600,
+    "startingPositions": [
+      { "bot": 1, "x": 7.508315470930567, "y": 9.155872211255177, "heading": 90 },
+      { "bot": 2, "x": 32.55311990621614, "y": 9.105168119769841, "heading": 270 }
+    ],
+    "tick": 49,
+    "operations": [
+      {
+        "bot": 1,
+        "perTick": [0, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61]
+      },
+      {
+        "bot": 2,
+        "perTick": [0, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61, 48, 48, 48, 48, 48, 48, 48, 61]
+      }
+    ],
+    "result": {
+      "tick": 49,
+      "end": "noneStanding",
+      "winner": null,
+      "decidedBy": null,
+      "standings": [
+        { "player": "ivy", "foeDamage": 80, "hitPoints": 0, "remaining": false },
+        { "player": "jay", "foeDamage": 80, "hitPoints": 0, "remaining": false }
+      ]
+    }
+  },
+  "expected": {
+    "eventCounts": { "damage": 14, "disabled": 2, "fired": 14, "impact": 14 },
+    "programRuns": { "Mirror": { "completed": 50 }, "Image": { "completed": 50 } },
+    "worldHashes": { "0": "288f6c68cad81092", "25": "1c0ca237fbbdda9a", "49": "4070cd0f25dd6847" },
+    "allWorldHashes": "97f6927fcd1f85be13503b4d4c209857a0adb51a0062078591d6ba7d84099b34",
+    "replay": "88f38cf9cfcb7bd93f66448ccd674a7f104348d11978d24881037f2c052ee9ce",
+    "programLogs": "605b7ed47e32bb7e10d1a321de1343a330894b1604cf6263f6fc92a105899c51"
+  }
+}

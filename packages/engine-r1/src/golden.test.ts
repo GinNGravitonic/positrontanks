@@ -171,10 +171,11 @@ describe("the golden Games", () => {
     for (const def of GOLDEN_GAMES) expect(inputs(readGolden(def.name).record), `${def.name}: ${UPDATE_HINT}`).toEqual(inputs(def));
   });
 
-  it("are varied: every end of a Game, weapon category and Terrain of r1 appears", () => {
+  it("are varied: every end of a Game, a Draw, every weapon category and Terrain of r1 appears", () => {
     const records = GOLDEN_GAMES.map((g) => readGolden(g.name).record);
     const ends = new Set(records.map((r) => r.result?.end));
-    expect(ends).toEqual(new Set(["lastStanding", "timeLimit"]));
+    expect(ends).toEqual(new Set(["lastStanding", "noneStanding", "timeLimit"]));
+    expect(records.some((r) => r.result?.winner === null), "some golden Game ends in a Draw").toBe(true);
     const components = new Set(records.flatMap((r) => r.entries.flatMap((e) => e.bots.flatMap((b) => Object.values(b.build.components)))));
     const categories = new Set(r1.components.filter((c) => components.has(c.id) && c.kind === "weapon").map((c) => c.stats["category"]));
     expect(categories).toEqual(new Set(["melee", "projectile", "beam"]));

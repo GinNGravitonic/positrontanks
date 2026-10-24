@@ -411,4 +411,41 @@ function tick() {
       },
     ],
   },
+  {
+    name: "mutual-destruction-draw",
+    description:
+      "Two identical Laser Scouts on wheels face each other across open grass and trade Beam shots without moving. Instant weapons all fire before any damage is dealt, so the last two Bots are Disabled in the same Tick: ends with none standing, tied on Foe damage and Hit Points, a Draw.",
+    seed: 2024,
+    timeLimitTicks: 600,
+    map: {
+      format: 1,
+      width: 40,
+      height: 20,
+      baseTerrain: "grass",
+      terrainRegions: [],
+      obstacles: [],
+      spawnZones: [
+        { heading: 90, capacity: 1, shape: "polygon", points: rect(6, 9, 2, 2) },
+        { heading: 270, capacity: 1, shape: "polygon", points: rect(32, 9, 2, 2) },
+      ],
+    },
+    entries: (["ivy", "jay"] as const).map((player, i) => ({
+      player,
+      bots: [
+        {
+          name: i === 0 ? "Mirror" : "Image",
+          build: { chassis: "scout", components: { gun: "laser", eye: "radar", drive: "wheels" }, armor: { ...bare, front: "lightPlate" } },
+          program: `
+function tick() {
+  throttle(0);
+  const foes = scan().filter((c) => c.isFoe);
+  if (foes.length == 0) { return; }
+  const foe = foes[0];
+  turn(clamp(foe.bearing / 20, -1, 1));
+  if (fire("gun", foe)) { log("hit " + foe.name + " at " + str(self.hitPoints)); }
+}`,
+        },
+      ],
+    })),
+  },
 ];
