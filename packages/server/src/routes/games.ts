@@ -12,7 +12,8 @@
  * Lifecycle: a Game is Open until it is full, when it becomes Running at
  * once (the submission that fills it starts it); the Initiator may cancel it
  * while Open, and it is cancelled automatically if not full by its fill
- * deadline. Running -> Finished is the Game runner's business. The fill
+ * deadline. The Game runner (games/runner.ts) plays a Running Game and
+ * Finishes it with its result, which is then shown with the Game. The fill
  * timeout is applied lazily before every request here (see db/games.ts),
  * with the deadline as the recorded end time, so it is exact whenever
  * observed.
@@ -37,6 +38,8 @@ import { checkMapTerrains, entryFitsMap, terrainNames } from "@aumohta/ruleset-d
 import { authenticate } from "../accounts/auth.js";
 import {
   botNameKey,
+  DECIDED_BY,
+  GAME_ENDS,
   GAME_STATES,
   PACES,
   type EntryRecord,
@@ -97,6 +100,10 @@ const gameProperties: Record<string, Json> = {
     description: "Why a Cancelled Game was cancelled.",
   },
   entryCount: { type: "integer", minimum: 0 },
+  result: {
+    oneOf: [ref("GameResult"), { type: "null" }],
+    description: "Set once the Game is Finished.",
+  },
 };
 const gameRequired = Object.keys(gameProperties);
 
@@ -113,6 +120,30 @@ const schemas: Record<string, Json> = {
     required: ["id", "name", "revision"],
     additionalProperties: false,
     properties: { id: { type: "string" }, name: { type: "string" }, revision: { type: "integer", minimum: 1 } },
+  },
+  GameResult: {
+    type: "object",
+    description: "How a Finished Game ended, and who won it.",
+    required: ["tick", "end", "winner", "decidedBy"],
+    additionalProperties: false,
+    properties: {
+      tick: { type: "integer", minimum: 0, description: "The Tick the Game ended in; 0 if it ended before the first." },
+      end: {
+        type: "string",
+        enum: [...GAME_ENDS],
+        description:
+          "last_standing: one Player had a Bot not Disabled, and no other Player did; none_standing: the last " +
+          "Players' Bots were all Disabled in the same Tick; time_limit: the time limit was reached.",
+      },
+      winner: { oneOf: [ref("GamePlayer"), { type: "null" }], description: "Null for a Draw." },
+      decidedBy: {
+        type: ["string", "null"],
+        enum: [...DECIDED_BY, null],
+        description:
+          "What picked the Winner: survival, or a tiebreak (damage dealt to Foes, then remaining Hit Points). " +
+          "Null for a Draw.",
+      },
+    },
   },
   GameSummary: {
     type: "object",
@@ -377,6 +408,15 @@ const gameFields = (g: GameRecord): Record<string, Json> => ({
   endedAt: g.endedAt,
   cancelReason: g.cancelReason,
   entryCount: g.entryCount,
+  result:
+    g.result === null
+      ? null
+      : {
+          tick: g.result.tick,
+          end: g.result.end,
+          winner: g.result.winner === null ? null : { id: g.result.winner.id, username: g.result.winner.username },
+          decidedBy: g.result.decidedBy,
+        },
 });
 
 /** An Entry as `viewerId` may see it in `game`. */
@@ -710,7 +750,7 @@ export const gamesModule: ApiModule = {
         const now = sweep(context);
         // Everything from here on is synchronous in one transaction, so no
         // other request can take the slot or a Bot Name in between.
-        return db.transaction(() => {
+        const reply = db.transaction(() => {
           const game = loadGame(context);
           if (game.state !== "open") throw notOpen(game.id, game.state);
           const map = db.maps.getRevision(game.map.id, game.map.revision);
@@ -812,6 +852,9 @@ export const gamesModule: ApiModule = {
             body: { entry: entryJson(entry, result, player.id), game: gameJson(context, result, player.id) },
           };
         });
+        // Committed: if this Entry filled the Game, it is Running and the runner starts it.
+        context.services.runner.pickUp();
+        return reply;
       },
     },
     {

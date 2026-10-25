@@ -205,6 +205,24 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX game_entry_bots_by_revision ON game_entry_bots (design_id, design_revision);
     `,
   },
+  {
+    version: 6,
+    name: "game_results",
+    // The Game runner's progress and a Finished Game's result. last_tick is
+    // the last Tick played and saved, NULL until the Game is first run;
+    // resuming after a restart replays the Game Record (in object storage)
+    // up to it. A Finished Game has result_end set, its last_tick is the Tick
+    // it ended in, and winner_id is NULL for a Draw. decided_by says what
+    // picked the Winner: survival, or a tiebreak (foe damage, then Hit
+    // Points); NULL for a Draw.
+    sql: `
+      ALTER TABLE games ADD COLUMN last_tick INTEGER CHECK (last_tick >= 0);
+      ALTER TABLE games ADD COLUMN result_end TEXT
+        CHECK (result_end IN ('last_standing', 'none_standing', 'time_limit'));
+      ALTER TABLE games ADD COLUMN winner_id TEXT REFERENCES players (id);
+      ALTER TABLE games ADD COLUMN decided_by TEXT CHECK (decided_by IN ('survival', 'foe_damage', 'hit_points'));
+    `,
+  },
 ];
 
 export class MigrationError extends Error {

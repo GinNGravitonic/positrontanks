@@ -13,7 +13,9 @@
 import type { IncomingMessage } from "node:http";
 import type { ServerConfig } from "../config.js";
 import type { Database } from "../db/database.js";
+import type { GameRunner } from "../games/runner.js";
 import type { RulesetCatalog } from "../rulesets/catalog.js";
+import type { ObjectStore } from "../storage/object-store.js";
 import { badRequest } from "./errors.js";
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -33,7 +35,7 @@ export interface Operation {
   readonly security?: readonly Json[];
 }
 
-/** What every handler can reach. Later tasks add object storage, the Game runner, etc. */
+/** What every handler can reach. */
 export interface Services {
   readonly config: ServerConfig;
   readonly db: Database;
@@ -41,6 +43,10 @@ export interface Services {
   readonly rulesets: RulesetCatalog;
   /** The current time; injectable so tests can move it (e.g. past a fill timeout). */
   readonly clock: () => Date;
+  /** Blobs: Game Records, Replays and, later, images. */
+  readonly objects: ObjectStore;
+  /** Plays Running Games; tell it when a Game starts. */
+  readonly runner: GameRunner;
 }
 
 export interface RequestContext {

@@ -7,17 +7,21 @@ export type { Credential, Principal } from "./accounts/auth.js";
 export { AccountStore } from "./db/accounts.js";
 export type { ApiKeyRecord, PlayerRecord } from "./db/accounts.js";
 export { Database } from "./db/database.js";
-export { botNameKey, GAME_STATES, GameStore, PACES } from "./db/games.js";
+export { botNameKey, DECIDED_BY, GAME_ENDS, GAME_STATES, GameStore, PACES } from "./db/games.js";
 export type {
   CancelReason,
+  DecidedBy,
   EntryBotRecord,
   EntryRecord,
   EntryRefusal,
+  GameEnd,
   GameRecord,
+  GameResultRecord,
   GameState,
   NewEntry,
   NewEntryBot,
   NewGame,
+  NewGameResult,
   OpenGameFilters,
   Pace,
 } from "./db/games.js";
@@ -32,6 +36,10 @@ export type {
   MapRevisionSummary,
   NewMap,
 } from "./db/maps.js";
+export { r1Engine } from "./games/engine.js";
+export type { EngineGame, GameEngine, GameOutcome, GameStart } from "./games/engine.js";
+export { gameRecordKey, GameRunner, replayKey, UNTHROTTLED_SLICE_MS } from "./games/runner.js";
+export type { Pacing, RunnerOptions } from "./games/runner.js";
 export { checkDesign } from "./garage/design-check.js";
 export type { DesignCheck } from "./garage/design-check.js";
 export type { OpenOptions } from "./db/database.js";

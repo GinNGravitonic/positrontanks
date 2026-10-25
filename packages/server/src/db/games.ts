@@ -14,6 +14,10 @@
  *
  * Entries come back with each Bot's Build (never its Program), read from the
  * referenced Bot Design Revision, so the caller decides who may see it.
+ * Programs are read separately, by the Game runner only.
+ *
+ * Running -> Finished is the Game runner's (games/runner.ts): it saves the
+ * last Tick played as it goes, and the result when the Game ends.
  */
 
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
@@ -26,6 +30,34 @@ export const PACES = ["realtime", "unthrottled"] as const;
 export type Pace = (typeof PACES)[number];
 
 export type CancelReason = "initiator" | "fill_timeout";
+
+/** Why a Finished Game ended: one Player left, none left (all Disabled in one Tick), or the time limit. */
+export const GAME_ENDS = ["last_standing", "none_standing", "time_limit"] as const;
+export type GameEnd = (typeof GAME_ENDS)[number];
+
+/** What picked the Winner: survival, or a tiebreak (damage dealt to Foes, then remaining Hit Points). */
+export const DECIDED_BY = ["survival", "foe_damage", "hit_points"] as const;
+export type DecidedBy = (typeof DECIDED_BY)[number];
+
+/** A Finished Game's result. */
+export interface GameResultRecord {
+  /** The Tick the Game ended in; 0 if it ended in the init phase. */
+  readonly tick: number;
+  readonly end: GameEnd;
+  /** Null for a Draw. */
+  readonly winner: { readonly id: string; readonly username: string } | null;
+  /** Null for a Draw. */
+  readonly decidedBy: DecidedBy | null;
+}
+
+/** A result as the Game runner reports it. */
+export interface NewGameResult {
+  readonly tick: number;
+  readonly end: GameEnd;
+  /** The winning Player's id, or null for a Draw. */
+  readonly winnerId: string | null;
+  readonly decidedBy: DecidedBy | null;
+}
 
 export interface GameRecord {
   readonly id: string;
@@ -44,6 +76,10 @@ export interface GameRecord {
   readonly endedAt: string | null;
   readonly cancelReason: CancelReason | null;
   readonly entryCount: number;
+  /** The last Tick the Game runner played and saved; null until it first runs the Game. */
+  readonly lastTick: number | null;
+  /** Set once the Game is Finished. */
+  readonly result: GameResultRecord | null;
 }
 
 export interface NewGame {
@@ -130,6 +166,11 @@ interface GameRow {
   ended_at: string | null;
   cancel_reason: CancelReason | null;
   entry_count: number;
+  last_tick: number | null;
+  result_end: GameEnd | null;
+  winner_id: string | null;
+  winner_username: string | null;
+  decided_by: DecidedBy | null;
 }
 
 interface EntryBotRow {
@@ -150,10 +191,12 @@ const GAME_COLUMNS = `
   g.id, g.initiator_id, p.username, g.ruleset_version, g.map_id, m.name AS map_name, g.map_revision,
   g.player_count, g.point_budget, g.time_limit_seconds, g.pace, g.fill_timeout_seconds, g.state,
   g.created_at, g.fill_deadline, g.started_at, g.ended_at, g.cancel_reason,
-  (SELECT count(*) FROM game_entries e WHERE e.game_id = g.id) AS entry_count
+  (SELECT count(*) FROM game_entries e WHERE e.game_id = g.id) AS entry_count,
+  g.last_tick, g.result_end, g.winner_id, w.username AS winner_username, g.decided_by
   FROM games g
   JOIN players p ON p.id = g.initiator_id
-  JOIN maps m ON m.id = g.map_id`;
+  JOIN maps m ON m.id = g.map_id
+  LEFT JOIN players w ON w.id = g.winner_id`;
 
 const toGame = (row: GameRow): GameRecord => ({
   id: row.id,
@@ -172,6 +215,16 @@ const toGame = (row: GameRow): GameRecord => ({
   endedAt: row.ended_at,
   cancelReason: row.cancel_reason,
   entryCount: row.entry_count,
+  lastTick: row.last_tick,
+  result:
+    row.result_end === null
+      ? null
+      : {
+          tick: row.last_tick ?? 0,
+          end: row.result_end,
+          winner: row.winner_id === null ? null : { id: row.winner_id, username: row.winner_username ?? "" },
+          decidedBy: row.decided_by,
+        },
 });
 
 export class GameStore {
@@ -260,6 +313,14 @@ export class GameStore {
     return this.#list(conditions, args);
   }
 
+  /** Every Running Game, in the order they started. */
+  listRunningGames(): GameRecord[] {
+    const rows = this.#db
+      .prepare(`SELECT ${GAME_COLUMNS} WHERE g.state = 'running' ORDER BY g.started_at, g.rowid`)
+      .all() as unknown as GameRow[];
+    return rows.map(toGame);
+  }
+
   #list(conditions: readonly string[], args: readonly SQLInputValue[]): GameRecord[] {
     const rows = this.#db
       .prepare(`SELECT ${GAME_COLUMNS} WHERE ${conditions.join(" AND ")} ORDER BY g.created_at DESC, g.rowid DESC`)
@@ -306,6 +367,46 @@ export class GameStore {
       });
     }
     return [...entries.values()].map(({ record, bots }) => ({ ...record, bots }));
+  }
+
+  /**
+   * The Programs of the Game's Bots by Entry id, each list in the Entry's Bot
+   * order (the order `listEntries` gives the Builds in). Only the Game runner
+   * reads these: no endpoint shows a Program to anyone but its owner.
+   */
+  listPrograms(gameId: string): Map<string, string[]> {
+    const rows = this.#db
+      .prepare(
+        `SELECT b.entry_id, r.program
+         FROM game_entry_bots b
+         JOIN bot_design_revisions r ON r.design_id = b.design_id AND r.number = b.design_revision
+         WHERE b.game_id = ?
+         ORDER BY b.entry_id, b.position`,
+      )
+      .all(gameId) as unknown as { entry_id: string; program: string }[];
+    const programs = new Map<string, string[]>();
+    for (const row of rows) {
+      const list = programs.get(row.entry_id) ?? [];
+      list.push(row.program);
+      programs.set(row.entry_id, list);
+    }
+    return programs;
+  }
+
+  /** Saves the last Tick played of a Running Game; does nothing once it is no longer Running. */
+  saveProgress(gameId: string, tick: number): void {
+    this.#db.prepare("UPDATE games SET last_tick = ? WHERE id = ? AND state = 'running'").run(tick, gameId);
+  }
+
+  /** Finishes a Running Game with its result; returns false if it was not Running. */
+  finishGame(gameId: string, result: NewGameResult, now: Date): boolean {
+    const { changes } = this.#db
+      .prepare(
+        `UPDATE games SET state = 'finished', ended_at = ?, last_tick = ?, result_end = ?, winner_id = ?, decided_by = ?
+         WHERE id = ? AND state = 'running'`,
+      )
+      .run(now.toISOString(), result.tick, result.end, result.winnerId, result.decidedBy, gameId);
+    return Number(changes) === 1;
   }
 
   /**

@@ -4,7 +4,8 @@
  * Each hosted version pairs its Ruleset data with what the server needs to
  * check Programs written for it: the language definition, and how to find a
  * Build's weapon and rangefinder Slots, which comes from that version's
- * frozen engine so save-time checks agree exactly with what the engine runs.
+ * frozen engine so save-time checks agree exactly with what the engine runs,
+ * and that engine itself, which the Game runner plays the version's Games on.
  *
  * Adding a Ruleset version means shipping its data in ruleset-data and adding
  * an entry to `hostVersion` below wired to its engine.
@@ -13,6 +14,7 @@
 import { deriveBotSpec, programSlots } from "@aumohta/engine-r1";
 import { R1_LANGUAGE, type LanguageDefinition, type ProgramSlots } from "@aumohta/language";
 import type { Build, Ruleset } from "@aumohta/ruleset-data";
+import { r1Engine, type GameEngine } from "../games/engine.js";
 import { loadRuleset, RULESET_VERSIONS, type RulesetVersion } from "@aumohta/ruleset-data/rulesets";
 
 export interface HostedRuleset {
@@ -20,6 +22,8 @@ export interface HostedRuleset {
   readonly language: LanguageDefinition;
   /** The Slot ids a Program may name in `fire`, `fireAbs` and `rangefind`, for a Build validated under `ruleset`. */
   programSlots(build: Build): ProgramSlots;
+  /** Plays Games under `ruleset`. */
+  readonly engine: GameEngine;
 }
 
 export class RulesetCatalog {
@@ -51,6 +55,7 @@ export function engineR1Ruleset(ruleset: Ruleset): HostedRuleset {
     ruleset,
     language: R1_LANGUAGE,
     programSlots: (build) => programSlots(deriveBotSpec(ruleset, build)),
+    engine: r1Engine(ruleset),
   };
 }
 
