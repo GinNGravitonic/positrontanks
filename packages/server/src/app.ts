@@ -11,6 +11,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import type { ServerConfig } from "./config.js";
 import { Database } from "./db/database.js";
+import { GameRunner, type Pacing } from "./games/runner.js";
 import { readJsonBody } from "./http/body.js";
 import { ApiError, notFound } from "./http/errors.js";
 import { buildOpenApiDocument } from "./http/openapi.js";
@@ -23,6 +24,8 @@ import { rulesetsModule } from "./routes/rulesets.js";
 import { systemModule } from "./routes/system.js";
 import { tickCostModule } from "./routes/tick-cost.js";
 import { defaultRulesetCatalog, type RulesetCatalog } from "./rulesets/catalog.js";
+import { createObjectStore } from "./storage/create.js";
+import type { ObjectStore } from "./storage/object-store.js";
 
 /** The feature areas served in production, besides the system endpoints. */
 export const apiModules: readonly ApiModule[] = [
@@ -56,6 +59,10 @@ export interface AppOptions {
   readonly rulesets?: RulesetCatalog;
   /** The current time; defaults to the system clock. */
   readonly clock?: () => Date;
+  /** Blob storage; defaults to the store `config.storage` selects. */
+  readonly objects?: ObjectStore;
+  /** How the Game runner keeps realtime Pace; defaults to real timers. */
+  readonly pacing?: Pacing;
 }
 
 export type RequestListener = (request: IncomingMessage, response: ServerResponse) => void;
@@ -129,15 +136,28 @@ export interface RunningServer {
   readonly url: string;
   readonly server: Server;
   readonly services: Services;
-  /** Stops accepting connections, waits for in-flight requests, then closes the database. */
+  /**
+   * Stops accepting connections, waits for in-flight requests, stops the
+   * Game runner (Running Games stay Running, to be resumed at the next
+   * startup), then closes the database.
+   */
   close(): Promise<void>;
 }
 
-/** Opens the database (running migrations) and starts listening. */
+/** Opens the database (running migrations), starts listening, and resumes every Running Game. */
 export async function startServer(config: ServerConfig, options: AppOptions = {}): Promise<RunningServer> {
+  const logger = options.logger ?? jsonLogger;
   const rulesets = options.rulesets ?? defaultRulesetCatalog();
   const db = Database.open(config.databasePath);
-  const services: Services = { config, db, rulesets, clock: options.clock ?? (() => new Date()) };
+  const base = {
+    config,
+    db,
+    rulesets,
+    clock: options.clock ?? (() => new Date()),
+    objects: options.objects ?? createObjectStore(config.storage),
+  };
+  const runner = new GameRunner(base, { logger, ...options.pacing });
+  const services: Services = { ...base, runner };
   const server = createServer(createApp(services, options));
   try {
     await new Promise<void>((resolve, reject) => {
@@ -152,6 +172,7 @@ export async function startServer(config: ServerConfig, options: AppOptions = {}
     throw error;
   }
 
+  runner.pickUp();
   const address = server.address() as AddressInfo;
   const host = address.family === "IPv6" ? `[${address.address}]` : address.address;
   return {
@@ -159,14 +180,19 @@ export async function startServer(config: ServerConfig, options: AppOptions = {}
     server,
     services,
     close: async () => {
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-          if (error) reject(error);
-          else resolve();
+      try {
+        await new Promise<void>((resolve, reject) => {
+          server.close((error) => {
+            if (error) reject(error);
+            else resolve();
+          });
+          server.closeIdleConnections();
         });
-        server.closeIdleConnections();
-      });
-      db.close();
+      } finally {
+        // The runner writes to the database, so it stops first.
+        await runner.stop();
+        db.close();
+      }
     },
   };
 }

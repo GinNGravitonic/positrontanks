@@ -1,0 +1,110 @@
+/**
+ * What the Game runner needs from a Ruleset version's frozen engine.
+ *
+ * Each engine has its own Game, Game Record and Replay types; the runner
+ * sees them only through this interface, so hosting another version means
+ * writing one more adapter like `r1Engine` below and wiring it up in
+ * rulesets/catalog.ts. Game Records and Replays leave here as plain JSON
+ * data, and a Game Record comes back the same way to resume a Game.
+ */
+
+import {
+  createGame,
+  gameRecord,
+  playTick,
+  replayGame,
+  replayOf,
+  type Game,
+  type GameRecord,
+  type GameResult,
+} from "@aumohta/engine-r1";
+import type { Build, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
+import type { DecidedBy, GameEnd } from "../db/games.js";
+
+/** Everything a Game is started from; it all goes into the Game Record. */
+export interface GameStart {
+  readonly map: MapFormat1;
+  /** In Entry order. */
+  readonly entries: readonly {
+    /** The Player's id; a Player with several Entries is still one Player. */
+    readonly player: string;
+    readonly bots: readonly { readonly name: string; readonly build: Build; readonly program: string }[];
+  }[];
+  /** An integer in [0, 2^32). */
+  readonly seed: number;
+  readonly timeLimitTicks: number;
+}
+
+/** How a Game ended, in the server's terms. */
+export interface GameOutcome {
+  /** The Tick the Game ended in; 0 if it ended in the init phase. */
+  readonly tick: number;
+  readonly end: GameEnd;
+  /** The winning Player's id, or null for a Draw. */
+  readonly winner: string | null;
+  readonly decidedBy: DecidedBy | null;
+}
+
+/** A Game being played. */
+export interface EngineGame {
+  /** The last Tick played; 0 after the init phase. */
+  tick(): number;
+  /** Null until the Game has ended. */
+  outcome(): GameOutcome | null;
+  /** Plays one Tick; throws if the Game has ended. */
+  playTick(): void;
+  /** The Game Record as it stands. */
+  record(): unknown;
+  /** The Replay as it stands: events and Builds, never Programs. */
+  replay(): unknown;
+}
+
+export interface GameEngine {
+  /** Creates the Game and runs every init phase. Throws if the Game cannot start. */
+  start(game: GameStart): EngineGame;
+  /**
+   * Plays a Game Record that `record()` produced again, up to the end of
+   * Tick `toTick` or the end of the Game if that comes first. Throws if the
+   * record does not reproduce.
+   */
+  resume(record: unknown, toTick: number): EngineGame;
+}
+
+const R1_ENDS: Readonly<Record<GameResult["end"], GameEnd>> = {
+  lastStanding: "last_standing",
+  noneStanding: "none_standing",
+  timeLimit: "time_limit",
+};
+
+const R1_DECIDED_BY: Readonly<Record<NonNullable<GameResult["decidedBy"]>, DecidedBy>> = {
+  survival: "survival",
+  foeDamage: "foe_damage",
+  hitPoints: "hit_points",
+};
+
+function r1Game(game: Game): EngineGame {
+  // Read through a function: playTick sets the result behind the type checker's back.
+  const result = (): GameResult | null => game.result;
+  return {
+    tick: () => game.world.tick,
+    outcome: () => {
+      const r = result();
+      if (r === null) return null;
+      const decidedBy = r.decidedBy === null ? null : R1_DECIDED_BY[r.decidedBy];
+      return { tick: r.tick, end: R1_ENDS[r.end], winner: r.winner, decidedBy };
+    },
+    playTick: () => {
+      playTick(game);
+    },
+    record: () => gameRecord(game),
+    replay: () => replayOf(game),
+  };
+}
+
+/** engine-r1 playing Games under `ruleset` (r1, or a test variant of it). */
+export function r1Engine(ruleset: Ruleset): GameEngine {
+  return {
+    start: (game) => r1Game(createGame({ ruleset, ...game })),
+    resume: (record, toTick) => r1Game(replayGame(record as GameRecord, ruleset, toTick)),
+  };
+}

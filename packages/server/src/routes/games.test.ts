@@ -9,7 +9,8 @@ const config: ServerConfig = {
   ...defaultConfig,
   port: 0,
   databasePath: ":memory:",
-  limits: { ...defaultConfig.limits, maxTimeLimitSeconds: 300, maxFillTimeoutSeconds: 3600 },
+  // No unthrottled Game is played, so the Games filled here stay Running (runner.test.ts plays them).
+  limits: { ...defaultConfig.limits, maxTimeLimitSeconds: 300, maxFillTimeoutSeconds: 3600, maxConcurrentUnthrottledGames: 0 },
 };
 const quiet: Logger = { info: () => undefined, error: () => undefined };
 
