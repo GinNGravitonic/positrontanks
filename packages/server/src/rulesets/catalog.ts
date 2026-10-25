@@ -14,12 +14,15 @@ import { deriveBotSpec, programSlots } from "@aumohta/engine-r1";
 import { R1_LANGUAGE, type LanguageDefinition, type ProgramSlots } from "@aumohta/language";
 import type { Build, Ruleset } from "@aumohta/ruleset-data";
 import { loadRuleset, RULESET_VERSIONS, type RulesetVersion } from "@aumohta/ruleset-data/rulesets";
+import { checkTickCostR1, type TickCost, type TickCostOptions } from "../garage/tick-cost.js";
 
 export interface HostedRuleset {
   readonly ruleset: Ruleset;
   readonly language: LanguageDefinition;
   /** The Slot ids a Program may name in `fire`, `fireAbs` and `rangefind`, for a Build validated under `ruleset`. */
   programSlots(build: Build): ProgramSlots;
+  /** Runs a checked Program in that version's sample world and reports its operation cost (garage/tick-cost.ts). */
+  checkTickCost(build: Build, program: string, options: TickCostOptions): TickCost;
 }
 
 export class RulesetCatalog {
@@ -51,6 +54,7 @@ export function engineR1Ruleset(ruleset: Ruleset): HostedRuleset {
     ruleset,
     language: R1_LANGUAGE,
     programSlots: (build) => programSlots(deriveBotSpec(ruleset, build)),
+    checkTickCost: (build, program, options) => checkTickCostR1(ruleset, build, program, options),
   };
 }
 

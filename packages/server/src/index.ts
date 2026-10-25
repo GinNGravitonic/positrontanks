@@ -34,6 +34,17 @@ export type {
 } from "./db/maps.js";
 export { checkDesign } from "./garage/design-check.js";
 export type { DesignCheck } from "./garage/design-check.js";
+export {
+  checkTickCostR1,
+  SAMPLE_BOT_NAME,
+  SAMPLE_FOE_NAME,
+  SAMPLE_FOE_PROGRAM,
+  sampleMap,
+  TICK_COST_DEFAULT_SEED,
+  TICK_COST_DEFAULT_TICKS,
+  TICK_COST_MAX_TICKS,
+} from "./garage/tick-cost.js";
+export type { CostedRun, RunStop, TickCost, TickCostOptions } from "./garage/tick-cost.js";
 export type { OpenOptions } from "./db/database.js";
 export { migrate, MigrationError, migrations } from "./db/migrations.js";
 export type { Migration } from "./db/migrations.js";
@@ -46,6 +57,7 @@ export { gamesModule } from "./routes/games.js";
 export { garageModule } from "./routes/garage.js";
 export { mapsModule } from "./routes/maps.js";
 export { rulesetsModule } from "./routes/rulesets.js";
+export { tickCostModule } from "./routes/tick-cost.js";
 export { defaultRulesetCatalog, engineR1Ruleset, RulesetCatalog } from "./rulesets/catalog.js";
 export type { HostedRuleset } from "./rulesets/catalog.js";
 export type {

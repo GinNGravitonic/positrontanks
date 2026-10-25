@@ -216,7 +216,7 @@ const schemas: Record<string, Json> = {
 // --- request parsing -------------------------------------------------------
 
 /** Reads a JSON object body, reporting fields outside `allowed` and missing `required` ones. */
-function readObject(body: unknown, allowed: readonly string[], required: readonly string[]): Record<string, unknown> {
+export function readObject(body: unknown, allowed: readonly string[], required: readonly string[]): Record<string, unknown> {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     throw validationFailed([{ path: "(body)", message: "must be a JSON object" }]);
   }
@@ -247,7 +247,7 @@ function readName(value: unknown, details: ErrorDetail[]): string | undefined {
 }
 
 /** The hosted Ruleset with this version, or undefined after recording a problem. */
-function readRuleset(context: RequestContext, value: unknown, details: ErrorDetail[]): HostedRuleset | undefined {
+export function readRuleset(context: RequestContext, value: unknown, details: ErrorDetail[]): HostedRuleset | undefined {
   if (typeof value !== "string") {
     details.push({ path: "rulesetVersion", message: "must be a string" });
     return undefined;

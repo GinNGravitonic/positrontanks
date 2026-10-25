@@ -540,6 +540,7 @@ describe("the OpenAPI document", () => {
       .sort();
     expect(operations).toEqual([
       "archiveBotDesign",
+      "checkBotDesignTickCost",
       "copyBotDesignToRuleset",
       "createBotDesign",
       "createBotDesignRevision",
