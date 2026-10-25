@@ -21,12 +21,14 @@ import { garageModule } from "./routes/garage.js";
 import { mapsModule } from "./routes/maps.js";
 import { rulesetsModule } from "./routes/rulesets.js";
 import { systemModule } from "./routes/system.js";
+import { tickCostModule } from "./routes/tick-cost.js";
 import { defaultRulesetCatalog, type RulesetCatalog } from "./rulesets/catalog.js";
 
 /** The feature areas served in production, besides the system endpoints. */
 export const apiModules: readonly ApiModule[] = [
   accountsModule,
   garageModule,
+  tickCostModule,
   mapsModule,
   rulesetsModule,
   gamesModule,
