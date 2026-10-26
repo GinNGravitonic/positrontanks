@@ -89,6 +89,91 @@ describe("migrations", () => {
   });
 });
 
+describe("the game_failures migration", () => {
+  it("rebuilds the games table, keeping every Game, its Entries and the listing order", () => {
+    const version = migrations.findIndex((m) => m.name === "game_failures") + 1;
+    expect(version).toBeGreaterThan(1);
+    const raw = new DatabaseSync(path);
+    raw.exec("PRAGMA foreign_keys = ON");
+    migrate(raw, migrations.slice(0, version - 1));
+    const at = "2026-01-01T00:00:00.000Z";
+    raw.exec(`
+      INSERT INTO players (id, username, username_key, created_at) VALUES ('p1', 'Ada', 'ada', '${at}'),
+        ('p2', 'Bix', 'bix', '${at}');
+      INSERT INTO maps (id, player_id, name, latest_revision, created_at, updated_at)
+        VALUES ('m1', 'p1', 'Field', 1, '${at}', '${at}');
+      INSERT INTO map_revisions (map_id, number, content, format, width, height, spawn_zones, created_at)
+        VALUES ('m1', 1, '{}', 1, 20, 10, 2, '${at}');
+      INSERT INTO bot_designs (id, player_id, name, ruleset_version, latest_revision, created_at, updated_at)
+        VALUES ('d1', 'p1', 'Scout', 'r1', 1, '${at}', '${at}');
+      INSERT INTO bot_design_revisions (design_id, number, build, program, cost, created_at)
+        VALUES ('d1', 1, '{}', 'function tick() {}', 40, '${at}');
+    `);
+    const insertGame = raw.prepare(
+      `INSERT INTO games (id, initiator_id, ruleset_version, map_id, map_revision, player_count, point_budget,
+         time_limit_seconds, pace, fill_timeout_seconds, state, created_at, fill_deadline, started_at, ended_at,
+         cancel_reason, last_tick, result_end, winner_id, decided_by)
+       VALUES (?, 'p1', 'r1', 'm1', 1, 2, 100, 60, 'realtime', 600, ?, '${at}', '${at}', ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    // Inserted out of id order: listings order by rowid, which must survive.
+    insertGame.run("g4", "cancelled", null, at, "initiator", null, null, null, null);
+    insertGame.run("g1", "open", null, null, null, null, null, null, null);
+    insertGame.run("g3", "finished", at, at, null, 42, "last_standing", "p2", "foe_damage");
+    insertGame.run("g2", "running", at, null, null, 7, null, null, null);
+    insertGame.run("g5", "cancelled", null, at, "fill_timeout", null, null, null, null);
+    raw.exec(`
+      INSERT INTO game_entries (id, game_id, player_id, cost, created_at) VALUES ('e1', 'g2', 'p1', 40, '${at}'),
+        ('e2', 'g3', 'p2', 40, '${at}');
+      INSERT INTO game_entry_bots (entry_id, position, game_id, name, name_key, design_id, design_revision)
+        VALUES ('e1', 0, 'g2', 'Ada', 'ada', 'd1', 1), ('e2', 0, 'g3', 'Bix', 'bix', 'd1', 1);
+    `);
+    const everything = (db: DatabaseSync) => ({
+      games: db.prepare("SELECT rowid, * FROM games ORDER BY rowid").all(),
+      entries: db.prepare("SELECT * FROM game_entries ORDER BY id").all(),
+      bots: db.prepare("SELECT * FROM game_entry_bots ORDER BY entry_id").all(),
+    });
+    const before = everything(raw);
+    raw.close();
+
+    const db = Database.open(path);
+    expect(db.schemaVersion()).toBe(migrations.length);
+    db.close();
+    const after = new DatabaseSync(path);
+    after.exec("PRAGMA foreign_keys = ON");
+    const migrated = everything(after);
+    expect(migrated.games).toEqual(before.games.map((game) => ({ ...game, failed_attempts: 0 })));
+    expect(migrated.entries).toEqual(before.entries);
+    expect(migrated.bots).toEqual(before.bots);
+    expect(after.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+    const indexes = after
+      .prepare(
+        "SELECT name FROM sqlite_schema WHERE type = 'index' AND tbl_name = 'games' AND sql IS NOT NULL ORDER BY name",
+      )
+      .all()
+      .map((row) => (row as { name: string }).name);
+    expect(indexes).toEqual(["games_by_initiator", "games_by_map_revision", "games_by_state"]);
+    // The new cancel reason is allowed, unknown ones still are not, and Entries still need their Game.
+    after.prepare("UPDATE games SET state = 'cancelled', cancel_reason = 'server_error' WHERE id = 'g2'").run();
+    expect(() => after.prepare("UPDATE games SET cancel_reason = 'bored' WHERE id = 'g2'").run()).toThrow(/CHECK/);
+    expect(() => after.prepare("UPDATE games SET failed_attempts = -1 WHERE id = 'g2'").run()).toThrow(/CHECK/);
+    const orphan = after.prepare(
+      "INSERT INTO game_entries (id, game_id, player_id, cost, created_at) VALUES ('e3', 'nope', 'p1', 1, 'x')",
+    );
+    expect(() => orphan.run()).toThrow(/FOREIGN KEY/);
+    after.close();
+
+    const reopened = Database.open(path);
+    expect(reopened.games.getGame("g3")).toMatchObject({
+      state: "finished",
+      failedAttempts: 0,
+      result: { tick: 42, end: "last_standing", winner: { id: "p2", username: "Bix" }, decidedBy: "foe_damage" },
+    });
+    expect(reopened.games.listEntries("g3").map((entry) => entry.id)).toEqual(["e2"]);
+    expect(reopened.games.listPlayerGames("p1").map((game) => game.id)).toEqual(["g5", "g2", "g3", "g1", "g4"]);
+    reopened.close();
+  });
+});
+
 describe("Database", () => {
   it("records when it was created", () => {
     const db = Database.open(":memory:");

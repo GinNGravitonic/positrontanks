@@ -13,7 +13,8 @@
  * once (the submission that fills it starts it); the Initiator may cancel it
  * while Open, and it is cancelled automatically if not full by its fill
  * deadline. The Game runner (games/runner.ts) plays a Running Game and
- * Finishes it with its result, which is then shown with the Game. The fill
+ * Finishes it with its result, which is then shown with the Game, or, if it
+ * keeps failing to play it, Cancels it (cancel reason `server_error`). The fill
  * timeout is applied lazily before every request here (see db/games.ts),
  * with the deadline as the recorded end time, so it is exact whenever
  * observed.
@@ -38,6 +39,7 @@ import { checkMapTerrains, entryFitsMap, terrainNames } from "@aumohta/ruleset-d
 import { authenticate } from "../accounts/auth.js";
 import {
   botNameKey,
+  CANCEL_REASONS,
   DECIDED_BY,
   GAME_ENDS,
   GAME_STATES,
@@ -96,8 +98,11 @@ const gameProperties: Record<string, Json> = {
   endedAt: { ...optionalTimestamp, description: "When the Game was Finished or Cancelled." },
   cancelReason: {
     type: ["string", "null"],
-    enum: ["initiator", "fill_timeout", null],
-    description: "Why a Cancelled Game was cancelled.",
+    enum: [...CANCEL_REASONS, null],
+    description:
+      "Why a Cancelled Game was cancelled: initiator: its Initiator cancelled it while Open; fill_timeout: it was " +
+      "not full by its fill deadline; server_error: it became Running but the server failed to play it, even " +
+      "after retrying, so it was cancelled unplayed (no result and no Replay).",
   },
   entryCount: { type: "integer", minimum: 0 },
   result: {

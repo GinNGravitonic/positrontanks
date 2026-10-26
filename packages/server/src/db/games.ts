@@ -17,7 +17,9 @@
  * Programs are read separately, by the Game runner only.
  *
  * Running -> Finished is the Game runner's (games/runner.ts): it saves the
- * last Tick played as it goes, and the result when the Game ends.
+ * last Tick played as it goes, and the result when the Game ends. So is
+ * Running -> Cancelled (cancel reason `server_error`), when its run fails too
+ * many times; failed runs are counted here so the count survives a restart.
  */
 
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
@@ -29,7 +31,12 @@ export type GameState = (typeof GAME_STATES)[number];
 export const PACES = ["realtime", "unthrottled"] as const;
 export type Pace = (typeof PACES)[number];
 
-export type CancelReason = "initiator" | "fill_timeout";
+/**
+ * Why a Game was Cancelled: its Initiator cancelled it, it was not full by its
+ * fill deadline, or the Game runner failed to play it (see `failGame`).
+ */
+export const CANCEL_REASONS = ["initiator", "fill_timeout", "server_error"] as const;
+export type CancelReason = (typeof CANCEL_REASONS)[number];
 
 /** Why a Finished Game ended: one Player left, none left (all Disabled in one Tick), or the time limit. */
 export const GAME_ENDS = ["last_standing", "none_standing", "time_limit"] as const;
@@ -80,6 +87,8 @@ export interface GameRecord {
   readonly lastTick: number | null;
   /** Set once the Game is Finished. */
   readonly result: GameResultRecord | null;
+  /** How many times the Game runner failed to play the Game (across restarts). */
+  readonly failedAttempts: number;
 }
 
 export interface NewGame {
@@ -171,6 +180,7 @@ interface GameRow {
   winner_id: string | null;
   winner_username: string | null;
   decided_by: DecidedBy | null;
+  failed_attempts: number;
 }
 
 interface EntryBotRow {
@@ -192,7 +202,8 @@ const GAME_COLUMNS = `
   g.player_count, g.point_budget, g.time_limit_seconds, g.pace, g.fill_timeout_seconds, g.state,
   g.created_at, g.fill_deadline, g.started_at, g.ended_at, g.cancel_reason,
   (SELECT count(*) FROM game_entries e WHERE e.game_id = g.id) AS entry_count,
-  g.last_tick, g.result_end, g.winner_id, w.username AS winner_username, g.decided_by
+  g.last_tick, g.result_end, g.winner_id, w.username AS winner_username, g.decided_by,
+  g.failed_attempts
   FROM games g
   JOIN players p ON p.id = g.initiator_id
   JOIN maps m ON m.id = g.map_id
@@ -225,6 +236,7 @@ const toGame = (row: GameRow): GameRecord => ({
           winner: row.winner_id === null ? null : { id: row.winner_id, username: row.winner_username ?? "" },
           decidedBy: row.decided_by,
         },
+  failedAttempts: row.failed_attempts,
 });
 
 export class GameStore {
@@ -406,6 +418,32 @@ export class GameStore {
          WHERE id = ? AND state = 'running'`,
       )
       .run(now.toISOString(), result.tick, result.end, result.winnerId, result.decidedBy, gameId);
+    return Number(changes) === 1;
+  }
+
+  /** Counts one more failed run of a Running Game; returns the new count, or undefined if it is not Running. */
+  recordFailedAttempt(gameId: string): number | undefined {
+    const row = this.#db
+      .prepare(
+        `UPDATE games SET failed_attempts = failed_attempts + 1 WHERE id = ? AND state = 'running'
+         RETURNING failed_attempts`,
+      )
+      .get(gameId) as { failed_attempts: number } | undefined;
+    return row?.failed_attempts;
+  }
+
+  /**
+   * Cancels a Running Game the Game runner could not play (cancel reason
+   * `server_error`, ended now) and clears its saved progress; returns false if
+   * it was not Running. The runner discards the Game's stored objects.
+   */
+  failGame(gameId: string, now: Date): boolean {
+    const { changes } = this.#db
+      .prepare(
+        `UPDATE games SET state = 'cancelled', cancel_reason = 'server_error', ended_at = ?, last_tick = NULL
+         WHERE id = ? AND state = 'running'`,
+      )
+      .run(now.toISOString(), gameId);
     return Number(changes) === 1;
   }
 
