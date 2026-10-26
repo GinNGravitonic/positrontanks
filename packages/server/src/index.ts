@@ -37,9 +37,17 @@ export type {
   NewMap,
 } from "./db/maps.js";
 export { r1Engine } from "./games/engine.js";
-export type { EngineGame, GameEngine, GameOutcome, GameStart } from "./games/engine.js";
-export { gameRecordKey, GameRunner, replayKey, UNTHROTTLED_SLICE_MS } from "./games/runner.js";
-export type { Pacing, RunnerOptions } from "./games/runner.js";
+export type {
+  EngineGame,
+  GameEngine,
+  GameOutcome,
+  GameStart,
+  ProgramLogData,
+  ReplayData,
+  ReplayFrame,
+} from "./games/engine.js";
+export { gameRecordKey, GameRunner, programLogsKey, replayKey, UNTHROTTLED_SLICE_MS } from "./games/runner.js";
+export type { GameFeedEvent, GameWatcher, Pacing, RunnerOptions } from "./games/runner.js";
 export { checkDesign } from "./garage/design-check.js";
 export type { DesignCheck } from "./garage/design-check.js";
 export {
@@ -58,6 +66,8 @@ export { migrate, MigrationError, migrations } from "./db/migrations.js";
 export type { Migration } from "./db/migrations.js";
 export { ApiError, badRequest, errorDetailSchema, forbidden, notFound, validationFailed } from "./http/errors.js";
 export type { ErrorBody, ErrorDetail } from "./http/errors.js";
+export { formatEvent, SSE_HEARTBEAT_MS } from "./http/events.js";
+export type { EventSink, EventStream, ServerSentEvent } from "./http/events.js";
 export { buildOpenApiDocument } from "./http/openapi.js";
 export { Router } from "./http/router.js";
 export { accountsModule } from "./routes/accounts.js";
@@ -65,6 +75,7 @@ export { gamesModule } from "./routes/games.js";
 export { garageModule } from "./routes/garage.js";
 export { mapsModule } from "./routes/maps.js";
 export { rulesetsModule } from "./routes/rulesets.js";
+export { spectatingModule } from "./routes/spectating.js";
 export { tickCostModule } from "./routes/tick-cost.js";
 export { defaultRulesetCatalog, engineR1Ruleset, RulesetCatalog } from "./rulesets/catalog.js";
 export type { HostedRuleset } from "./rulesets/catalog.js";

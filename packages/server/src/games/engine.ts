@@ -4,14 +4,18 @@
  * Each engine has its own Game, Game Record and Replay types; the runner
  * sees them only through this interface, so hosting another version means
  * writing one more adapter like `r1Engine` below and wiring it up in
- * rulesets/catalog.ts. Game Records and Replays leave here as plain JSON
- * data, and a Game Record comes back the same way to resume a Game.
+ * rulesets/catalog.ts. Game Records, Replays and Program logs leave here as
+ * plain JSON data, and a Game Record comes back the same way to resume a
+ * Game. The server relies on only a little of their shape: a Replay is a
+ * header plus one frame per Tick (`ReplayData`), and a Program log is one
+ * entry per run (`ProgramLogData`); the rest is the engine's own.
  */
 
 import {
   createGame,
   gameRecord,
   playTick,
+  programLogs,
   replayGame,
   replayOf,
   type Game,
@@ -45,6 +49,25 @@ export interface GameOutcome {
   readonly decidedBy: DecidedBy | null;
 }
 
+/** One Tick of a Replay: what happened in it and the world at its end (the init phase is Tick 0). */
+export interface ReplayFrame {
+  readonly tick: number;
+}
+
+/** A Replay: a header (Builds, Map, ...; never Programs) and every Tick played so far, from the init phase. */
+export interface ReplayData {
+  readonly ticks: readonly ReplayFrame[];
+}
+
+/** One Bot's Program log, which only the Bot's owner may see. */
+export interface ProgramLogData {
+  /** The Bot's id in the Replay. */
+  readonly bot: number;
+  readonly name: string;
+  /** Every run of the Program, from the init phase (Tick 0), in Tick order. */
+  readonly runs: readonly { readonly tick: number; readonly result: unknown }[];
+}
+
 /** A Game being played. */
 export interface EngineGame {
   /** The last Tick played; 0 after the init phase. */
@@ -56,7 +79,11 @@ export interface EngineGame {
   /** The Game Record as it stands. */
   record(): unknown;
   /** The Replay as it stands: events and Builds, never Programs. */
-  replay(): unknown;
+  replay(): ReplayData;
+  /** The last Tick played (the init phase before the first): one of the Replay's frames. */
+  frame(): ReplayFrame;
+  /** The Program logs of `player`'s Bots, in Bot id order. */
+  programLogs(player: string): readonly ProgramLogData[];
 }
 
 export interface GameEngine {
@@ -98,6 +125,12 @@ function r1Game(game: Game): EngineGame {
     },
     record: () => gameRecord(game),
     replay: () => replayOf(game),
+    frame: () => {
+      const last = game.history.at(-1);
+      if (last === undefined) throw new Error("a Game has its init phase in its history");
+      return last;
+    },
+    programLogs: (player) => programLogs(game, player),
   };
 }
 

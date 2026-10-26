@@ -15,8 +15,14 @@
  * higher one). Realtime Games are not limited.
  *
  * Progress is saved as the last Tick played (after every Tick in realtime,
- * after every slice unthrottled). When a Game ends, the final Game Record
- * and the Replay are stored, then the Game is Finished with its result.
+ * after every slice unthrottled). When a Game ends, the final Game Record,
+ * the Replay and each Player's Program logs are stored, then the Game is
+ * Finished with its result.
+ *
+ * Spectating: while a Game is being played its Replay so far and Program
+ * logs can be read from here, and watchers (the SSE stream) hear of it
+ * starting, of every Tick as it is played, and of it Finishing, or of the
+ * runner stopping without Finishing it (see `watch`).
  *
  * Resuming: the simulation is deterministic (ADR-0001), so after a restart
  * or crash a Running Game is resumed by replaying its stored Game Record up
@@ -34,13 +40,29 @@ import { randomInt } from "node:crypto";
 import type { Logger } from "../app.js";
 import type { GameRecord } from "../db/games.js";
 import type { Services } from "../http/router.js";
-import type { EngineGame, GameStart } from "./engine.js";
+import type { EngineGame, GameStart, ProgramLogData, ReplayData, ReplayFrame } from "./engine.js";
 
 /** Where a Game's Game Record is stored: once before its first Tick, again when it ends. */
 export const gameRecordKey = (gameId: string): string => `games/${gameId}/record.json`;
 
 /** Where a Finished Game's Replay is stored. */
 export const replayKey = (gameId: string): string => `games/${gameId}/replay.json`;
+
+/** Where a Finished Game's Program logs for one Player's Bots are stored. */
+export const programLogsKey = (gameId: string, playerId: string): string => `games/${gameId}/program-logs/${playerId}.json`;
+
+/** What a watcher of a Running Game hears, in this order. */
+export type GameFeedEvent =
+  /** Playing has started (or resumed), or it already had when the watcher was added: the Replay so far. */
+  | { readonly kind: "started"; readonly replay: ReplayData }
+  /** One Tick more has been played. */
+  | { readonly kind: "tick"; readonly frame: ReplayFrame }
+  /** The Game is Finished, and its result saved. The last event. */
+  | { readonly kind: "finished" }
+  /** The runner stopped playing the Game without Finishing it (shutdown, or the Game failed). The last event. */
+  | { readonly kind: "stopped" };
+
+export type GameWatcher = (event: GameFeedEvent) => void;
 
 /** How long an unthrottled Game plays before saving its progress and letting other work run. */
 export const UNTHROTTLED_SLICE_MS = 50;
@@ -78,6 +100,10 @@ export class GameRunner {
   #waiting: string[] = [];
   /** Unthrottled Games holding a slot. */
   #unthrottled = 0;
+  /** The Games being played that have started (or resumed), by id. */
+  readonly #live = new Map<string, EngineGame>();
+  /** Who is watching each Game, by id; a Game may be watched before it starts. */
+  readonly #watchers = new Map<string, Set<GameWatcher>>();
   /** Games that failed in this process; not retried until a restart. */
   readonly #failed = new Set<string>();
   #stopping = false;
@@ -120,7 +146,74 @@ export class GameRunner {
     this.#stopping = true;
     this.#waiting = [];
     this.#stop();
+    for (const id of [...this.#watchers.keys()]) this.#end(id, { kind: "stopped" });
     await this.idle();
+  }
+
+  /**
+   * Watches a Running Game: `watcher` hears `started` (at once if the Game
+   * is already being played), then every Tick, then `finished` or
+   * `stopped`. A Game that is not Running, or that this runner will not
+   * play (it failed, or the runner is stopping), is `stopped` at once.
+   * Returns a function that stops watching.
+   */
+  watch(id: string, watcher: GameWatcher): () => void {
+    // A Game is marked Finished in the same synchronous step that tells its watchers, so this check is exact.
+    const running = this.#services.db.games.getGame(id)?.state === "running";
+    if (!running || this.#stopping || this.#failed.has(id)) {
+      watcher({ kind: "stopped" });
+      return () => undefined;
+    }
+    let watchers = this.#watchers.get(id);
+    if (watchers === undefined) {
+      watchers = new Set();
+      this.#watchers.set(id, watchers);
+    }
+    watchers.add(watcher);
+    const game = this.#live.get(id);
+    if (game !== undefined) this.#tell(id, watcher, { kind: "started", replay: game.replay() });
+    const set = watchers;
+    return () => {
+      set.delete(watcher);
+      if (set.size === 0 && this.#watchers.get(id) === set) this.#watchers.delete(id);
+    };
+  }
+
+  /** The Replay so far of a Game being played, or undefined if it has not started (or resumed) here. */
+  replay(id: string): ReplayData | undefined {
+    return this.#live.get(id)?.replay();
+  }
+
+  /** The Program logs of `player`'s Bots in a Game being played, or undefined if it has not started here. */
+  programLogs(id: string, player: string): readonly ProgramLogData[] | undefined {
+    return this.#live.get(id)?.programLogs(player);
+  }
+
+  /** Tells one watcher; a watcher that throws is logged, and never stops the Game. */
+  #tell(id: string, watcher: GameWatcher, event: GameFeedEvent): void {
+    try {
+      watcher(event);
+    } catch (error) {
+      this.#logger.error("Game watcher failed", {
+        game: id,
+        error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+      });
+    }
+  }
+
+  /** Tells everyone watching Game `id`; `event` is made only if someone is. */
+  #notify(id: string, event: () => GameFeedEvent): void {
+    const watchers = this.#watchers.get(id);
+    if (watchers === undefined || watchers.size === 0) return;
+    const told = event();
+    // A watcher may stop watching while being told.
+    for (const watcher of [...watchers]) this.#tell(id, watcher, told);
+  }
+
+  /** Tells everyone watching Game `id` the last event, and forgets them. */
+  #end(id: string, event: GameFeedEvent): void {
+    this.#notify(id, () => event);
+    this.#watchers.delete(id);
   }
 
   /** Gives free unthrottled slots to waiting Games. */
@@ -148,6 +241,9 @@ export class GameRunner {
       })
       .finally(() => {
         this.#playing.delete(id);
+        this.#live.delete(id);
+        // A Game that Finished has told its watchers already; any others hear it stopped.
+        this.#end(id, { kind: "stopped" });
         release?.();
       });
     this.#playing.set(id, play);
@@ -171,6 +267,11 @@ export class GameRunner {
       played = hosted.engine.resume(JSON.parse(new TextDecoder().decode(stored)) as unknown, game.lastTick ?? 0);
     }
     db.games.saveProgress(id, played.tick());
+    this.#live.set(id, played);
+    this.#notify(id, () => ({ kind: "started", replay: played.replay() }));
+    const ticked = () => {
+      this.#notify(id, () => ({ kind: "tick", frame: played.frame() }));
+    };
 
     const tickMs = 1000 / hosted.ruleset.tickRate;
     const fromTick = played.tick();
@@ -180,6 +281,7 @@ export class GameRunner {
       if (this.#stopping) return;
       if (game.pace === "realtime") {
         played.playTick();
+        ticked();
         db.games.saveProgress(id, played.tick());
         outcome = played.outcome();
         if (outcome === null) {
@@ -190,6 +292,7 @@ export class GameRunner {
         const until = this.#now() + UNTHROTTLED_SLICE_MS;
         do {
           played.playTick();
+          ticked();
           outcome = played.outcome();
         } while (outcome === null && this.#now() < until);
         db.games.saveProgress(id, played.tick());
@@ -199,11 +302,15 @@ export class GameRunner {
 
     await objects.put(gameRecordKey(id), encode(played.record()));
     await objects.put(replayKey(id), encode(played.replay()));
+    for (const player of new Set(db.games.listEntries(id).map((entry) => entry.player.id))) {
+      await objects.put(programLogsKey(id, player), encode(played.programLogs(player)));
+    }
     db.games.finishGame(
       id,
       { tick: outcome.tick, end: outcome.end, winnerId: outcome.winner, decidedBy: outcome.decidedBy },
       clock(),
     );
+    this.#end(id, { kind: "finished" });
   }
 
   /** What a Game starts from: its Map Revision, and its Entries with their Builds and Programs. */

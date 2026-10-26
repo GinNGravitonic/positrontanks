@@ -270,13 +270,19 @@ describe("the Game runner", () => {
       expect(game.state).toBe("finished");
       expect(game.result?.tick).toBeGreaterThan(0);
     }
+    // Each Game's Program logs are stored per Player, Alice's then Bob's.
+    const logs = (id: string) => expect.stringMatching(new RegExp(`^games/${id}/program-logs/`)) as string;
     expect(writes).toEqual([
       gameRecordKey(one),
       gameRecordKey(one),
       replayKey(one),
+      logs(one),
+      logs(one),
       gameRecordKey(two),
       gameRecordKey(two),
       replayKey(two),
+      logs(two),
+      logs(two),
     ]);
   });
 

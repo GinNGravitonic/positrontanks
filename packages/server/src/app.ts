@@ -4,7 +4,9 @@
  * New feature areas are added to `apiModules` below (or passed in via
  * `modules`, as tests do). Handlers return a Reply or throw an ApiError; any
  * other exception is logged and answered with a generic 500 so internals
- * never leak to clients.
+ * never leak to clients. A Reply may instead stream Server-Sent Events
+ * (http/events.ts); streams are cut short when the server shuts down, so
+ * they never hold it open.
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -14,6 +16,7 @@ import { Database } from "./db/database.js";
 import { GameRunner, type Pacing } from "./games/runner.js";
 import { readJsonBody } from "./http/body.js";
 import { ApiError, notFound } from "./http/errors.js";
+import { formatEvent, SSE_HEARTBEAT_MS, type EventStream } from "./http/events.js";
 import { buildOpenApiDocument } from "./http/openapi.js";
 import { Router, type ApiModule, type Json, type Reply, type Services } from "./http/router.js";
 import { accountsModule } from "./routes/accounts.js";
@@ -21,6 +24,7 @@ import { gamesModule } from "./routes/games.js";
 import { garageModule } from "./routes/garage.js";
 import { mapsModule } from "./routes/maps.js";
 import { rulesetsModule } from "./routes/rulesets.js";
+import { spectatingModule } from "./routes/spectating.js";
 import { systemModule } from "./routes/system.js";
 import { tickCostModule } from "./routes/tick-cost.js";
 import { defaultRulesetCatalog, type RulesetCatalog } from "./rulesets/catalog.js";
@@ -35,6 +39,7 @@ export const apiModules: readonly ApiModule[] = [
   mapsModule,
   rulesetsModule,
   gamesModule,
+  spectatingModule,
 ];
 
 export interface Logger {
@@ -63,6 +68,8 @@ export interface AppOptions {
   readonly objects?: ObjectStore;
   /** How the Game runner keeps realtime Pace; defaults to real timers. */
   readonly pacing?: Pacing;
+  /** Aborted when the server shuts down, cutting every event stream short. */
+  readonly closing?: AbortSignal;
 }
 
 export type RequestListener = (request: IncomingMessage, response: ServerResponse) => void;
@@ -74,6 +81,7 @@ export function createApp(services: Services, options: AppOptions = {}): Request
   const modules = [systemModule(() => document), ...(options.modules ?? apiModules)];
   const document: Json = buildOpenApiDocument(modules);
   const router = new Router(modules.flatMap((m) => m.routes));
+  const closing = options.closing ?? new AbortController().signal;
 
   const handle = async (request: IncomingMessage): Promise<Reply> => {
     const url = new URL(request.url ?? "/", "http://localhost");
@@ -109,7 +117,8 @@ export function createApp(services: Services, options: AppOptions = {}): Request
         return new ApiError(500, "internal_error", "Internal server error").toReply();
       })
       .then((reply) => {
-        send(response, reply);
+        if (reply.events === undefined) send(response, reply);
+        else stream(response, reply, reply.events, closing);
       })
       .catch((error: unknown) => {
         logger.error("Failed to send response", { error: String(error) });
@@ -131,15 +140,56 @@ function send(response: ServerResponse, reply: Reply): void {
   response.end(payload);
 }
 
+function stream(response: ServerResponse, reply: Reply, events: EventStream, closing: AbortSignal): void {
+  response.writeHead(reply.status ?? 200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache",
+    // Tells nginx-style proxies not to buffer the stream.
+    "x-accel-buffering": "no",
+    ...reply.headers,
+  });
+  response.flushHeaders();
+  let open = true;
+  let cancel = (): void => undefined;
+  const heartbeat = setInterval(() => {
+    response.write(": keep-alive\n\n");
+  }, SSE_HEARTBEAT_MS);
+  heartbeat.unref();
+  const finish = (): void => {
+    open = false;
+    clearInterval(heartbeat);
+    response.off("close", cutShort);
+    closing.removeEventListener("abort", cutShort);
+    response.end();
+  };
+  // The client went away, or the server is shutting down.
+  const cutShort = (): void => {
+    if (!open) return;
+    finish();
+    cancel();
+  };
+  response.on("close", cutShort);
+  closing.addEventListener("abort", cutShort);
+  cancel = events({
+    send: (event) => {
+      if (open) response.write(formatEvent(event));
+    },
+    close: () => {
+      if (open) finish();
+    },
+  });
+  if (closing.aborted) cutShort();
+}
+
 export interface RunningServer {
   /** Base URL, e.g. `http://127.0.0.1:8080`. */
   readonly url: string;
   readonly server: Server;
   readonly services: Services;
   /**
-   * Stops accepting connections, waits for in-flight requests, stops the
-   * Game runner (Running Games stay Running, to be resumed at the next
-   * startup), then closes the database.
+   * Stops accepting connections, ends event streams, waits for in-flight
+   * requests, stops the Game runner (Running Games stay Running, to be
+   * resumed at the next startup), then closes the database.
    */
   close(): Promise<void>;
 }
@@ -158,7 +208,8 @@ export async function startServer(config: ServerConfig, options: AppOptions = {}
   };
   const runner = new GameRunner(base, { logger, ...options.pacing });
   const services: Services = { ...base, runner };
-  const server = createServer(createApp(services, options));
+  const closing = new AbortController();
+  const server = createServer(createApp(services, { ...options, closing: closing.signal }));
   try {
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
@@ -180,6 +231,8 @@ export async function startServer(config: ServerConfig, options: AppOptions = {}
     server,
     services,
     close: async () => {
+      // Event streams last as long as their Game; end them so the server can close.
+      closing.abort();
       try {
         await new Promise<void>((resolve, reject) => {
           server.close((error) => {

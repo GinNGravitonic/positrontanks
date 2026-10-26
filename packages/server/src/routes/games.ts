@@ -441,7 +441,7 @@ function entryJson(entry: EntryRecord, game: GameRecord, viewerId: string): Json
   };
 }
 
-function gameJson(context: RequestContext, game: GameRecord, viewerId: string): Json {
+export function gameJson(context: RequestContext, game: GameRecord, viewerId: string): Json {
   const entries = context.services.db.games.listEntries(game.id);
   return { ...gameFields(game), entries: entries.map((e) => entryJson(e, game, viewerId)) };
 }
@@ -452,13 +452,13 @@ const notOpen = (id: string, state: GameState): ApiError =>
   new ApiError(409, "game_not_open", `Game ${id} is ${state}, not open`);
 
 /** Applies fill timeouts, so every Game read afterwards is up to date. */
-function sweep(context: RequestContext): Date {
+export function sweep(context: RequestContext): Date {
   const now = context.services.clock();
   context.services.db.games.expireOpenGames(now);
   return now;
 }
 
-function loadGame(context: RequestContext): GameRecord {
+export function loadGame(context: RequestContext): GameRecord {
   const id = context.params.gameId ?? "";
   const game = context.services.db.games.getGame(id);
   if (game === undefined) throw noGame(id);
