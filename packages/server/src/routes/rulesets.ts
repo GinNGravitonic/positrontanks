@@ -279,7 +279,22 @@ const schemas: Record<string, Json> = {
       cost: { type: "number" },
       slotTypes: { ...stringList, description: "The Slot types it fits; empty for side-mounted kinds." },
       stats: recordOf(statValue),
-      artwork: { type: "string", description: "Top-down SVG reference; absent means a placeholder." },
+      artwork: {
+        type: "string",
+        description:
+          "Top-down SVG reference; absent means a placeholder. Drawn in meters, origin at the Slot, pointing along " +
+          "the Slot direction.",
+      },
+      visualSize: {
+        type: "object",
+        description:
+          "How big clients draw a Slot-mounted Component, in meters, origin at the Slot: `length` along the Slot " +
+          "direction, `width` across it. Each is at most the largest Chassis dimension. Purely visual: no engine " +
+          "reads it, and drawn Components may overlap.",
+        required: ["length", "width"],
+        additionalProperties: false,
+        properties: { length: { type: "number", exclusiveMinimum: 0 }, width: { type: "number", exclusiveMinimum: 0 } },
+      },
     },
   },
   PartsCatalog: {

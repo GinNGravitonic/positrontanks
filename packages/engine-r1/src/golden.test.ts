@@ -23,7 +23,7 @@
 
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { validateBuild } from "@aumohta/ruleset-data";
+import { validateBuild, type Component, type Ruleset } from "@aumohta/ruleset-data";
 import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
 import { describe, expect, it } from "vitest";
 import { createGame, playTick, type Game } from "./game.js";
@@ -181,6 +181,27 @@ describe("the golden Games", () => {
     expect(categories).toEqual(new Set(["melee", "projectile", "beam"]));
     const terrains = new Set(records.flatMap((r) => [r.map.baseTerrain, ...r.map.terrainRegions.map((t) => t.terrain)]));
     expect(terrains).toEqual(new Set(r1.terrains.map((t) => t.name)));
+  });
+});
+
+describe("Component visual sizes", () => {
+  // Visual sizes are for clients only (v1.md section 5): playing the same Game
+  // with them removed, or with every one at the cap, changes nothing.
+  const without: Ruleset = {
+    ...r1,
+    components: r1.components.map((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== "visualSize")) as Component),
+  };
+  const huge: Ruleset = { ...r1, components: r1.components.map((c) => ({ ...c, visualSize: { length: 2.4, width: 2.4 } })) };
+
+  it("are present in r1", () => {
+    expect(r1.components.some((c) => c.visualSize !== undefined)).toBe(true);
+  });
+
+  it.each(GOLDEN_GAMES.map((g) => g.name))("never change the output of %s", (name) => {
+    const record = readGolden(name).record;
+    const withSizes = observe(replayGame(record, r1, 0));
+    expect(observe(replayGame(record, without, 0))).toEqual(withSizes);
+    expect(observe(replayGame(record, huge, 0))).toEqual(withSizes);
   });
 });
 

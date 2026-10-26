@@ -8,6 +8,13 @@
  * declaring new stats, not by changing this schema. What a stat means is up
  * to that Ruleset's frozen engine.
  *
+ * A Component may carry a `visualSize` beside its artwork reference: how big
+ * clients draw it, in meters, from its Slot along and across the Slot
+ * direction. It is never a stat and no engine reads it; validation only caps
+ * each dimension at the largest dimension of any Chassis, so a Component
+ * cannot be drawn absurdly large. Overlap between drawn Components is never
+ * checked.
+ *
  * Shapes and Slot positions are in the Bot frame: meters from the Bot's
  * centre, x to the right, y down, with the Heading pointing up (-y). Slot
  * directions are bearings relative to the Heading, in (-180, 180].
@@ -82,6 +89,16 @@ export interface Chassis {
   readonly artwork?: string;
 }
 
+/**
+ * How big a client draws a Component, in meters. Its origin is the Slot;
+ * `length` runs along the Slot direction and `width` across it. Purely visual:
+ * engines never read it.
+ */
+export interface VisualSize {
+  readonly length: number;
+  readonly width: number;
+}
+
 export interface Component {
   readonly id: string;
   readonly name: string;
@@ -90,7 +107,10 @@ export interface Component {
   /** The Slot types it fits; empty for side-mounted kinds. */
   readonly slotTypes: readonly string[];
   readonly stats: Stats;
+  /** Top-down SVG reference; absent means a placeholder. */
   readonly artwork?: string;
+  /** Drawn size for clients; Slot-mounted Components only. */
+  readonly visualSize?: VisualSize;
 }
 
 /** Language limits (language-r1 section 11). */
@@ -406,6 +426,14 @@ function readChassisShape(r: Reader, obj: Json, path: string): ChassisShape | un
   return undefined;
 }
 
+/** The larger side of the Chassis shape's bounding box (a circle's diameter). */
+function largestDimension(shape: ChassisShape): number {
+  if (shape.shape === "circle") return 2 * shape.radius;
+  const xs = shape.points.map((p) => p.x);
+  const ys = shape.points.map((p) => p.y);
+  return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+}
+
 function withinChassis(p: Point, shape: ChassisShape): boolean {
   if (shape.shape === "circle") return p.x * p.x + p.y * p.y <= shape.radius * shape.radius;
   return pointInPolygon(p, shape.points);
@@ -482,8 +510,18 @@ function readChassis(r: Reader, ids: Map<string, string>, obj: Json, path: strin
   return { ...entry, shape, slots };
 }
 
+function readVisualSize(r: Reader, obj: Json, path: string): VisualSize | undefined {
+  const v = r.record(obj, "visualSize", path);
+  if (v === undefined) return undefined;
+  const sizePath = `${path}.visualSize`;
+  r.keys(v, ["length", "width"], sizePath);
+  const length = r.positive(v, "length", sizePath);
+  const width = r.positive(v, "width", sizePath);
+  return length === undefined || width === undefined ? undefined : { length, width };
+}
+
 function readComponent(r: Reader, ids: Map<string, string>, obj: Json, path: string): Component | undefined {
-  r.keys(obj, ["id", "name", "kind", "cost", "slotTypes", "stats", "artwork"], path);
+  r.keys(obj, ["id", "name", "kind", "cost", "slotTypes", "stats", "artwork", "visualSize"], path);
   const entry = readCatalogEntry(r, ids, obj, path);
   const kind = r.string(obj, "kind", path, NAME, NAME_RULE);
   let slotTypes: string[] | undefined = [];
@@ -498,8 +536,10 @@ function readComponent(r: Reader, ids: Map<string, string>, obj: Json, path: str
       return v;
     });
   }
+  const visualSize = obj.visualSize === undefined ? undefined : readVisualSize(r, obj, path);
   if (entry === undefined || kind === undefined || slotTypes === undefined) return undefined;
-  return { ...entry, kind, slotTypes };
+  if (obj.visualSize !== undefined && visualSize === undefined) return undefined;
+  return { ...entry, kind, slotTypes, ...(visualSize === undefined ? {} : { visualSize }) };
 }
 
 function checkStats(
@@ -635,6 +675,7 @@ export function validateRuleset(input: unknown): RulesetResult {
 
   const terrainSet = new Set(terrains.map((t) => t.name));
   const slotTypeSet = new Set(slotTypes);
+  const largest = Math.max(...chassis.map((c) => largestDimension(c.shape)));
   chassis.forEach((c, i) => {
     const path = `ruleset.chassis[${String(i)}]`;
     c.slots.forEach((slot, j) => {
@@ -659,6 +700,16 @@ export function validateRuleset(input: unknown): RulesetResult {
       if (!slotTypeSet.has(type)) r.error(`${path}.slotTypes[${String(j)}]`, `is the unknown Slot type "${type}"`);
     });
     checkStats(r, c.stats, kind.stats, terrainSet, path);
+    if (c.visualSize !== undefined) {
+      if (kind.mount === "side") {
+        r.error(`${path}.visualSize`, `is not allowed on side-mounted "${c.kind}" Components`);
+      }
+      for (const key of ["length", "width"] as const) {
+        if (c.visualSize[key] > largest) {
+          r.error(`${path}.visualSize.${key}`, `must be at most the largest Chassis dimension (${String(largest)} m)`);
+        }
+      }
+    }
   });
 
   const cheapest = Math.min(...chassis.map((c) => c.cost));

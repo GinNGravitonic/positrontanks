@@ -25,6 +25,7 @@ export type {
   Terrain,
   TerrainModifiers,
   TerrainMultipliers,
+  VisualSize,
 } from "./ruleset.js";
 export {
   MIN_SPAWN_ZONES,
