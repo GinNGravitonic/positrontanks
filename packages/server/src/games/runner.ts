@@ -32,8 +32,15 @@
  * starts afresh, and a Game that ended but was not yet marked Finished is
  * replayed to its end and finished again with the same result.
  *
- * A Game that fails (its engine throws, or storage does) is logged and left
- * Running; it is retried when the server next starts.
+ * Failing: a Game whose run fails (its engine throws, or storage does) is
+ * logged at error level and run again, resuming as after a restart, after a
+ * backoff: `MAX_GAME_ATTEMPTS` runs in all, over about a minute, which rides
+ * out transient storage errors. Failed runs are counted in the database, so
+ * runs before a restart count too. After the last one the Game is Cancelled
+ * with cancel reason `server_error` and its stored objects (Game Record,
+ * partial Replay, Program logs) are discarded; its Builds then stay hidden as
+ * for any Cancelled Game. If even counting or cancelling fails, the Game is
+ * left Running, not run again until the server next starts.
  */
 
 import { randomInt } from "node:crypto";
@@ -70,12 +77,23 @@ export const UNTHROTTLED_SLICE_MS = 50;
 /** The largest Game seed, plus one. */
 const SEED_LIMIT = 2 ** 32;
 
-/** How realtime Pace is kept; injectable so tests need not wait. */
+/** How many times a failing Game is run, in all, before it is Cancelled. */
+export const MAX_GAME_ATTEMPTS = 3;
+
+/** The waits before the second and third run of a failing Game: about a minute in all. */
+export const DEFAULT_RETRY_DELAYS_MS: readonly number[] = [20_000, 40_000];
+
+/** How the runner keeps time (realtime Pace, retry backoff); injectable so tests need not wait. */
 export interface Pacing {
   /** Waits `ms` real milliseconds; defaults to a timer. */
   readonly sleep?: (ms: number) => Promise<void>;
   /** A monotonic clock in milliseconds; defaults to `performance.now`. */
   readonly now?: () => number;
+  /**
+   * The real milliseconds to wait before each further run of a failing Game
+   * (the last repeats if there are too few); defaults to `DEFAULT_RETRY_DELAYS_MS`.
+   */
+  readonly retryDelaysMs?: readonly number[];
 }
 
 export interface RunnerOptions extends Pacing {
@@ -87,6 +105,9 @@ const defaultSleep = (ms: number) =>
     setTimeout(done, ms);
   });
 
+const describeError = (error: unknown): string =>
+  error instanceof Error ? (error.stack ?? error.message) : String(error);
+
 const encode = (value: unknown): Uint8Array => new TextEncoder().encode(JSON.stringify(value));
 
 export class GameRunner {
@@ -94,6 +115,7 @@ export class GameRunner {
   readonly #logger: Logger;
   readonly #sleep: (ms: number) => Promise<void>;
   readonly #now: () => number;
+  readonly #retryDelaysMs: readonly number[];
   /** The Games being played (or started), by id. */
   readonly #playing = new Map<string, Promise<void>>();
   /** Unthrottled Games waiting for a slot, in the order they were picked up. */
@@ -104,7 +126,7 @@ export class GameRunner {
   readonly #live = new Map<string, EngineGame>();
   /** Who is watching each Game, by id; a Game may be watched before it starts. */
   readonly #watchers = new Map<string, Set<GameWatcher>>();
-  /** Games that failed in this process; not retried until a restart. */
+  /** Games that failed and could not be counted or cancelled; not run again until a restart. */
   readonly #failed = new Set<string>();
   #stopping = false;
   readonly #stopped: Promise<void>;
@@ -115,6 +137,7 @@ export class GameRunner {
     this.#logger = options.logger;
     this.#sleep = options.sleep ?? defaultSleep;
     this.#now = options.now ?? (() => performance.now());
+    this.#retryDelaysMs = options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
     this.#stopped = new Promise((resolve) => {
       this.#stop = resolve;
     });
@@ -196,7 +219,7 @@ export class GameRunner {
     } catch (error) {
       this.#logger.error("Game watcher failed", {
         game: id,
-        error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+        error: describeError(error),
       });
     }
   }
@@ -231,22 +254,105 @@ export class GameRunner {
   }
 
   #launch(id: string, release?: () => void): void {
-    const play = this.#play(id)
-      .catch((error: unknown) => {
-        this.#failed.add(id);
-        this.#logger.error("Game failed; it stays Running until the server restarts", {
-          game: id,
-          error: error instanceof Error ? (error.stack ?? error.message) : String(error),
-        });
-      })
-      .finally(() => {
-        this.#playing.delete(id);
-        this.#live.delete(id);
-        // A Game that Finished has told its watchers already; any others hear it stopped.
-        this.#end(id, { kind: "stopped" });
-        release?.();
-      });
+    const play = this.#run(id).finally(() => {
+      this.#playing.delete(id);
+      this.#live.delete(id);
+      // A Game that Finished has told its watchers already; any others hear it stopped.
+      this.#end(id, { kind: "stopped" });
+      release?.();
+    });
     this.#playing.set(id, play);
+  }
+
+  /**
+   * Plays a Game, running it again after each failure until it Finishes, the
+   * runner stops, or it has failed `MAX_GAME_ATTEMPTS` times, when it is
+   * Cancelled. Never rejects.
+   */
+  async #run(id: string): Promise<void> {
+    for (;;) {
+      try {
+        await this.#play(id);
+        return;
+      } catch (error) {
+        // The failed run's watchers hear it stopped; they may watch the next run afresh.
+        this.#live.delete(id);
+        this.#end(id, { kind: "stopped" });
+        const failures = this.#countFailure(id, error);
+        if (failures === undefined) return;
+        if (failures >= MAX_GAME_ATTEMPTS) {
+          await this.#cancelFailed(id, failures, error);
+          return;
+        }
+        this.#logger.error("Game failed; it will be run again", {
+          game: id,
+          attempt: failures,
+          attempts: MAX_GAME_ATTEMPTS,
+          error: describeError(error),
+        });
+        const delays = this.#retryDelaysMs;
+        await this.#backoff(delays[Math.min(failures, delays.length) - 1] ?? 0);
+        if (this.#stopping) return;
+      }
+    }
+  }
+
+  /** Counts a failed run; returns the Game's failures so far, or undefined if it is not to be run again. */
+  #countFailure(id: string, error: unknown): number | undefined {
+    try {
+      return this.#services.db.games.recordFailedAttempt(id);
+    } catch (countError) {
+      this.#failed.add(id);
+      this.#logger.error("Game failed, and so did counting its failure; it stays Running until the server restarts", {
+        game: id,
+        error: describeError(error),
+        countError: describeError(countError),
+      });
+      return undefined;
+    }
+  }
+
+  /** Cancels a Game that failed its last run (cancel reason `server_error`) and discards its stored objects. */
+  async #cancelFailed(id: string, failures: number, error: unknown): Promise<void> {
+    const { db, objects, clock } = this.#services;
+    this.#logger.error("Game failed too many times; it is Cancelled", {
+      game: id,
+      attempt: failures,
+      attempts: MAX_GAME_ATTEMPTS,
+      error: describeError(error),
+    });
+    let cancelled = false;
+    try {
+      cancelled = db.games.failGame(id, clock());
+    } catch (cancelError) {
+      this.#failed.add(id);
+      this.#logger.error("Cancelling a failed Game failed; it stays Running until the server restarts", {
+        game: id,
+        error: describeError(cancelError),
+      });
+    }
+    if (!cancelled) return;
+    try {
+      for (const key of await objects.list(`games/${id}/`)) await objects.delete(key);
+    } catch (discardError) {
+      this.#logger.error("Discarding a Cancelled Game's stored objects failed", {
+        game: id,
+        error: describeError(discardError),
+      });
+    }
+  }
+
+  /** Waits `ms` real milliseconds, or until the runner stops. */
+  async #backoff(ms: number): Promise<void> {
+    let timer: NodeJS.Timeout | undefined;
+    const waited = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, ms);
+    });
+    try {
+      await Promise.race([waited, this.#stopped]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async #play(id: string): Promise<void> {

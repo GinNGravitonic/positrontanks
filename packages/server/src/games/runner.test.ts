@@ -39,7 +39,7 @@ afterEach(async () => {
 
 /** A server on this test's database file and object directory, so a later one sees what an earlier one left. */
 async function boot(
-  options: { pacing?: Pacing; maxUnthrottled?: number; objects?: ObjectStore } = {},
+  options: { pacing?: Pacing; maxUnthrottled?: number; objects?: ObjectStore; logger?: Logger } = {},
 ): Promise<RunningServer> {
   const config: ServerConfig = {
     ...defaultConfig,
@@ -49,7 +49,7 @@ async function boot(
     limits: { ...defaultConfig.limits, maxConcurrentUnthrottledGames: options.maxUnthrottled ?? 2 },
   };
   const running = await startServer(config, {
-    logger: quiet,
+    logger: options.logger ?? quiet,
     objects: options.objects ?? objects,
     pacing: options.pacing ?? { sleep: nextTurn },
   });
@@ -93,10 +93,49 @@ async function created(server: RunningServer, token: string, path: string, body:
   return (response.body as { id: string }).id;
 }
 
+/**
+ * The test's object store, but `put` throws (before storing) for every key
+ * `fails` picks; `puts` lists every key put, stored or not.
+ */
+function failingStore(fails: (key: string) => boolean): { store: ObjectStore; puts: string[] } {
+  const puts: string[] = [];
+  const store: ObjectStore = {
+    put: (key, body) => {
+      puts.push(key);
+      if (fails(key)) return Promise.reject(new Error(`storage is down for ${key}`));
+      return objects.put(key, body);
+    },
+    get: (key) => objects.get(key),
+    exists: (key) => objects.exists(key),
+    delete: (key) => objects.delete(key),
+    list: (prefix) => objects.list(prefix),
+  };
+  return { store, puts };
+}
+
+/** A logger that keeps what is logged at error level. */
+function errorLog(): { logger: Logger; errors: { message: string; fields: Record<string, unknown> }[] } {
+  const errors: { message: string; fields: Record<string, unknown> }[] = [];
+  return {
+    errors,
+    logger: {
+      info: () => undefined,
+      error: (message, fields) => {
+        errors.push({ message, fields: { ...fields } });
+      },
+    },
+  };
+}
+
+/** Retry backoff without waiting. */
+const NO_BACKOFF: Pacing = { sleep: nextTurn, retryDelaysMs: [0] };
+
 interface Game {
   id: string;
   state: string;
   endedAt: string | null;
+  cancelReason: string | null;
+  entries: { player: { username: string }; bots: { name: string; build?: unknown }[] }[];
   result: {
     tick: number;
     end: string;
@@ -309,5 +348,100 @@ describe("the Game runner", () => {
       fillTimeoutSeconds: 600,
     });
     expect((await getGame(server, p.alice, open)).result).toBeNull();
+  });
+});
+
+describe("a failing Game", () => {
+  it("is Cancelled with server_error after 3 attempts, its stored objects discarded", async () => {
+    // Storage fails at the very end, after the Game Record and Replay are stored: a failure mid-way.
+    const { store, puts } = failingStore((key) => key.includes("/program-logs/"));
+    const { logger, errors } = errorLog();
+    const server = await boot({ objects: store, logger, pacing: NO_BACKOFF });
+    const p = await setUp(server);
+    const id = await playGame(server, p, "unthrottled", 5);
+    await server.services.runner.idle();
+
+    expect(puts.filter((key) => key === replayKey(id))).toHaveLength(3);
+    const game = await getGame(server, p.bob, id);
+    expect(game).toMatchObject({ state: "cancelled", cancelReason: "server_error", result: null });
+    expect(game.endedAt).not.toBeNull();
+    expect(server.services.db.games.getGame(id)).toMatchObject({ failedAttempts: 3, lastTick: null });
+    // The partial Replay and Game Record are gone, and Alice's Build stays hidden from Bob.
+    expect(await objects.list(`games/${id}/`)).toEqual([]);
+    const alices = game.entries.find((entry) => entry.player.username === "alice");
+    expect(alices?.bots[0]).toEqual({ name: "Ada" });
+    // Spectating answers as for any Cancelled Game.
+    const replay = await call(server, "GET", `/games/${id}/replay`, { token: p.bob });
+    expect(replay).toMatchObject({ status: 409, body: { error: { code: "game_cancelled" } } });
+
+    // Every failure is logged at error level with its stack; the last says the Game is Cancelled.
+    expect(errors.map((e) => e.fields.attempt)).toEqual([1, 2, 3]);
+    for (const e of errors) {
+      expect(e.fields.game).toBe(id);
+      expect(e.fields.error).toMatch(/storage is down[\s\S]*\n\s+at /);
+    }
+    expect(errors[2]?.message).toMatch(/Cancelled/);
+
+    // A restart does not run it again.
+    const { store: later, puts: laterPuts } = failingStore(() => false);
+    await server.close();
+    servers.splice(servers.indexOf(server), 1);
+    const restarted = await boot({ objects: later });
+    await restarted.services.runner.idle();
+    expect(laterPuts).toEqual([]);
+  });
+
+  it("finishes normally when the failure clears within the retries", async () => {
+    let failures = 2;
+    const { store, puts } = failingStore((key) => key.endsWith("/replay.json") && failures-- > 0);
+    const server = await boot({ objects: store, pacing: NO_BACKOFF });
+    const p = await setUp(server);
+    const id = await playGame(server, p, "unthrottled", 5);
+    await server.services.runner.idle();
+
+    expect(puts.filter((key) => key === replayKey(id))).toHaveLength(3);
+    const game = await getGame(server, p.bob, id);
+    expect(game).toMatchObject({ state: "finished", cancelReason: null });
+    expect(game.result?.tick).toBeGreaterThan(0);
+    expect(server.services.db.games.getGame(id)?.failedAttempts).toBe(2);
+    expect(await objects.exists(replayKey(id))).toBe(true);
+  });
+
+  it("counts attempts made before a restart", async () => {
+    // The Game fails to start (storing its first Game Record), then the server stops while waiting to retry.
+    const failed = errorLog();
+    let firstFailure = (): void => undefined;
+    const failedOnce = new Promise<void>((resolve) => {
+      firstFailure = resolve;
+    });
+    const first = await boot({
+      objects: failingStore((key) => key.endsWith("/record.json")).store,
+      logger: {
+        info: () => undefined,
+        error: (message, fields) => {
+          failed.logger.error(message, fields);
+          firstFailure();
+        },
+      },
+      pacing: { sleep: nextTurn, retryDelaysMs: [60_000] },
+    });
+    const p = await setUp(first);
+    const id = await playGame(first, p, "realtime", 5);
+    await failedOnce;
+    expect(first.services.db.games.getGame(id)).toMatchObject({ state: "running", failedAttempts: 1 });
+    await first.close();
+    servers.splice(servers.indexOf(first), 1);
+    expect(failed.errors.map((e) => e.fields.attempt)).toEqual([1]);
+
+    // After a restart only the 2 attempts left are made.
+    const { store, puts } = failingStore((key) => key.endsWith("/record.json"));
+    const second = await boot({ objects: store, pacing: NO_BACKOFF });
+    await second.services.runner.idle();
+    expect(puts).toEqual([gameRecordKey(id), gameRecordKey(id)]);
+    expect(second.services.db.games.getGame(id)).toMatchObject({
+      state: "cancelled",
+      cancelReason: "server_error",
+      failedAttempts: 3,
+    });
   });
 });

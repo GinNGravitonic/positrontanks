@@ -66,7 +66,7 @@ export interface AppOptions {
   readonly clock?: () => Date;
   /** Blob storage; defaults to the store `config.storage` selects. */
   readonly objects?: ObjectStore;
-  /** How the Game runner keeps realtime Pace; defaults to real timers. */
+  /** How the Game runner keeps time (realtime Pace, retry backoff); defaults to real timers. */
   readonly pacing?: Pacing;
   /** Aborted when the server shuts down, cutting every event stream short. */
   readonly closing?: AbortSignal;

@@ -223,6 +223,59 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE games ADD COLUMN decided_by TEXT CHECK (decided_by IN ('survival', 'foe_damage', 'hit_points'));
     `,
   },
+  {
+    version: 7,
+    name: "game_failures",
+    // A Running Game whose run keeps failing is cancelled with cancel_reason
+    // 'server_error' (ended_at = when it was cancelled). failed_attempts
+    // counts its failed runs, including those before a restart, so the retry
+    // budget survives one. SQLite cannot alter a CHECK constraint, so the
+    // games table is rebuilt: its rows (with their rowids, which order
+    // listings) are copied aside, the table dropped and recreated, and the
+    // rows copied back. Foreign keys stay on: the Entries' references to the
+    // dropped Games are deferred, and satisfied again once their Games are
+    // back, before the migration commits.
+    sql: `
+      PRAGMA defer_foreign_keys = ON;
+      CREATE TEMP TABLE games_copy AS SELECT rowid AS copied_rowid, * FROM games;
+      DROP TABLE games;
+      CREATE TABLE games (
+        id TEXT PRIMARY KEY,
+        initiator_id TEXT NOT NULL REFERENCES players (id),
+        ruleset_version TEXT NOT NULL,
+        map_id TEXT NOT NULL,
+        map_revision INTEGER NOT NULL,
+        player_count INTEGER NOT NULL CHECK (player_count >= 2),
+        point_budget INTEGER NOT NULL CHECK (point_budget >= 1),
+        time_limit_seconds INTEGER NOT NULL CHECK (time_limit_seconds >= 1),
+        pace TEXT NOT NULL CHECK (pace IN ('realtime', 'unthrottled')),
+        fill_timeout_seconds INTEGER NOT NULL CHECK (fill_timeout_seconds >= 1),
+        state TEXT NOT NULL CHECK (state IN ('open', 'running', 'finished', 'cancelled')),
+        created_at TEXT NOT NULL,
+        fill_deadline TEXT NOT NULL,
+        started_at TEXT,
+        ended_at TEXT,
+        cancel_reason TEXT CHECK (cancel_reason IN ('initiator', 'fill_timeout', 'server_error')),
+        last_tick INTEGER CHECK (last_tick >= 0),
+        result_end TEXT CHECK (result_end IN ('last_standing', 'none_standing', 'time_limit')),
+        winner_id TEXT REFERENCES players (id),
+        decided_by TEXT CHECK (decided_by IN ('survival', 'foe_damage', 'hit_points')),
+        failed_attempts INTEGER NOT NULL DEFAULT 0 CHECK (failed_attempts >= 0),
+        FOREIGN KEY (map_id, map_revision) REFERENCES map_revisions (map_id, number)
+      ) STRICT;
+      INSERT INTO games (rowid, id, initiator_id, ruleset_version, map_id, map_revision, player_count, point_budget,
+        time_limit_seconds, pace, fill_timeout_seconds, state, created_at, fill_deadline, started_at, ended_at,
+        cancel_reason, last_tick, result_end, winner_id, decided_by)
+      SELECT copied_rowid, id, initiator_id, ruleset_version, map_id, map_revision, player_count, point_budget,
+        time_limit_seconds, pace, fill_timeout_seconds, state, created_at, fill_deadline, started_at, ended_at,
+        cancel_reason, last_tick, result_end, winner_id, decided_by
+      FROM temp.games_copy;
+      DROP TABLE temp.games_copy;
+      CREATE INDEX games_by_state ON games (state, fill_deadline);
+      CREATE INDEX games_by_initiator ON games (initiator_id);
+      CREATE INDEX games_by_map_revision ON games (map_id, map_revision);
+    `,
+  },
 ];
 
 export class MigrationError extends Error {
