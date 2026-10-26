@@ -12,7 +12,7 @@
  * An unknown version is answered 404 `not_found`, naming the hosted versions.
  */
 
-import type { Ruleset } from "@aumohta/ruleset-data";
+import { DESCRIPTION_MAX_LENGTH, type Ruleset } from "@aumohta/ruleset-data";
 import { notFound } from "../http/errors.js";
 import type { ApiModule, Json, RequestContext, Route } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
@@ -34,6 +34,15 @@ const versionParameter: Json = {
 const version: Json = { type: "string", description: "The Ruleset version.", examples: ["r1"] };
 const stringList: Json = { type: "array", items: { type: "string" } };
 const recordOf = (schema: Json): Json => ({ type: "object", additionalProperties: schema });
+
+const description = (what: string): Json => ({
+  type: "string",
+  minLength: 1,
+  maxLength: DESCRIPTION_MAX_LENGTH,
+  description:
+    `Short prose describing the ${what}, for Players and clients: plain text on one line, with no leading or ` +
+    "trailing whitespace. Not a stat; no engine reads it.",
+});
 
 const point: Json = {
   type: "object",
@@ -226,11 +235,12 @@ const schemas: Record<string, Json> = {
   },
   Chassis: {
     type: "object",
-    required: ["id", "name", "cost", "shape", "slots", "stats"],
+    required: ["id", "name", "description", "cost", "shape", "slots", "stats"],
     additionalProperties: false,
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      description: description("Chassis"),
       cost: { type: "number" },
       shape: {
         description: "The outline in the Bot frame (meters, x right, y toward the rear); a circle is centred on the Bot.",
@@ -270,11 +280,12 @@ const schemas: Record<string, Json> = {
   },
   Component: {
     type: "object",
-    required: ["id", "name", "kind", "cost", "slotTypes", "stats"],
+    required: ["id", "name", "description", "kind", "cost", "slotTypes", "stats"],
     additionalProperties: false,
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      description: description("Component"),
       kind: { type: "string", description: "A key of the catalog's `componentKinds`." },
       cost: { type: "number" },
       slotTypes: { ...stringList, description: "The Slot types it fits; empty for side-mounted kinds." },
@@ -324,9 +335,9 @@ const schemas: Record<string, Json> = {
         description: "In declared order, which is the order `terrainTable()` reports.",
         items: {
           type: "object",
-          required: ["name", "speed", "accel"],
+          required: ["name", "description", "speed", "accel"],
           additionalProperties: false,
-          properties: { name: { type: "string" }, ...terrainMultipliers },
+          properties: { name: { type: "string" }, description: description("Terrain"), ...terrainMultipliers },
         },
       },
     },
@@ -476,7 +487,8 @@ export const rulesetsModule: ApiModule = {
       path: "/parts",
       operationId: "getPartsCatalog",
       summary: "Get a Ruleset version's Parts Catalog",
-      description: "Every Chassis and Component with its cost, Slots and stats, and the stat definitions.",
+      description:
+        "Every Chassis and Component with its description, cost, Slots and stats, and the stat definitions.",
       schema: "PartsCatalog",
       returns: "The Parts Catalog.",
       body: (h) => catalogJson(h.ruleset),
@@ -485,7 +497,7 @@ export const rulesetsModule: ApiModule = {
       path: "/terrains",
       operationId: "getTerrainTable",
       summary: "Get a Ruleset version's Terrain table",
-      description: "Every Terrain with its speed and acceleration multipliers.",
+      description: "Every Terrain with its description and its speed and acceleration multipliers.",
       schema: "TerrainTable",
       returns: "The Terrain table.",
       body: (h) => terrainJson(h.ruleset),

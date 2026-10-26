@@ -1,5 +1,6 @@
 export {
   ARMOR_SIDES,
+  DESCRIPTION_MAX_LENGTH,
   SUPPORTED_MAP_FORMATS,
   parseRuleset,
   terrainNames,

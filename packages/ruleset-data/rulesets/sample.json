@@ -4,9 +4,24 @@
   "pointBudget": { "min": 100, "max": 1000 },
   "mapFormats": [1],
   "terrains": [
-    { "name": "grass", "speed": 1, "accel": 1 },
-    { "name": "road", "speed": 1.2, "accel": 1.1 },
-    { "name": "sand", "speed": 0.6, "accel": 0.5 }
+    {
+      "name": "grass",
+      "description": "The baseline Terrain.",
+      "speed": 1,
+      "accel": 1
+    },
+    {
+      "name": "road",
+      "description": "Fast lanes.",
+      "speed": 1.2,
+      "accel": 1.1
+    },
+    {
+      "name": "sand",
+      "description": "Slow, loose ground.",
+      "speed": 0.6,
+      "accel": 0.5
+    }
   ],
   "limits": {
     "initBudgetMultiplier": 20,
@@ -73,6 +88,7 @@
     {
       "id": "scout",
       "name": "Scout",
+      "description": "A small, light disc.",
       "cost": 60,
       "shape": { "shape": "circle", "radius": 0.5 },
       "slots": [
@@ -85,6 +101,7 @@
     {
       "id": "brawler",
       "name": "Brawler",
+      "description": "A big box with side guns.",
       "cost": 150,
       "shape": {
         "shape": "polygon",
@@ -111,6 +128,7 @@
     {
       "id": "spike",
       "name": "Spike",
+      "description": "A short melee spike.",
       "kind": "weapon",
       "cost": 20,
       "slotTypes": ["weapon"],
@@ -120,6 +138,7 @@
     {
       "id": "cannon",
       "name": "Cannon",
+      "description": "A slow-firing projectile gun.",
       "kind": "weapon",
       "cost": 60,
       "slotTypes": ["weapon"],
@@ -129,6 +148,7 @@
     {
       "id": "radar",
       "name": "Radar",
+      "description": "Spots Bots ahead.",
       "kind": "sensor",
       "cost": 30,
       "slotTypes": ["sensor"],
@@ -138,6 +158,7 @@
     {
       "id": "wheels",
       "name": "Wheels",
+      "description": "Fast on road.",
       "kind": "motor",
       "cost": 25,
       "slotTypes": ["motor"],
@@ -147,6 +168,7 @@
     {
       "id": "tracks",
       "name": "Tracks",
+      "description": "Grip on sand.",
       "kind": "motor",
       "cost": 40,
       "slotTypes": ["motor"],
@@ -156,6 +178,7 @@
     {
       "id": "coprocessor",
       "name": "Coprocessor",
+      "description": "A better Processor.",
       "kind": "processor",
       "cost": 50,
       "slotTypes": ["utility"],
@@ -165,6 +188,7 @@
     {
       "id": "plate",
       "name": "Armor plate",
+      "description": "Absorbs damage on one side.",
       "kind": "armor",
       "cost": 15,
       "stats": { "armor": 5, "mass": 10 }

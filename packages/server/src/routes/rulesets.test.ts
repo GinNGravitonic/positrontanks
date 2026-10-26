@@ -73,22 +73,24 @@ describe("Ruleset endpoints", () => {
         components: r1.components,
       }),
     );
-    const catalog = body as { chassis: { id: string }[]; components: { id: string }[] };
+    interface Part {
+      id: string;
+      description: string;
+    }
+    const catalog = body as { chassis: Part[]; components: Part[] };
     expect(catalog.chassis.map((c) => c.id)).toContain("scout");
     expect(catalog.components.length).toBeGreaterThan(0);
+    for (const part of [...catalog.chassis, ...catalog.components]) expect(part.description, part.id).not.toBe("");
+    expect(catalog.components.find((c) => c.id === "heavyPlate")?.description).toContain("absorbs 7 damage");
   });
 
   it("serve r1's Terrain table in declared order", async () => {
     const { status, body } = await get("/rulesets/r1/terrains");
     expect(status).toBe(200);
     expect(body).toEqual({ version: "r1", terrains: json(r1.terrains) });
-    expect((body as { terrains: { name: string }[] }).terrains.map((t) => t.name)).toEqual([
-      "grass",
-      "road",
-      "sand",
-      "mud",
-      "ice",
-    ]);
+    const terrains = (body as { terrains: { name: string; description: string }[] }).terrains;
+    expect(terrains.map((t) => t.name)).toEqual(["grass", "road", "sand", "mud", "ice"]);
+    for (const t of terrains) expect(t.description, t.name).not.toBe("");
   });
 
   it("answer 404 not_found for unknown versions, naming the hosted ones", async () => {
@@ -102,8 +104,9 @@ describe("Ruleset endpoints", () => {
   });
 
   it("serve each hosted version's own data side by side", async () => {
+    const lava = [{ name: "lava", description: "Molten rock.", speed: 0.5, accel: 0.5 }];
     const r1x = {
-      ...engineR1Ruleset({ ...r1, version: "r1x", terrains: [{ name: "lava", speed: 0.5, accel: 0.5 }] }),
+      ...engineR1Ruleset({ ...r1, version: "r1x", terrains: lava }),
       language: {
         ...R1_LANGUAGE,
         version: "r1x",
@@ -115,7 +118,7 @@ describe("Ruleset endpoints", () => {
     expect((list.body as { rulesets: { version: string }[] }).rulesets.map((r) => r.version)).toEqual(["r1", "r1x"]);
     expect((await get("/rulesets/r1x/terrains")).body).toEqual({
       version: "r1x",
-      terrains: [{ name: "lava", speed: 0.5, accel: 0.5 }],
+      terrains: lava,
     });
     const language = (await get("/rulesets/r1x/language")).body as { functions: Record<string, unknown> };
     expect(Object.keys(language.functions)).toEqual(["budgetRemaining"]);

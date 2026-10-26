@@ -113,6 +113,7 @@ describe("checkRuleset", () => {
     const weapon = (stats: Record<string, number | string>) => ({
       id: "odd",
       name: "Odd",
+      description: "Odd",
       kind: "weapon",
       cost: 5,
       slotTypes: ["weapon"],
@@ -153,7 +154,7 @@ describe("checkRuleset", () => {
   });
 
   it("rejects sensor and Operation Budget stats the engine cannot use", () => {
-    const part = (kind: string, stats: Record<string, number | string>) => ({ id: "odd", name: "Odd", kind, cost: 5, slotTypes: [kind], stats });
+    const part = (kind: string, stats: Record<string, number | string>) => ({ id: "odd", name: "Odd", description: "Odd", kind, cost: 5, slotTypes: [kind], stats });
     const check = (kind: string, stats: Record<string, number | string>) =>
       checkRuleset({ ...ruleset, components: [...ruleset.components, part(kind, stats)] }).map((e) => e.path.split(".").pop());
     const sensor = { kind: "radar", arcWidth: 90, range: 10 };
