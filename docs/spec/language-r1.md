@@ -90,6 +90,7 @@ ArrowFunction  = ( Identifier | "(" [ Params ] ")" ) "=>" ( Expression | Block )
 Notes:
 
 - Bodies of `if`, `while` and `for` must be blocks (braces are required).
+- `for…of` requires a list, and iterates over a snapshot of it taken when the loop starts. Adding, removing or replacing elements in the body does not change which elements the loop visits.
 - Assignment, `++` and `--` are statements, not expressions. `x = y = 0` and `f(i++)` are syntax errors.
 - Operator precedence and associativity follow JavaScript. `?:` is right-associative and all binary operators are left-associative.
 - At the top level, only `let`, `const` and `function` declarations are allowed. Nested `function` declarations are allowed inside any block.
@@ -140,6 +141,12 @@ There are no classes, modules, I/O, networking, exceptions or `this`.
 ### 4.5 Read-only values
 
 `self`, `game`, `map` and every value reachable from them are read-only. Assigning to any of their fields or elements, or mutating them with `.push`, `.pop`, `.sort` or `remove`, is a runtime error. When the checker can see the problem statically, it is a save-time error. A Program that wants a mutable copy builds one itself.
+
+### 4.6 Calls
+
+- Calling a user function (declared with `function` or as an arrow function) with fewer arguments than it has parameters is a runtime error. Extra arguments are ignored, as in JavaScript.
+- A built-in called directly must be given an allowed number of arguments (§7).
+- When a built-in calls a callback, it passes the arguments listed for it in §7.6, such as `(x, i)` for `.map`. A user function callback may ignore the trailing ones by declaring fewer parameters. A built-in passed as a callback is given only as many arguments as it takes at most: `xs.map(str)` calls `str(x)`, not `str(x, i)`.
 
 ---
 
@@ -296,7 +303,7 @@ All are from the engine's pinned library. Angles are in degrees.
 | `keys(r)` | A list of field names in insertion order |
 | `has(r, k)` | boolean |
 | `remove(r, k)` | boolean: whether the field existed (it is removed) |
-| `str(x)` | A string. Numbers are formatted as JavaScript `Number.prototype.toString` does. Booleans and null become `true`, `false` and `null`. Lists and records render JSON-style, with fields in insertion order. Functions render as `<function>`. |
+| `str(x)` | A string. Numbers are formatted as JavaScript `Number.prototype.toString` does. Booleans and null become `true`, `false` and `null`. Lists and records render JSON-style, with fields in insertion order, and strings inside them, including field names, are JSON-quoted: `str(["a", {b: 1}])` is `["a",{"b":1}]`. A string passed directly is returned unchanged. Functions render as `<function>`. |
 | `log(x)` | null. Writes `str(x)` to the owner-only Program log (§10.5). It does not affect the simulation. |
 | `budgetRemaining()` | The operations left this Tick (or in the init budget), measured after this call's own cost |
 
@@ -318,7 +325,11 @@ Lists:
 | `.find(f)` | The first element where `f(x, i)` is `true`, or `null` |
 | `.some(f)`, `.every(f)` | boolean |
 | `.reduce(f, init)` | Folds with `f(acc, x, i)`. `init` is required. |
-| `.sort(cmp)` | Sorts in place and returns the list. `cmp(a, b)` is required and must return a number. The sort is stable, and the engine pins its algorithm so the sequence of comparator calls is deterministic. |
+| `.sort(cmp)` | Sorts in place and returns the list. `cmp(a, b)` is required and must return a number. The sort is stable, and its algorithm is pinned so the sequence of comparator calls is deterministic (see below). |
+
+`.map`, `.filter`, `.find`, `.some`, `.every`, `.reduce` and `.sort` work on a snapshot of the list taken when the method is called. A callback that adds, removes or replaces elements does not change which elements are visited. When `.sort` finishes, its result replaces the list's contents, including any changes the comparator made.
+
+`.sort` is a top-down merge sort. A list of 0 or 1 elements is already sorted. Otherwise it is split into a left part of the first ⌊n/2⌋ elements and a right part of the rest, each part is sorted the same way, and the two are merged by repeatedly comparing the first remaining element of each with `cmp(left, right)`: the left element is taken if the result is `<= 0`, otherwise the right one. When either part runs out, the rest of the other is appended without further calls.
 
 Strings: `.length`, `.slice(start, end?)`, `.indexOf(sub)`, `.includes(sub)`.
 
@@ -333,12 +344,17 @@ Records have no methods. `r.length` on a record is an ordinary field read.
 - Every **evaluated expression node** costs 1: literals, identifier reads, unary and binary operators, `?:`, member access, indexing, user function calls, and creating an arrow function.
 - **List and record literals** cost 1 + 1 per element or field. That is visible in the source: `[a, b, c]` costs 4, plus the cost of evaluating `a`, `b` and `c`.
 - A **built-in call** costs its fixed cost from §8.2 in place of the 1 for the call node. Argument expressions are evaluated and charged as normal.
-- Every **loop iteration** (`while`, `for`, `for…of`) costs 1, in addition to its condition and body.
-- `+=`, `-=`, `*=`, `/=`, `++` and `--` cost 1 for the arithmetic, in addition to evaluating the target and right-hand side.
+- A **call by name**, such as `f(x)` or `scan()`, costs 1 for a user function or the built-in's fixed cost. The callee name is not also charged as an identifier read. So with `function f(a) { return a; }`, `f(1)` costs 3: 1 for the call, 1 for the literal `1`, and 1 for reading `a`.
+- A **list or string method call**, such as `xs.push(x)`, costs the method's fixed cost in place of both the member access and the call node. The object and the arguments are evaluated and charged as normal, so `[1, 2].map((x) => x)` costs 11: 5 for the list literal, 1 for the arrow function, 3 for `.map` and 1 for each of the two runs of the callback.
+- Any other callee, such as `r.f(x)` or `fs[0](x)`, is evaluated and charged as an ordinary expression, and then the call is charged: 1 for a user function, or the built-in's fixed cost.
+- When a built-in calls a callback (`.map`, `.sort`, …), and when the engine calls `init()` and `tick()`, no call node is charged. Only the code that runs inside is charged.
+- Every **loop iteration** (`while`, `for`, `for…of`) costs 1, in addition to its condition and body. It is charged after the condition passes and before the body runs, so the final check that ends a loop costs its condition but no iteration. `for (let i = 0; i < 2; i++) {}` costs 16: 1 for the initializer, 3 for each of the three conditions, 1 for each of the two iterations, and 2 for each of the two updates.
+- A **plain assignment** (`=`) does not charge reading its target: `x = 5` costs 1, for the literal. The object and index of a target such as `r.f` or `xs[i]` are evaluated and charged as normal, but the final member access or indexing is not.
+- `+=`, `-=`, `*=`, `/=`, `++` and `--` charge reading the target as an ordinary read (1 for a name, or member access or indexing for a field or element), then 1 for the arithmetic, in addition to the right-hand side. `x += 2` costs 3 and `x++` costs 2.
 - Statements, declarations, `return`, `break`, `continue` and the final store of an assignment are otherwise free.
 - Operands that short-circuit and are never evaluated cost nothing.
 - Code inside a callback passed to a built-in (`.map`, `.sort`, …) costs operations each time it runs, exactly like any other code.
-- The budget is checked before each charge. If a charge would exceed the remaining budget, the operation is not performed and execution stops (§10.2).
+- An operation is charged after its operands have been evaluated and immediately before it is performed. The budget is checked before each charge. If a charge would exceed the remaining budget, the operation is not performed and execution stops (§10.2).
 
 ### 8.2 Built-in costs
 
@@ -456,6 +472,6 @@ Every value below is Ruleset data, confirmed for r1 in [catalog-r1.md §7](catal
 - Record field order is always insertion order. Don't use plain JS objects, whose integer-like keys get reordered.
 - Math built-ins and `atan2`-based geometry use only the engine's pinned library (ADR-0005).
 - `random()` streams are derived per Bot from the Game seed, independently of call order across Bots.
-- `.sort` uses a pinned stable algorithm. The number and order of comparator calls is part of the frozen engine.
+- `.sort` uses the pinned merge sort of §7.6. The number and order of comparator calls is part of the frozen engine.
 - `str()` on numbers relies on ECMAScript's fully specified `Number.prototype.toString`.
 - Cost accounting, memory measurement and every limit check are part of the frozen engine for a Ruleset version.

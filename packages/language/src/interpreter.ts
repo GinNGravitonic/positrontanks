@@ -33,7 +33,7 @@
  * `.sort` is a top-down merge sort that splits at ⌊n/2⌋ and takes the left
  * element when `cmp(left, right) <= 0`; this pins its comparator calls.
  * Callback-taking methods iterate over a snapshot of the list taken when
- * they are called. `for…of` iterates the live list by index.
+ * they are called, and `for…of` over one taken when the loop starts.
  */
 
 import type {
@@ -471,10 +471,10 @@ export class Interpreter {
       case "ForOfStatement": {
         const iterable = this.expression(s.iterable, scope);
         if (!(iterable instanceof ListValue)) throw new ProgramError(`for…of needs a list, got ${typeName(iterable)}`, s.iterable.loc);
-        for (let i = 0; i < iterable.items.length; i++) {
+        for (const item of [...iterable.items]) {
           this.charge(1, s.loc);
           const iteration = new Scope(scope);
-          iteration.bindings.set(s.id.name, { value: iterable.items[i] ?? null, initialized: true, constant: s.kind === "const" });
+          iteration.bindings.set(s.id.name, { value: item, initialized: true, constant: s.kind === "const" });
           const completion = this.block(s.body, iteration);
           if (completion === "break") break;
           if (typeof completion === "object") return completion;

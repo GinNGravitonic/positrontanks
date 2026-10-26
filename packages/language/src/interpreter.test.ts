@@ -114,6 +114,10 @@ describe("operation counting", () => {
     expect(cost("f(1);", "function f(a) { return a; }")).toBe(3);
   });
 
+  it("ignores extra arguments to a user function", () => {
+    expect(logOf("const f = (a) => a; log(f(1, 2));")).toEqual(["1"]);
+  });
+
   it("reports the budget left after budgetRemaining's own cost", () => {
     expect(firstTick("function tick() { log(budgetRemaining()); }", 100).log).toEqual(["99"]);
   });
@@ -189,6 +193,7 @@ describe("runtime errors", () => {
     ["popping an empty list", "[].pop();", /empty list/],
     ["a filter callback returning a non-boolean", "[1].filter((x) => x);", /must return a boolean/],
     ["calling a non-function", "const f = 1; f();", /cannot call a number/],
+    ["too few arguments to a user function", "const f = (a, b) => a; f(1);", /takes 2 arguments but is given 1/],
     ["mutating a built-in value through a variable", "const w = self.weapons; w.push(1);", /read-only/],
     ["removing from a built-in value", "const s = self; remove(s, \"x\");", /read-only/],
     ["an unknown weapon reported by the host", 'fire("laser", 0);', /no weapon in Slot 'laser'/],
@@ -272,6 +277,20 @@ describe("Program lifecycle", () => {
       log(out);
       log(first([5, 6, 7]));`;
     expect(logOf(body, "function first(xs) { for (const x of xs) { if (x > 5) { return x; } } return null; }")).toEqual(["[0,2,3]", "6"]);
+  });
+
+  it("iterates for…of and callback methods over a snapshot of the list", () => {
+    const body = `
+      const xs = [1, 2];
+      for (const x of xs) { xs.push(x * 10); }
+      log(xs);
+      const ys = [1, 2, 3];
+      let seen = [];
+      for (const y of ys) { seen.push(y); if (ys.length > 1) { ys.pop(); } }
+      log([seen, ys]);
+      const zs = [1, 2];
+      log(zs.map((z) => zs.push(z)));`;
+    expect(logOf(body)).toEqual(["[1,2,10,20]", "[[1,2,3],[1]]", "[3,4]"]);
   });
 
   it("rejects host misuse with ordinary exceptions", () => {
