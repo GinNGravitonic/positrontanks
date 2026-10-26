@@ -116,8 +116,9 @@ An illegal shot does nothing. Range is not part of legality: a shot at something
 
 - The world's random stream is stream 0 of the Game seed; each Bot's `random()` stream is its Bot id (from 1).
 - Bots are numbered from 1 in Entry order, then in order within each Entry.
-- **Spawn Zones**: Entries are assigned zones by seeded draw, largest Entry first (ties in Entry order), each uniformly among the remaining zones whose capacity holds it.
-- **Placement**: each Bot, in id order, gets a uniformly random centre inside its zone's bounding box, retried until the centre is inside the zone and the Bot, facing the zone's Heading, lies within the Map without touching any Obstacle or Bot already placed. After `SPAWN_ATTEMPTS` (1,000) tries the Game cannot start.
+- **Spawn Zones**: Entries are assigned zones by seeded draw, largest Entry first (ties in Entry order), each uniformly among the remaining zones whose capacity holds it. An Entry that no remaining zone can hold (possible when zone capacities differ, since Entries are only checked one at a time) takes the remaining zone of largest capacity, drawn uniformly among equals, and its Bots beyond that capacity **spill**.
+- **Placement**: Bots are placed in id order, each facing its zone's Heading. A Bot within its zone's capacity (its position in the Entry is below the capacity) gets a uniformly random centre inside the zone's bounding box, retried until the centre is inside the zone and the Bot lies within the Map without touching any Obstacle or Bot already placed, for up to `SPAWN_ATTEMPTS` (1,000) tries.
+- **Spill**: a Bot beyond its zone's capacity, which draws no random numbers, and a Bot whose `SPAWN_ATTEMPTS` tries all failed take the nearest free spot around the zone's centre (the centre of its bounding box). Candidate centres lie on rings `SPILL_SPACING` (0.5 m) apart, the centre itself first; ring k (k ≥ 1, radius 0.5k m) holds 6k candidates at bearings 360i/6k degrees, i = 0, 1, …, clockwise from 0 (up the Map). The first candidate where the Bot lies within the Map and touches no Obstacle, Bot already placed or other Spawn Zone is taken. The search ends past the ring whose radius reaches the Map's diagonal; only then can the Game not start. A Game where nothing spills places its Bots exactly as without this rule.
 
 ## 9. Sensors
 

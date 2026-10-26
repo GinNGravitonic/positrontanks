@@ -66,7 +66,7 @@ export { MAX_SUBSTEPS, MIN_RAM_SPEED, RAM_DAMAGE_PER_JOULE, SUBSTEP_LENGTH, step
 export type { BotCommands } from "./tick.js";
 export { canFire, inFiringArc, weaponOf } from "./weapons.js";
 export type { FireTarget } from "./weapons.js";
-export { SPAWN_ATTEMPTS, WORLD_STREAM, botShape, createWorld, obstacleShape } from "./world.js";
+export { SPAWN_ATTEMPTS, SPILL_SPACING, WORLD_STREAM, botShape, createWorld, obstacleShape } from "./world.js";
 export type {
   BotSetup,
   BotState,

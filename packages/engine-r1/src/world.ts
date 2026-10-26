@@ -11,6 +11,7 @@ import type { Build, MapFormat1, Obstacle, Ruleset } from "@aumohta/ruleset-data
 import { checkRuleset, deriveBotSpec, type BotSpec, type WeaponCategory } from "./bot-spec.js";
 import {
   boundsOverlap,
+  headingVector,
   placeShape,
   pointInShape,
   shapeBounds,
@@ -18,6 +19,7 @@ import {
   type Bounds,
   type WorldShape,
 } from "./geometry.js";
+import { hypot } from "./math.js";
 import { SeededRandom } from "./random.js";
 
 /** The random stream the world itself draws from; Bot streams use their Bot id, from 1. */
@@ -25,6 +27,12 @@ export const WORLD_STREAM = 0;
 
 /** Placement tries per Bot before a Spawn Zone counts as too crowded. */
 export const SPAWN_ATTEMPTS = 1000;
+
+/**
+ * Meters between the rings of the spill search, and roughly between the
+ * candidate centres along each ring.
+ */
+export const SPILL_SPACING = 0.5;
 
 export interface BotSetup {
   readonly name: string;
@@ -147,8 +155,8 @@ export function withinMap(map: MapFormat1, b: Bounds): boolean {
 /**
  * Assigns each Entry a Spawn Zone by seeded draw. Larger Entries choose
  * first (ties in Entry order), each uniformly among the remaining zones that
- * can hold it, in Map order; since any zone that fits a larger Entry also
- * fits a smaller one, this succeeds whenever any assignment exists.
+ * can hold it, in Map order. An Entry no free zone can hold takes the
+ * largest free zone, drawn among equals, and its overflow Bots spill.
  */
 function assignSpawnZones(map: MapFormat1, entries: readonly EntrySetup[], random: SeededRandom): number[] {
   const order = entries.map((_, i) => i).sort((a, b) => {
@@ -159,13 +167,77 @@ function assignSpawnZones(map: MapFormat1, entries: readonly EntrySetup[], rando
   const assigned: number[] = [];
   for (const entry of order) {
     const size = entries[entry]?.bots.length ?? 0;
-    const fitting = free.filter((z) => (map.spawnZones[z]?.capacity ?? 0) >= size);
-    if (fitting.length === 0) throw new Error(`no free Spawn Zone can hold Entry ${String(entry)} (${String(size)} Bots)`);
+    if (free.length === 0) throw new Error(`no free Spawn Zone for Entry ${String(entry)}`);
+    const capacity = (z: number) => map.spawnZones[z]?.capacity ?? 0;
+    let fitting = free.filter((z) => capacity(z) >= size);
+    if (fitting.length === 0) {
+      const largest = Math.max(...free.map(capacity));
+      fitting = free.filter((z) => capacity(z) === largest);
+    }
     const zone = fitting[random.nextInt(fitting.length)] ?? 0;
     free.splice(free.indexOf(zone), 1);
     assigned[entry] = zone;
   }
   return assigned;
+}
+
+function zoneShape(zone: MapFormat1["spawnZones"][number]): WorldShape {
+  return zone.shape === "circle"
+    ? { shape: "circle", x: zone.x, y: zone.y, radius: zone.radius }
+    : { shape: "polygon", points: zone.points };
+}
+
+interface Occupied {
+  readonly shape: WorldShape;
+  readonly bounds: Bounds;
+}
+
+interface Placement extends Occupied {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Whether a shape with these bounds touches none of `others`. */
+function clearOf(shape: WorldShape, bounds: Bounds, others: readonly Occupied[]): boolean {
+  return others.every((o) => !boundsOverlap(bounds, o.bounds) || !shapesOverlap(shape, o.shape));
+}
+
+/**
+ * The nearest free spot around a Spawn Zone's centre (the centre of its
+ * bounding box), for a Bot over the zone's capacity or one the random tries
+ * could not place. Candidate centres lie on rings SPILL_SPACING apart, the
+ * centre itself first; ring k holds 6k candidates evenly spaced by bearing,
+ * clockwise from 0 (up the Map). The first where the Bot lies within the Map
+ * and touches no Obstacle, placed Bot or other Spawn Zone wins. Draws no
+ * random numbers.
+ */
+function spillPlacement(
+  map: MapFormat1,
+  local: BotSpec["shape"],
+  heading: number,
+  zoneBounds: Bounds,
+  blocked: readonly Occupied[],
+  otherZones: readonly Occupied[],
+): Placement | undefined {
+  const cx = (zoneBounds.minX + zoneBounds.maxX) / 2;
+  const cy = (zoneBounds.minY + zoneBounds.maxY) / 2;
+  // No point of the Map is farther from the centre than the Map's diagonal.
+  const rings = Math.ceil(hypot(map.width, map.height) / SPILL_SPACING);
+  for (let ring = 0; ring <= rings; ring++) {
+    const radius = ring * SPILL_SPACING;
+    const count = ring === 0 ? 1 : 6 * ring;
+    for (let i = 0; i < count; i++) {
+      const direction = headingVector((i * 360) / count);
+      const x = cx + direction.x * radius;
+      const y = cy + direction.y * radius;
+      const shape = placeShape(local, x, y, heading);
+      const bounds = shapeBounds(shape);
+      if (withinMap(map, bounds) && clearOf(shape, bounds, blocked) && clearOf(shape, bounds, otherZones)) {
+        return { x, y, shape, bounds };
+      }
+    }
+  }
+  return undefined;
 }
 
 /** Creates the world at Tick 0 with every Bot placed in its Entry's Spawn Zone. */
@@ -193,29 +265,34 @@ export function createWorld(setup: WorldSetup): World {
   });
 
   const bots: BotState[] = [];
-  const placed: { shape: WorldShape; bounds: Bounds }[] = [];
+  const placed: Occupied[] = [];
+  const zones = map.spawnZones.map((zone): Occupied => {
+    const shape = zoneShape(zone);
+    return { shape, bounds: shapeBounds(shape) };
+  });
   entries.forEach((entry, entryIndex) => {
-    const zone = map.spawnZones[spawnZones[entryIndex] ?? 0];
-    if (zone === undefined) throw new Error("Spawn Zone assignment failed");
-    const zoneShape: WorldShape =
-      zone.shape === "circle"
-        ? { shape: "circle", x: zone.x, y: zone.y, radius: zone.radius }
-        : { shape: "polygon", points: zone.points };
-    const zoneBounds = shapeBounds(zoneShape);
+    const zoneIndex = spawnZones[entryIndex] ?? 0;
+    const zone = map.spawnZones[zoneIndex];
+    const area = zones[zoneIndex];
+    if (zone === undefined || area === undefined) throw new Error("Spawn Zone assignment failed");
 
-    for (const setupBot of entry.bots) {
+    entry.bots.forEach((setupBot, botIndex) => {
       const spec = deriveBotSpec(ruleset, setupBot.build);
-      let position: { x: number; y: number; shape: WorldShape; bounds: Bounds } | undefined;
-      for (let attempt = 0; attempt < SPAWN_ATTEMPTS && position === undefined; attempt++) {
-        const x = zoneBounds.minX + random.next() * (zoneBounds.maxX - zoneBounds.minX);
-        const y = zoneBounds.minY + random.next() * (zoneBounds.maxY - zoneBounds.minY);
-        if (!pointInShape({ x, y }, zoneShape)) continue;
+      let position: Placement | undefined;
+      // Bots over the zone's capacity skip the random tries and draw nothing.
+      const attempts = botIndex < zone.capacity ? SPAWN_ATTEMPTS : 0;
+      for (let attempt = 0; attempt < attempts && position === undefined; attempt++) {
+        const x = area.bounds.minX + random.next() * (area.bounds.maxX - area.bounds.minX);
+        const y = area.bounds.minY + random.next() * (area.bounds.maxY - area.bounds.minY);
+        if (!pointInShape({ x, y }, area.shape)) continue;
         const shape = placeShape(spec.shape, x, y, zone.heading);
         const bounds = shapeBounds(shape);
         if (!withinMap(map, bounds)) continue;
-        const clear = (other: { shape: WorldShape; bounds: Bounds }) =>
-          !boundsOverlap(bounds, other.bounds) || !shapesOverlap(shape, other.shape);
-        if (obstacles.every(clear) && placed.every(clear)) position = { x, y, shape, bounds };
+        if (clearOf(shape, bounds, obstacles) && clearOf(shape, bounds, placed)) position = { x, y, shape, bounds };
+      }
+      if (position === undefined) {
+        const others = zones.filter((_, i) => i !== zoneIndex);
+        position = spillPlacement(map, spec.shape, zone.heading, area.bounds, [...obstacles, ...placed], others);
       }
       if (position === undefined) {
         throw new Error(`could not place Bot "${setupBot.name}" in Spawn Zone ${String(spawnZones[entryIndex])}`);
@@ -238,7 +315,7 @@ export function createWorld(setup: WorldSetup): World {
         disabledCause: null,
         weapons: spec.weapons.map((w) => ({ id: w.id, ticksUntilReady: 0 })),
       });
-    }
+    });
   });
 
   return { ruleset, map, seed, tick: 0, bots, obstacles, projectiles: [], nextProjectileId: 1, spawnZones };
