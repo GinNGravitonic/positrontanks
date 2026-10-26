@@ -1,3 +1,8 @@
+# Normalize text to LF in the repository and in working trees on every
+# platform, so tools that write LF (goldens, formatters) leave no spurious
+# diffs where core.autocrlf would otherwise check files out as CRLF.
+* text=auto eol=lf
+
 # Files copied into the Linux Docker image must keep LF line endings.
 docker/** text eol=lf
 Dockerfile text eol=lf
