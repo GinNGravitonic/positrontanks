@@ -194,6 +194,36 @@ Armor absorbs per hit, so its worth depends on what it faces. Damage left per hi
 | Medium (4) | 1 | 4 | 6 | 6 | 8 | 10 | 26 | 51 | 56 | 66 |
 | Heavy (7) | 0 | 1 | 3 | 3 | 5 | 7 | 23 | 48 | 53 | 63 |
 
+### 5.6 Visual size
+
+How big clients draw each Slot-mounted Component (`visualSize`, [v1.md §5](v1.md#5-rulesets-and-the-parts-catalog)): length along the Slot direction and width across it, in meters, with the origin at the Slot. These are placeholders chosen by eye for v1's placeholder shapes. They are not stats: no engine reads them, and weapon and sensor `range` is still measured from the Bot's centre (engine-r1 §6 and §9). Each is at most the largest Chassis dimension (2.4 m, the Juggernaut's length); drawn Components may overlap one another or other Bots. Armor has no visual size.
+
+| Component | Length (m) | Width (m) |
+|---|---|---|
+| Spike (`spike`) | 0.5 | 0.12 |
+| Saw (`saw`) | 0.4 | 0.4 |
+| Hammer (`hammer`) | 0.6 | 0.25 |
+| Pellet Gun (`pelletGun`) | 0.35 | 0.1 |
+| Autocannon (`autocannon`) | 0.55 | 0.15 |
+| Rocket Pod (`rocketPod`) | 0.4 | 0.3 |
+| Cannon Turret (`cannonTurret`) | 0.5 | 0.35 |
+| Laser (`laser`) | 0.5 | 0.12 |
+| Beam Turret (`beamTurret`) | 0.4 | 0.35 |
+| Lance (`lance`) | 0.9 | 0.1 |
+| Short Radar (`shortRadar`) | 0.2 | 0.25 |
+| Radar (`radar`) | 0.25 | 0.3 |
+| Dome Radar (`domeRadar`) | 0.3 | 0.3 |
+| Long Radar (`longRadar`) | 0.2 | 0.45 |
+| Rangefinder (`rangefinder`) | 0.15 | 0.08 |
+| Projectile Detector (`detector`) | 0.2 | 0.2 |
+| Wheels (`wheels`) | 0.3 | 0.8 |
+| Tracks (`tracks`) | 0.4 | 0.9 |
+| Hover Fans (`hover`) | 0.35 | 0.7 |
+| Walker Legs (`walker`) | 0.4 | 0.8 |
+| Coprocessor (`coprocessor`) | 0.15 | 0.15 |
+| Fast Processor (`fastProcessor`) | 0.18 | 0.18 |
+| Super Processor (`superProcessor`) | 0.2 | 0.2 |
+
 ## 6. Ramming
 
 Confirms the constants of [engine-r1 §5](engine-r1.md#5-ramming):

@@ -53,8 +53,10 @@ function entries(marker: string): [string, string, string[]][] {
 
 const r1 = loadRuleset("r1");
 
+/** The Components of a kind, without their visual size (section 5.6, checked on its own). */
 function ofKind(kind: string): Component[] {
-  return r1.components.filter((c) => c.kind === kind);
+  // toEqual ignores undefined fields.
+  return r1.components.filter((c) => c.kind === kind).map((c) => ({ ...c, visualSize: undefined }));
 }
 
 describe("shipped Rulesets", () => {
@@ -264,6 +266,15 @@ describe("r1 matches catalog-r1.md", () => {
       stats: { armor: num(cell(row, 2)), mass: num(cell(row, 3)) },
     }));
     expect(ofKind("armor")).toEqual(expected);
+  });
+
+  it("has the visual sizes of every Slot-mounted Component, and none for Armor (section 5.6)", () => {
+    const expected = new Map(
+      entries("### 5.6 Visual size").map(([id, , row]) => [id, { length: num(cell(row, 1)), width: num(cell(row, 2)) }]),
+    );
+    const sized = r1.components.filter((c) => r1.componentKinds[c.kind]?.mount === "slot");
+    expect(sized.map((c) => c.id)).toEqual([...expected.keys()]);
+    for (const c of r1.components) expect(c.visualSize, c.id).toEqual(expected.get(c.id));
   });
 
   it("has nothing outside the catalog", () => {

@@ -157,6 +157,42 @@ describe("validateRuleset", () => {
     expect(pathsAfter("components.6.slotTypes", ["utility"])).toEqual(["ruleset.components[6].slotTypes"]);
   });
 
+  it("reads a Component's optional visual size, which is not a stat", () => {
+    expect(loaded().components[0]?.visualSize).toEqual({ length: 0.4, width: 0.1 });
+    expect(loaded().components[0]?.stats).not.toHaveProperty("visualSize");
+    const result = validateRuleset(edited(["components.0.visualSize", undefined]));
+    expect(result.ok && Object.hasOwn(result.ruleset.components[0] ?? {}, "visualSize")).toBe(false);
+  });
+
+  it("checks visual sizes", () => {
+    expect(pathsAfter("components.0.visualSize", 1)).toEqual(["ruleset.components[0].visualSize"]);
+    expect(pathsAfter("components.0.visualSize", { length: 0.4 })).toEqual(["ruleset.components[0].visualSize.width"]);
+    expect(pathsAfter("components.0.visualSize.depth", 1)).toEqual(["ruleset.components[0].visualSize.depth"]);
+    expect(pathsAfter("components.0.visualSize.length", 0)).toEqual(["ruleset.components[0].visualSize.length"]);
+    expect(pathsAfter("components.0.visualSize.width", -0.1)).toEqual(["ruleset.components[0].visualSize.width"]);
+    expect(pathsAfter("components.0.visualSize.width", "wide")).toEqual(["ruleset.components[0].visualSize.width"]);
+    expect(pathsAfter("components.6.visualSize", { length: 0.1, width: 0.1 })).toEqual([
+      "ruleset.components[6].visualSize",
+    ]);
+  });
+
+  it("caps visual sizes at the largest Chassis dimension, and never checks overlap", () => {
+    // The Brawler's 1.6 × 2 rectangle is the largest Chassis dimension, 2 m.
+    // A 2 m Spike covers a whole Scout and its neighbours' Slots; that is allowed.
+    expect(pathsAfter("components.0.visualSize", { length: 2, width: 2 })).toEqual([]);
+    expect(pathsAfter("components.0.visualSize.length", 2.01)).toEqual(["ruleset.components[0].visualSize.length"]);
+    expect(errorsOf(edited(["components.0.visualSize.width", 3]))).toEqual([
+      {
+        path: "ruleset.components[0].visualSize.width",
+        message: "must be at most the largest Chassis dimension (2 m)",
+      },
+    ]);
+    // A circle's dimension is its diameter.
+    const big = { shape: "circle", radius: 1.5 };
+    expect(pathsAfter("chassis.0.shape", big)).toEqual([]);
+    expect(errorsOf(edited(["chassis.0.shape", big], ["components.0.visualSize.length", 3]))).toEqual([]);
+  });
+
   it("reports every problem at once", () => {
     const errors = errorsOf(edited(["tickRate", -1], ["terrains.0.accel", "fast"], ["components.1.name", ""]));
     expect(errors.map((e) => e.path)).toEqual([

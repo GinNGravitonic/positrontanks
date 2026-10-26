@@ -114,7 +114,8 @@
       "kind": "weapon",
       "cost": 20,
       "slotTypes": ["weapon"],
-      "stats": { "category": "melee", "arcWidth": 30, "range": 0.2, "reloadTicks": 5, "damage": 25, "projectileSpeed": 0, "mass": 5 }
+      "stats": { "category": "melee", "arcWidth": 30, "range": 0.2, "reloadTicks": 5, "damage": 25, "projectileSpeed": 0, "mass": 5 },
+      "visualSize": { "length": 0.4, "width": 0.1 }
     },
     {
       "id": "cannon",
@@ -122,7 +123,8 @@
       "kind": "weapon",
       "cost": 60,
       "slotTypes": ["weapon"],
-      "stats": { "category": "projectile", "arcWidth": 20, "range": 60, "reloadTicks": 20, "damage": 30, "projectileSpeed": 30, "mass": 15 }
+      "stats": { "category": "projectile", "arcWidth": 20, "range": 60, "reloadTicks": 20, "damage": 30, "projectileSpeed": 30, "mass": 15 },
+      "visualSize": { "length": 0.6, "width": 0.2 }
     },
     {
       "id": "radar",
@@ -130,7 +132,8 @@
       "kind": "sensor",
       "cost": 30,
       "slotTypes": ["sensor"],
-      "stats": { "kind": "radar", "arcWidth": 120, "range": 80, "mass": 3 }
+      "stats": { "kind": "radar", "arcWidth": 120, "range": 80, "mass": 3 },
+      "visualSize": { "length": 0.3, "width": 0.3 }
     },
     {
       "id": "wheels",
@@ -138,7 +141,8 @@
       "kind": "motor",
       "cost": 25,
       "slotTypes": ["motor"],
-      "stats": { "force": 400, "turnRate": 180, "mass": 10, "motorTerrain": { "road": { "speed": 1.2, "accel": 1 } } }
+      "stats": { "force": 400, "turnRate": 180, "mass": 10, "motorTerrain": { "road": { "speed": 1.2, "accel": 1 } } },
+      "visualSize": { "length": 0.3, "width": 0.8 }
     },
     {
       "id": "tracks",
@@ -146,7 +150,8 @@
       "kind": "motor",
       "cost": 40,
       "slotTypes": ["motor"],
-      "stats": { "force": 600, "turnRate": 120, "mass": 25, "motorTerrain": { "sand": { "speed": 1.5, "accel": 1.5 } } }
+      "stats": { "force": 600, "turnRate": 120, "mass": 25, "motorTerrain": { "sand": { "speed": 1.5, "accel": 1.5 } } },
+      "visualSize": { "length": 0.4, "width": 0.9 }
     },
     {
       "id": "coprocessor",
@@ -154,7 +159,8 @@
       "kind": "processor",
       "cost": 50,
       "slotTypes": ["utility"],
-      "stats": { "operationBudget": 2000, "mass": 2 }
+      "stats": { "operationBudget": 2000, "mass": 2 },
+      "visualSize": { "length": 0.2, "width": 0.2 }
     },
     {
       "id": "plate",

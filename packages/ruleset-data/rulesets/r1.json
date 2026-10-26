@@ -184,7 +184,8 @@
       "kind": "weapon",
       "cost": 12,
       "slotTypes": ["weapon"],
-      "stats": { "category": "melee", "arcWidth": 60, "range": 1.5, "reloadTicks": 10, "damage": 30, "projectileSpeed": 0, "mass": 8 }
+      "stats": { "category": "melee", "arcWidth": 60, "range": 1.5, "reloadTicks": 10, "damage": 30, "projectileSpeed": 0, "mass": 8 },
+      "visualSize": { "length": 0.5, "width": 0.12 }
     },
     {
       "id": "saw",
@@ -192,7 +193,8 @@
       "kind": "weapon",
       "cost": 25,
       "slotTypes": ["weapon"],
-      "stats": { "category": "melee", "arcWidth": 90, "range": 1.4, "reloadTicks": 2, "damage": 8, "projectileSpeed": 0, "mass": 15 }
+      "stats": { "category": "melee", "arcWidth": 90, "range": 1.4, "reloadTicks": 2, "damage": 8, "projectileSpeed": 0, "mass": 15 },
+      "visualSize": { "length": 0.4, "width": 0.4 }
     },
     {
       "id": "hammer",
@@ -200,7 +202,8 @@
       "kind": "weapon",
       "cost": 35,
       "slotTypes": ["weapon"],
-      "stats": { "category": "melee", "arcWidth": 60, "range": 1.8, "reloadTicks": 15, "damage": 70, "projectileSpeed": 0, "mass": 30 }
+      "stats": { "category": "melee", "arcWidth": 60, "range": 1.8, "reloadTicks": 15, "damage": 70, "projectileSpeed": 0, "mass": 30 },
+      "visualSize": { "length": 0.6, "width": 0.25 }
     },
     {
       "id": "pelletGun",
@@ -208,7 +211,8 @@
       "kind": "weapon",
       "cost": 12,
       "slotTypes": ["weapon"],
-      "stats": { "category": "projectile", "arcWidth": 30, "range": 30, "reloadTicks": 3, "damage": 5, "projectileSpeed": 35, "mass": 6 }
+      "stats": { "category": "projectile", "arcWidth": 30, "range": 30, "reloadTicks": 3, "damage": 5, "projectileSpeed": 35, "mass": 6 },
+      "visualSize": { "length": 0.35, "width": 0.1 }
     },
     {
       "id": "autocannon",
@@ -216,7 +220,8 @@
       "kind": "weapon",
       "cost": 28,
       "slotTypes": ["weapon"],
-      "stats": { "category": "projectile", "arcWidth": 20, "range": 45, "reloadTicks": 5, "damage": 10, "projectileSpeed": 45, "mass": 18 }
+      "stats": { "category": "projectile", "arcWidth": 20, "range": 45, "reloadTicks": 5, "damage": 10, "projectileSpeed": 45, "mass": 18 },
+      "visualSize": { "length": 0.55, "width": 0.15 }
     },
     {
       "id": "rocketPod",
@@ -224,7 +229,8 @@
       "kind": "weapon",
       "cost": 40,
       "slotTypes": ["weapon"],
-      "stats": { "category": "projectile", "arcWidth": 20, "range": 60, "reloadTicks": 25, "damage": 55, "projectileSpeed": 18, "mass": 22 }
+      "stats": { "category": "projectile", "arcWidth": 20, "range": 60, "reloadTicks": 25, "damage": 55, "projectileSpeed": 18, "mass": 22 },
+      "visualSize": { "length": 0.4, "width": 0.3 }
     },
     {
       "id": "cannonTurret",
@@ -232,7 +238,8 @@
       "kind": "weapon",
       "cost": 55,
       "slotTypes": ["weapon"],
-      "stats": { "category": "projectile", "arcWidth": 360, "range": 40, "reloadTicks": 6, "damage": 10, "projectileSpeed": 40, "mass": 35 }
+      "stats": { "category": "projectile", "arcWidth": 360, "range": 40, "reloadTicks": 6, "damage": 10, "projectileSpeed": 40, "mass": 35 },
+      "visualSize": { "length": 0.5, "width": 0.35 }
     },
     {
       "id": "laser",
@@ -240,7 +247,8 @@
       "kind": "weapon",
       "cost": 40,
       "slotTypes": ["weapon"],
-      "stats": { "category": "beam", "arcWidth": 20, "range": 35, "reloadTicks": 8, "damage": 14, "projectileSpeed": 0, "mass": 10 }
+      "stats": { "category": "beam", "arcWidth": 20, "range": 35, "reloadTicks": 8, "damage": 14, "projectileSpeed": 0, "mass": 10 },
+      "visualSize": { "length": 0.5, "width": 0.12 }
     },
     {
       "id": "beamTurret",
@@ -248,7 +256,8 @@
       "kind": "weapon",
       "cost": 60,
       "slotTypes": ["weapon"],
-      "stats": { "category": "beam", "arcWidth": 360, "range": 25, "reloadTicks": 10, "damage": 12, "projectileSpeed": 0, "mass": 25 }
+      "stats": { "category": "beam", "arcWidth": 360, "range": 25, "reloadTicks": 10, "damage": 12, "projectileSpeed": 0, "mass": 25 },
+      "visualSize": { "length": 0.4, "width": 0.35 }
     },
     {
       "id": "lance",
@@ -256,7 +265,8 @@
       "kind": "weapon",
       "cost": 60,
       "slotTypes": ["weapon"],
-      "stats": { "category": "beam", "arcWidth": 10, "range": 70, "reloadTicks": 40, "damage": 60, "projectileSpeed": 0, "mass": 28 }
+      "stats": { "category": "beam", "arcWidth": 10, "range": 70, "reloadTicks": 40, "damage": 60, "projectileSpeed": 0, "mass": 28 },
+      "visualSize": { "length": 0.9, "width": 0.1 }
     },
     {
       "id": "shortRadar",
@@ -264,7 +274,8 @@
       "kind": "sensor",
       "cost": 10,
       "slotTypes": ["sensor"],
-      "stats": { "kind": "radar", "arcWidth": 90, "range": 30, "mass": 2 }
+      "stats": { "kind": "radar", "arcWidth": 90, "range": 30, "mass": 2 },
+      "visualSize": { "length": 0.2, "width": 0.25 }
     },
     {
       "id": "radar",
@@ -272,7 +283,8 @@
       "kind": "sensor",
       "cost": 20,
       "slotTypes": ["sensor"],
-      "stats": { "kind": "radar", "arcWidth": 120, "range": 50, "mass": 4 }
+      "stats": { "kind": "radar", "arcWidth": 120, "range": 50, "mass": 4 },
+      "visualSize": { "length": 0.25, "width": 0.3 }
     },
     {
       "id": "domeRadar",
@@ -280,7 +292,8 @@
       "kind": "sensor",
       "cost": 30,
       "slotTypes": ["sensor"],
-      "stats": { "kind": "radar", "arcWidth": 360, "range": 30, "mass": 6 }
+      "stats": { "kind": "radar", "arcWidth": 360, "range": 30, "mass": 6 },
+      "visualSize": { "length": 0.3, "width": 0.3 }
     },
     {
       "id": "longRadar",
@@ -288,7 +301,8 @@
       "kind": "sensor",
       "cost": 25,
       "slotTypes": ["sensor"],
-      "stats": { "kind": "radar", "arcWidth": 45, "range": 90, "mass": 5 }
+      "stats": { "kind": "radar", "arcWidth": 45, "range": 90, "mass": 5 },
+      "visualSize": { "length": 0.2, "width": 0.45 }
     },
     {
       "id": "rangefinder",
@@ -296,7 +310,8 @@
       "kind": "sensor",
       "cost": 5,
       "slotTypes": ["sensor"],
-      "stats": { "kind": "rangefinder", "arcWidth": 0, "range": 60, "mass": 1 }
+      "stats": { "kind": "rangefinder", "arcWidth": 0, "range": 60, "mass": 1 },
+      "visualSize": { "length": 0.15, "width": 0.08 }
     },
     {
       "id": "detector",
@@ -304,7 +319,8 @@
       "kind": "sensor",
       "cost": 15,
       "slotTypes": ["sensor"],
-      "stats": { "kind": "projectileDetector", "arcWidth": 360, "range": 30, "mass": 3 }
+      "stats": { "kind": "projectileDetector", "arcWidth": 360, "range": 30, "mass": 3 },
+      "visualSize": { "length": 0.2, "width": 0.2 }
     },
     {
       "id": "wheels",
@@ -323,7 +339,8 @@
           "mud": { "speed": 0.6, "accel": 0.6 },
           "ice": { "speed": 1, "accel": 0.7 }
         }
-      }
+      },
+      "visualSize": { "length": 0.3, "width": 0.8 }
     },
     {
       "id": "tracks",
@@ -342,7 +359,8 @@
           "mud": { "speed": 1.6, "accel": 1.6 },
           "ice": { "speed": 1, "accel": 2.5 }
         }
-      }
+      },
+      "visualSize": { "length": 0.4, "width": 0.9 }
     },
     {
       "id": "hover",
@@ -361,7 +379,8 @@
           "mud": { "speed": 2.2, "accel": 2.2 },
           "ice": { "speed": 0.9, "accel": 3 }
         }
-      }
+      },
+      "visualSize": { "length": 0.35, "width": 0.7 }
     },
     {
       "id": "walker",
@@ -380,7 +399,8 @@
           "mud": { "speed": 2, "accel": 2 },
           "ice": { "speed": 1, "accel": 2.5 }
         }
-      }
+      },
+      "visualSize": { "length": 0.4, "width": 0.8 }
     },
     {
       "id": "coprocessor",
@@ -388,7 +408,8 @@
       "kind": "processor",
       "cost": 15,
       "slotTypes": ["utility"],
-      "stats": { "operationBudget": 2000, "mass": 2 }
+      "stats": { "operationBudget": 2000, "mass": 2 },
+      "visualSize": { "length": 0.15, "width": 0.15 }
     },
     {
       "id": "fastProcessor",
@@ -396,7 +417,8 @@
       "kind": "processor",
       "cost": 35,
       "slotTypes": ["utility"],
-      "stats": { "operationBudget": 4000, "mass": 3 }
+      "stats": { "operationBudget": 4000, "mass": 3 },
+      "visualSize": { "length": 0.18, "width": 0.18 }
     },
     {
       "id": "superProcessor",
@@ -404,7 +426,8 @@
       "kind": "processor",
       "cost": 70,
       "slotTypes": ["utility"],
-      "stats": { "operationBudget": 8000, "mass": 4 }
+      "stats": { "operationBudget": 8000, "mass": 4 },
+      "visualSize": { "length": 0.2, "width": 0.2 }
     },
     {
       "id": "lightPlate",
