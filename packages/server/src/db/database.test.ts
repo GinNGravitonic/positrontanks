@@ -174,6 +174,35 @@ describe("the game_failures migration", () => {
   });
 });
 
+describe("the descriptions migration", () => {
+  it("gives existing Bot Designs and Maps an empty description, at most 2000 characters", () => {
+    const version = migrations.findIndex((m) => m.name === "descriptions") + 1;
+    expect(version).toBeGreaterThan(1);
+    const raw = new DatabaseSync(path);
+    migrate(raw, migrations.slice(0, version - 1));
+    const at = "2026-01-01T00:00:00.000Z";
+    raw.exec(`
+      INSERT INTO players (id, username, username_key, created_at) VALUES ('p1', 'Ada', 'ada', '${at}');
+      INSERT INTO maps (id, player_id, name, latest_revision, created_at, updated_at)
+        VALUES ('m1', 'p1', 'Field', 1, '${at}', '${at}');
+      INSERT INTO bot_designs (id, player_id, name, ruleset_version, latest_revision, created_at, updated_at)
+        VALUES ('d1', 'p1', 'Scout', 'r1', 1, '${at}', '${at}');
+    `);
+    raw.close();
+
+    const db = Database.open(path);
+    expect(db.schemaVersion()).toBe(migrations.length);
+    db.close();
+    const after = new DatabaseSync(path);
+    expect(after.prepare("SELECT description FROM maps").all()).toEqual([{ description: "" }]);
+    expect(after.prepare("SELECT description FROM bot_designs").all()).toEqual([{ description: "" }]);
+    after.prepare("UPDATE maps SET description = ?").run("d".repeat(2000));
+    expect(() => after.prepare("UPDATE maps SET description = ?").run("d".repeat(2001))).toThrow(/CHECK/);
+    expect(() => after.prepare("UPDATE bot_designs SET description = ?").run("d".repeat(2001))).toThrow(/CHECK/);
+    after.close();
+  });
+});
+
 describe("Database", () => {
   it("records when it was created", () => {
     const db = Database.open(":memory:");

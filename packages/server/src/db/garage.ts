@@ -32,6 +32,8 @@ export interface DesignRecord {
   readonly id: string;
   readonly playerId: string;
   readonly name: string;
+  /** Free text, private to the owner like the rest of the design; empty if none. */
+  readonly description: string;
   readonly rulesetVersion: string;
   readonly latestRevision: RevisionSummary;
   readonly copiedFrom: { readonly designId: string; readonly revision: number } | null;
@@ -44,8 +46,16 @@ export interface NewDesign {
   readonly id: string;
   readonly playerId: string;
   readonly name: string;
+  /** Defaults to empty. */
+  readonly description?: string;
   readonly rulesetVersion: string;
   readonly copiedFrom?: { readonly designId: string; readonly revision: number };
+}
+
+/** What an update changes; fields left out are kept. */
+export interface DesignChanges {
+  readonly name?: string;
+  readonly description?: string;
 }
 
 export interface NewRevision {
@@ -63,6 +73,7 @@ interface DesignRow {
   id: string;
   player_id: string;
   name: string;
+  description: string;
   ruleset_version: string;
   latest_revision: number;
   copied_from_design_id: string | null;
@@ -84,7 +95,7 @@ interface RevisionRow {
 }
 
 const DESIGN_COLUMNS = `
-  d.id, d.player_id, d.name, d.ruleset_version, d.latest_revision, d.copied_from_design_id,
+  d.id, d.player_id, d.name, d.description, d.ruleset_version, d.latest_revision, d.copied_from_design_id,
   d.copied_from_revision, d.created_at, d.updated_at, d.archived_at, r.cost, r.created_at AS revision_created_at
   FROM bot_designs d JOIN bot_design_revisions r ON r.design_id = d.id AND r.number = d.latest_revision`;
 
@@ -92,6 +103,7 @@ const toDesign = (row: DesignRow): DesignRecord => ({
   id: row.id,
   playerId: row.player_id,
   name: row.name,
+  description: row.description,
   rulesetVersion: row.ruleset_version,
   latestRevision: { number: row.latest_revision, cost: row.cost, createdAt: row.revision_created_at },
   copiedFrom:
@@ -127,14 +139,15 @@ export class GarageStore {
     return this.#transaction(() => {
       this.#db
         .prepare(
-          `INSERT INTO bot_designs (id, player_id, name, ruleset_version, latest_revision,
+          `INSERT INTO bot_designs (id, player_id, name, description, ruleset_version, latest_revision,
              copied_from_design_id, copied_from_revision, created_at, updated_at)
-           VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
         )
         .run(
           design.id,
           design.playerId,
           design.name,
+          design.description ?? "",
           design.rulesetVersion,
           design.copiedFrom?.designId ?? null,
           design.copiedFrom?.revision ?? null,
@@ -248,11 +261,17 @@ export class GarageStore {
     });
   }
 
-  /** Renames one of the Player's designs; false if it has no such design. */
-  renameDesign(playerId: string, designId: string, name: string, now: Date): boolean {
+  /**
+   * Changes the name and/or description of one of the Player's designs,
+   * archived or not, adding no Revision; false if it has no such design.
+   */
+  updateDesign(playerId: string, designId: string, changes: DesignChanges, now: Date): boolean {
     const result = this.#db
-      .prepare("UPDATE bot_designs SET name = ?, updated_at = ? WHERE id = ? AND player_id = ?")
-      .run(name, now.toISOString(), designId, playerId);
+      .prepare(
+        `UPDATE bot_designs SET name = coalesce(?, name), description = coalesce(?, description), updated_at = ?
+         WHERE id = ? AND player_id = ?`,
+      )
+      .run(changes.name ?? null, changes.description ?? null, now.toISOString(), designId, playerId);
     return Number(result.changes) > 0;
   }
 

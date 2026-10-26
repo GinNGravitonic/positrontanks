@@ -276,6 +276,17 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX games_by_map_revision ON games (map_id, map_revision);
     `,
   },
+  {
+    version: 8,
+    name: "descriptions",
+    // A free-text description on each Bot Design and Map, set by its owner
+    // and changeable at any time (archived or not). It belongs to the design
+    // or Map, not to a Revision; existing rows get an empty one.
+    sql: `
+      ALTER TABLE bot_designs ADD COLUMN description TEXT NOT NULL DEFAULT '' CHECK (length(description) <= 2000);
+      ALTER TABLE maps ADD COLUMN description TEXT NOT NULL DEFAULT '' CHECK (length(description) <= 2000);
+    `,
+  },
 ];
 
 export class MigrationError extends Error {
