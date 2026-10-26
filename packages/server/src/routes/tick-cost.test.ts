@@ -5,7 +5,12 @@ import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";
 import { sampleMap, TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "../garage/tick-cost.js";
 
-const config: ServerConfig = { ...defaultConfig, port: 0, databasePath: ":memory:" };
+const config: ServerConfig = {
+  ...defaultConfig,
+  port: 0,
+  databasePath: ":memory:",
+  features: { ...defaultConfig.features, tickCostCheck: true },
+};
 const quiet: Logger = { info: () => undefined, error: () => undefined };
 
 let running: RunningServer;
@@ -271,6 +276,41 @@ describe("privacy", () => {
     for (const leak of ["grace", graces.id, "Grace's arena"]) expect(text).not.toContain(leak);
     // One run per Tick: the sample Foe's runs are not included.
     expect(before.runs).toHaveLength(before.ticks);
+  });
+});
+
+describe("on a server that does not enable the check", () => {
+  beforeEach(async () => {
+    await running.close();
+    running = await startServer({ ...config, features: defaultConfig.features }, { logger: quiet });
+  });
+
+  it("answers 410 feature_disabled, not to be cached", async () => {
+    const token = await player("ada");
+    const id = (await design(token, STEADY)).id;
+    for (const path of ["/tick-cost-checks", `/bot-designs/${id}/tick-cost-checks`]) {
+      const body = path === "/tick-cost-checks" ? { rulesetVersion: "r1", build: BUILD, program: STEADY } : {};
+      const response = await fetch(running.url + path, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      expect(response.status).toBe(410);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      const { error } = (await response.json()) as { error: { code: string; message: string } };
+      expect(error.code).toBe("feature_disabled");
+      expect(error.message).toContain("docs/docker.md");
+    }
+  });
+
+  it("is reported off by GET /server", async () => {
+    expect(await call("GET", "/server")).toEqual({ status: 200, body: { features: { tickCostCheck: false } } });
+  });
+});
+
+describe("GET /server", () => {
+  it("reports the check enabled", async () => {
+    expect(await call("GET", "/server")).toEqual({ status: 200, body: { features: { tickCostCheck: true } } });
   });
 });
 

@@ -60,6 +60,18 @@ export interface ServerConfig {
    */
   readonly litestream?: LitestreamConfig;
   readonly limits: Limits;
+  readonly features: Features;
+}
+
+/** Optional features, each off unless the server enables it. */
+export interface Features {
+  /**
+   * The tick cost check (`AUMOHTA_TICK_COST_CHECK=on`). One check runs up to
+   * ~100 Ticks of `tick()` synchronously, so it is meant for local servers,
+   * where a Player's checks only load their own machine; shared deployments
+   * leave it off.
+   */
+  readonly tickCostCheck: boolean;
 }
 
 export interface LitestreamConfig {
@@ -79,6 +91,7 @@ export const defaultConfig: ServerConfig = {
     maxFillTimeoutSeconds: 24 * 60 * 60,
     maxConcurrentUnthrottledGames: 2,
   },
+  features: { tickCostCheck: false },
 };
 
 export type Env = Readonly<Record<string, string | undefined>>;
@@ -115,6 +128,14 @@ export function loadConfig(env: Env): ServerConfig {
       return fallback;
     }
     return value;
+  };
+
+  const flag = (name: string, fallback: boolean): boolean => {
+    const raw = env[name];
+    if (raw === undefined) return fallback;
+    if (raw === "on" || raw === "off") return raw === "on";
+    problems.push(`${name} must be "on" or "off", got "${raw}"`);
+    return fallback;
   };
 
   const optional = (name: string): string | undefined => {
@@ -181,6 +202,7 @@ export function loadConfig(env: Env): ServerConfig {
         0,
       ),
     },
+    features: { tickCostCheck: flag("AUMOHTA_TICK_COST_CHECK", d.features.tickCostCheck) },
   };
 
   if (problems.length > 0) throw new ConfigError(problems);
