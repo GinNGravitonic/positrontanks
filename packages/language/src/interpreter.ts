@@ -284,6 +284,16 @@ function freeNames(fn: FunctionDeclaration | ArrowFunction): readonly string[] {
   return result;
 }
 
+/**
+ * How many statements and expressions may be under evaluation at once, across
+ * all active calls (language-r1 section 10.2). A fixed rule of the language,
+ * not Ruleset data. On Node 24's default stack the costliest nesting shape
+ * (built-in call arguments, `abs(abs(…))`) overflows at about 1,050 levels, so
+ * this limit leaves a fourfold margin: a Program stops with this ordinary
+ * runtime error, never at a host-dependent stack overflow.
+ */
+export const MAX_EVALUATION_DEPTH = 256;
+
 function isStackOverflow(e: unknown): boolean {
   return e instanceof RangeError && /call stack/i.test(e.message);
 }
@@ -300,6 +310,7 @@ export class Interpreter {
   private remaining = 0;
   private values: Readonly<Record<string, Value>> = {};
   private depth = 0;
+  private evaluationDepth = 0;
   private lastCall: Location = { line: 1, column: 1 };
   private logLines: string[] = [];
   private logTruncated = false;
@@ -365,6 +376,7 @@ export class Interpreter {
     this.remaining = input.budget;
     this.values = input.values;
     this.depth = 0;
+    this.evaluationDepth = 0;
     this.lastCall = { line: 1, column: 1 };
     this.logLines = [];
     this.logTruncated = false;
@@ -381,6 +393,7 @@ export class Interpreter {
         const loc = e.loc ?? this.lastCall;
         error = { line: loc.line, column: loc.column, message: e.message };
       } else if (isStackOverflow(e)) {
+        // A last-resort safety net: MAX_EVALUATION_DEPTH should always stop the Program first.
         outcome = "error";
         error = { line: this.lastCall.line, column: this.lastCall.column, message: "the Program is nested too deeply to run" };
       } else {
@@ -414,6 +427,14 @@ export class Interpreter {
     this.remaining -= cost;
   }
 
+  /** Counts one more statement or expression under evaluation; the caller decrements when it finishes. */
+  private enter(loc: Location): void {
+    if (this.evaluationDepth >= MAX_EVALUATION_DEPTH) {
+      throw new ProgramError(`the Program is nested too deeply: more than ${String(MAX_EVALUATION_DEPTH)} levels of evaluation`, loc);
+    }
+    this.evaluationDepth++;
+  }
+
   // ------------------------------------------------------------ statements
 
   /** Declares a block's names: functions are created at once, let/const start uninitialized. */
@@ -441,63 +462,68 @@ export class Interpreter {
   }
 
   private statement(s: Statement, scope: Scope): Completion {
-    switch (s.type) {
-      case "VarDeclaration": {
-        const value = s.init === null ? null : this.expression(s.init, scope);
-        const binding = scope.bindings.get(s.id.name);
-        if (binding === undefined) scope.bindings.set(s.id.name, { value, initialized: true, constant: s.kind === "const" });
-        else {
-          binding.value = value;
-          binding.initialized = true;
+    this.enter(s.loc);
+    try {
+      switch (s.type) {
+        case "VarDeclaration": {
+          const value = s.init === null ? null : this.expression(s.init, scope);
+          const binding = scope.bindings.get(s.id.name);
+          if (binding === undefined) scope.bindings.set(s.id.name, { value, initialized: true, constant: s.kind === "const" });
+          else {
+            binding.value = value;
+            binding.initialized = true;
+          }
+          return undefined;
         }
-        return undefined;
+        case "FunctionDeclaration":
+          return undefined;
+        case "IfStatement":
+          if (this.condition(s.test, scope)) return this.block(s.consequent, scope);
+          if (s.alternate === null) return undefined;
+          return this.statement(s.alternate, scope);
+        case "WhileStatement":
+          while (this.condition(s.test, scope)) {
+            this.charge(1, s.loc);
+            const completion = this.block(s.body, scope);
+            if (completion === "break") break;
+            if (typeof completion === "object") return completion;
+          }
+          return undefined;
+        case "ForStatement":
+          return this.forStatement(s, scope);
+        case "ForOfStatement": {
+          const iterable = this.expression(s.iterable, scope);
+          if (!(iterable instanceof ListValue)) throw new ProgramError(`for…of needs a list, got ${typeName(iterable)}`, s.iterable.loc);
+          for (const item of [...iterable.items]) {
+            this.charge(1, s.loc);
+            const iteration = new Scope(scope);
+            iteration.bindings.set(s.id.name, { value: item, initialized: true, constant: s.kind === "const" });
+            const completion = this.block(s.body, iteration);
+            if (completion === "break") break;
+            if (typeof completion === "object") return completion;
+          }
+          return undefined;
+        }
+        case "BreakStatement":
+          return "break";
+        case "ContinueStatement":
+          return "continue";
+        case "ReturnStatement":
+          return { value: s.argument === null ? null : this.expression(s.argument, scope) };
+        case "Block":
+          return this.block(s, scope);
+        case "AssignmentStatement":
+          this.assign(s.target, s.operator === "=" ? null : s.operator, s.value, scope, s.loc);
+          return undefined;
+        case "UpdateStatement":
+          this.assign(s.target, s.operator, null, scope, s.loc);
+          return undefined;
+        case "ExpressionStatement":
+          this.expression(s.expression, scope);
+          return undefined;
       }
-      case "FunctionDeclaration":
-        return undefined;
-      case "IfStatement":
-        if (this.condition(s.test, scope)) return this.block(s.consequent, scope);
-        if (s.alternate === null) return undefined;
-        return this.statement(s.alternate, scope);
-      case "WhileStatement":
-        while (this.condition(s.test, scope)) {
-          this.charge(1, s.loc);
-          const completion = this.block(s.body, scope);
-          if (completion === "break") break;
-          if (typeof completion === "object") return completion;
-        }
-        return undefined;
-      case "ForStatement":
-        return this.forStatement(s, scope);
-      case "ForOfStatement": {
-        const iterable = this.expression(s.iterable, scope);
-        if (!(iterable instanceof ListValue)) throw new ProgramError(`for…of needs a list, got ${typeName(iterable)}`, s.iterable.loc);
-        for (const item of [...iterable.items]) {
-          this.charge(1, s.loc);
-          const iteration = new Scope(scope);
-          iteration.bindings.set(s.id.name, { value: item, initialized: true, constant: s.kind === "const" });
-          const completion = this.block(s.body, iteration);
-          if (completion === "break") break;
-          if (typeof completion === "object") return completion;
-        }
-        return undefined;
-      }
-      case "BreakStatement":
-        return "break";
-      case "ContinueStatement":
-        return "continue";
-      case "ReturnStatement":
-        return { value: s.argument === null ? null : this.expression(s.argument, scope) };
-      case "Block":
-        return this.block(s, scope);
-      case "AssignmentStatement":
-        this.assign(s.target, s.operator === "=" ? null : s.operator, s.value, scope, s.loc);
-        return undefined;
-      case "UpdateStatement":
-        this.assign(s.target, s.operator, null, scope, s.loc);
-        return undefined;
-      case "ExpressionStatement":
-        this.expression(s.expression, scope);
-        return undefined;
+    } finally {
+      this.evaluationDepth--;
     }
   }
 
@@ -583,72 +609,77 @@ export class Interpreter {
   // ----------------------------------------------------------- expressions
 
   private expression(e: Expression, scope: Scope): Value {
-    switch (e.type) {
-      case "NumberLiteral":
-      case "StringLiteral":
-      case "BooleanLiteral":
-        this.charge(1, e.loc);
-        return e.value;
-      case "NullLiteral":
-        this.charge(1, e.loc);
-        return null;
-      case "Identifier":
-        this.charge(1, e.loc);
-        return this.readIdentifier(e.name, e.loc, scope);
-      case "ListLiteral": {
-        const items = e.elements.map((element) => this.expression(element, scope));
-        this.charge(1 + items.length, e.loc);
-        this.checkLength(items.length, e.loc);
-        return new ListValue(items);
-      }
-      case "RecordLiteral": {
-        const fields = new Map<string, Value>();
-        for (const field of e.fields) fields.set(field.key, this.expression(field.value, scope));
-        this.charge(1 + e.fields.length, e.loc);
-        return new RecordValue(fields);
-      }
-      case "ArrowFunction":
-        this.charge(1, e.loc);
-        return new Closure(e, e.params, e.body, scope, false);
-      case "UnaryExpression": {
-        const operand = this.expression(e.operand, scope);
-        this.charge(1, e.loc);
-        if (e.operator === "!") {
-          if (typeof operand !== "boolean") throw new ProgramError(`'!' needs a boolean, got ${typeName(operand)}`, e.loc);
-          return !operand;
-        }
-        if (typeof operand !== "number") throw new ProgramError(`'-' needs a number, got ${typeName(operand)}`, e.loc);
-        return -operand;
-      }
-      case "BinaryExpression": {
-        const left = this.expression(e.left, scope);
-        if (e.operator === "&&" || e.operator === "||") {
+    this.enter(e.loc);
+    try {
+      switch (e.type) {
+        case "NumberLiteral":
+        case "StringLiteral":
+        case "BooleanLiteral":
           this.charge(1, e.loc);
-          if (typeof left !== "boolean") throw new ProgramError(`'${e.operator}' needs booleans, got ${typeName(left)}`, e.loc);
-          if (left === (e.operator === "||")) return left;
-          const right = this.expression(e.right, scope);
-          if (typeof right !== "boolean") throw new ProgramError(`'${e.operator}' needs booleans, got ${typeName(right)}`, e.loc);
-          return right;
+          return e.value;
+        case "NullLiteral":
+          this.charge(1, e.loc);
+          return null;
+        case "Identifier":
+          this.charge(1, e.loc);
+          return this.readIdentifier(e.name, e.loc, scope);
+        case "ListLiteral": {
+          const items = e.elements.map((element) => this.expression(element, scope));
+          this.charge(1 + items.length, e.loc);
+          this.checkLength(items.length, e.loc);
+          return new ListValue(items);
         }
-        const right = this.expression(e.right, scope);
-        this.charge(1, e.loc);
-        return this.binary(e.operator, left, right, e.loc);
+        case "RecordLiteral": {
+          const fields = new Map<string, Value>();
+          for (const field of e.fields) fields.set(field.key, this.expression(field.value, scope));
+          this.charge(1 + e.fields.length, e.loc);
+          return new RecordValue(fields);
+        }
+        case "ArrowFunction":
+          this.charge(1, e.loc);
+          return new Closure(e, e.params, e.body, scope, false);
+        case "UnaryExpression": {
+          const operand = this.expression(e.operand, scope);
+          this.charge(1, e.loc);
+          if (e.operator === "!") {
+            if (typeof operand !== "boolean") throw new ProgramError(`'!' needs a boolean, got ${typeName(operand)}`, e.loc);
+            return !operand;
+          }
+          if (typeof operand !== "number") throw new ProgramError(`'-' needs a number, got ${typeName(operand)}`, e.loc);
+          return -operand;
+        }
+        case "BinaryExpression": {
+          const left = this.expression(e.left, scope);
+          if (e.operator === "&&" || e.operator === "||") {
+            this.charge(1, e.loc);
+            if (typeof left !== "boolean") throw new ProgramError(`'${e.operator}' needs booleans, got ${typeName(left)}`, e.loc);
+            if (left === (e.operator === "||")) return left;
+            const right = this.expression(e.right, scope);
+            if (typeof right !== "boolean") throw new ProgramError(`'${e.operator}' needs booleans, got ${typeName(right)}`, e.loc);
+            return right;
+          }
+          const right = this.expression(e.right, scope);
+          this.charge(1, e.loc);
+          return this.binary(e.operator, left, right, e.loc);
+        }
+        case "ConditionalExpression": {
+          const test = this.expression(e.test, scope);
+          this.charge(1, e.loc);
+          if (typeof test !== "boolean") throw new ProgramError(`'?:' needs a boolean condition, got ${typeName(test)}`, e.loc);
+          return this.expression(test ? e.consequent : e.alternate, scope);
+        }
+        case "MemberExpression":
+          return this.member(this.expression(e.object, scope), e);
+        case "IndexExpression": {
+          const object = this.expression(e.object, scope);
+          const index = this.expression(e.index, scope);
+          return this.index(object, index, e.loc);
+        }
+        case "CallExpression":
+          return this.call(e, scope);
       }
-      case "ConditionalExpression": {
-        const test = this.expression(e.test, scope);
-        this.charge(1, e.loc);
-        if (typeof test !== "boolean") throw new ProgramError(`'?:' needs a boolean condition, got ${typeName(test)}`, e.loc);
-        return this.expression(test ? e.consequent : e.alternate, scope);
-      }
-      case "MemberExpression":
-        return this.member(this.expression(e.object, scope), e);
-      case "IndexExpression": {
-        const object = this.expression(e.object, scope);
-        const index = this.expression(e.index, scope);
-        return this.index(object, index, e.loc);
-      }
-      case "CallExpression":
-        return this.call(e, scope);
+    } finally {
+      this.evaluationDepth--;
     }
   }
 

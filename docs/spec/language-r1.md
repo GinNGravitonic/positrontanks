@@ -420,7 +420,7 @@ When a Bot Design Revision is saved or copied to a Ruleset, the checker reports 
 
 ### 10.2 Runtime errors in `tick()`
 
-Running out of budget, or any runtime error (a type mismatch, NaN/Infinity, a missing field, an index out of range, exceeding `maxCollectionLength`, exceeding `maxCallDepth`, …), **ends that Tick's execution**. Commands already issued still apply. The error is logged as `{tick, line, column, message}`, and `tick()` runs normally next Tick. Since execution stops at the first error, at most one runtime error is logged per Tick.
+Running out of budget, or any runtime error (a type mismatch, NaN/Infinity, a missing field, an index out of range, exceeding `maxCollectionLength`, exceeding `maxCallDepth`, exceeding the evaluation depth limit of §11, …), **ends that Tick's execution**. Commands already issued still apply. The error is logged as `{tick, line, column, message}`, and `tick()` runs normally next Tick. Since execution stops at the first error, at most one runtime error is logged per Tick.
 
 `maxCallDepth` (r1: 64) counts nested user-function and callback calls. `tick()` itself is depth 1.
 
@@ -464,6 +464,10 @@ Every value below is Ruleset data, confirmed for r1 in [catalog-r1.md §7](catal
 | `maxSourceBytes` | 65,536 |
 | `logLinesPerTick` | 50 |
 | `logLineLength` | 200 |
+
+**Evaluation depth.** At most **256** statements and expressions may be under evaluation at once, counted across all active calls. A statement or expression counts from when its evaluation starts until it finishes, including while a function it calls is running. A block written as a statement (a bare `{ … }` or an `else { … }`) counts as a statement; the body blocks of functions, `if` and loops add nothing beyond the statements in them. Going deeper is a runtime error (§10.2), reported at the statement or expression that would have gone past the limit, with the message `the Program is nested too deeply: more than 256 levels of evaluation`. Like the 128-level save-time nesting limit (§3), this is a fixed rule of the language, not Ruleset data.
+
+`maxCallDepth` stays the coarser rule that Players normally meet: ordinary recursion uses only a few levels of evaluation per call. The evaluation depth limit exists so that deeply nested code inside deep recursion always ends in this specified error, never in an overflow of the host's stack, whose size depends on the platform. It is set at about a quarter of the depth at which the costliest nesting shape overflows Node's default stack.
 
 ---
 

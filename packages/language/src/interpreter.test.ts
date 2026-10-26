@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { check } from "./checker.js";
 import { R1_LANGUAGE } from "./definition.js";
-import { Interpreter, type HostFunction, type InterpreterLimits, type RunInput, type RunResult } from "./interpreter.js";
+import { Interpreter, MAX_EVALUATION_DEPTH, type HostFunction, type InterpreterLimits, type RunInput, type RunResult } from "./interpreter.js";
+import { MAX_NESTING } from "./parser.js";
 import { ProgramError, fromHost, str, type Value } from "./values.js";
 
 const limits: InterpreterLimits = {
@@ -217,13 +218,83 @@ describe("runtime errors", () => {
     expect(result?.error?.message).toBe("more than 64 nested calls");
   });
 
-  it("survives hostile nesting at the maximum call depth", () => {
-    const open = "(".repeat(120);
-    const close = ")".repeat(120);
-    const source = `function r(n) { if (n > 0) { return ${open}r(n - 1)${close}; } return 0; } function tick() { log(r(70)); }`;
-    const result = firstTick(source, 1_000_000);
-    expect(result.outcome).toBe("error");
-    expect(result.error?.message).toBe("more than 64 nested calls");
+  describe("hostile nesting at the maximum call depth", () => {
+    const tooDeep = `the Program is nested too deeply: more than ${String(MAX_EVALUATION_DEPTH)} levels of evaluation`;
+    const nest = (open: string, k: number, close = "") => (inner: string) => open.repeat(k) + inner + close.repeat(k);
+    /** Recursive functions r(n) whose every call wraps the next in `k` levels of one nesting shape. */
+    const shapes: readonly [string, (k: number) => string][] = [
+      ["list literals", (k) => `function r(n) { if (n > 0) { return ${nest("[", k, "]")("r(n - 1)")}; } return 0; }`],
+      ["record literals", (k) => `function r(n) { if (n > 0) { return ${nest("{ a: ", k, " }")("r(n - 1)")}; } return 0; }`],
+      ["built-in call arguments", (k) => `function r(n) { if (n > 0) { return ${nest("abs(", k, ")")("r(n - 1)")}; } return 0; }`],
+      ["user call arguments", (k) => `function id(x) { return x; } function r(n) { if (n > 0) { return ${nest("id(", k, ")")("r(n - 1)")}; } return 0; }`],
+      ["unary chains", (k) => `function r(n) { if (n > 0) { return ${nest("- ", k)("r(n - 1)")}; } return 0; }`],
+      ["indexing", (k) => `const z = [0]; function r(n) { if (n > 0) { return ${nest("z[", k, "]")("r(n - 1)")}; } return 0; }`],
+      ["?: branches", (k) => `function r(n) { if (n > 0) { return ${nest("false ? 0 : ", k)("r(n - 1)")}; } return 0; }`],
+      ["nested if", (k) => `function r(n) { ${nest("if (n > 0) { ", k, " }")("return r(n - 1);")} return 0; }`],
+      ["else if chains", (k) => `function r(n) { if (n <= 0) { return 0; } ${"else if (false) {} ".repeat(k)}else { return r(n - 1); } }`],
+      ["blocks", (k) => `function r(n) { if (n > 0) { ${nest("{ ", k, " }")("return r(n - 1);")} } return 0; }`],
+      ["while", (k) => `function r(n) { if (n > 0) { ${nest("while (true) { ", k, " }")("return r(n - 1);")} } return 0; }`],
+      ["for", (k) => `function r(n) { if (n > 0) { ${nest("for (let i = 0; true; i++) { ", k, " }")("return r(n - 1);")} } return 0; }`],
+      ["for…of", (k) => `function r(n) { if (n > 0) { ${nest("for (const x of [1]) { ", k, " }")("return r(n - 1);")} } return 0; }`],
+      [
+        ".reduce callbacks with nested if",
+        (k) => `function r(n) { if (n > 0) { return [1].reduce((a, x) => { ${nest("if (true) { ", k, " }")("return r(n - 1);")} return 0; }, 0); } return 0; }`,
+      ],
+      [".reduce callbacks with built-in calls", (k) => `function r(n) { if (n > 0) { return [1].reduce((a, x) => ${nest("abs(", k, ")")("r(n - 1)")}, 0); } return 0; }`],
+      [
+        ".sort comparators with built-in calls",
+        (k) =>
+          `let big = []; function init() { for (let i = 0; i < 1024; i++) { big.push(i); } } ` +
+          `function r(n) { if (n > 0) { return big.slice(0).sort((a, b) => ${nest("abs(", k, ")")("r(n - 1)")}); } return 0; }`,
+      ],
+    ];
+
+    /** The shape's Program at the deepest nesting the checker accepts, recursing past maxCallDepth. */
+    const deepest = (shape: (k: number) => string): string => {
+      const source = (k: number) => `${shape(k)} function tick() { log(str(r(70))); }`;
+      for (let k = MAX_NESTING; k > 0; k--) {
+        if (check(source(k), { language: R1_LANGUAGE, maxSourceBytes: 65536 }).ok) return source(k);
+      }
+      throw new Error("no nesting depth passes the checker");
+    };
+
+    /** How many frames of a small function fit on what is left of the JS stack. */
+    const framesLeft = (): number => {
+      let frames = 0;
+      const probe = (): void => {
+        frames++;
+        probe();
+      };
+      try {
+        probe();
+      } catch {
+        // The stack overflowed, as intended.
+      }
+      return frames;
+    };
+
+    /** Runs `body` with about `share` of the remaining JS stack already in use. */
+    const withStackUsed = <T>(share: number, body: () => T): T => {
+      const descend = (n: number): T => (n === 0 ? body() : descend(n - 1));
+      return descend(Math.floor(framesLeft() * share));
+    };
+
+    it.each(shapes)("stops %s with the nesting error, not a stack overflow", (_name, shape) => {
+      const result = firstTick(deepest(shape), 1_000_000);
+      expect(result.outcome).toBe("error");
+      expect(result.error?.message).toBe(tooDeep);
+    });
+
+    it.each(shapes)("stops %s with the nesting error even with half the stack already used", (_name, shape) => {
+      const source = deepest(shape);
+      const result = withStackUsed(0.5, () => firstTick(source, 1_000_000));
+      expect(result.error?.message).toBe(tooDeep);
+    });
+
+    it("still stops plain recursion at maxCallDepth first", () => {
+      const result = firstTick("function r(n) { if (n > 0) { return r(n - 1); } return 0; } function tick() { log(str(r(70))); }", 1_000_000);
+      expect(result.error?.message).toBe("more than 64 nested calls");
+    });
   });
 
   it("halts the Program when the init phase calls a forbidden built-in through a function value", () => {
