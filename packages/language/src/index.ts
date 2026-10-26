@@ -3,7 +3,7 @@ export { check } from "./checker.js";
 export type { CheckOptions, CheckResult, ProgramSlots } from "./checker.js";
 export { R1_LANGUAGE, lookup } from "./definition.js";
 export type { BuiltinFunction, BuiltinMethod, LanguageDefinition, ValueType } from "./definition.js";
-export { Interpreter } from "./interpreter.js";
+export { Interpreter, MAX_EVALUATION_DEPTH } from "./interpreter.js";
 export type { HostFunction, InterpreterLimits, InterpreterOptions, RunInput, RunResult } from "./interpreter.js";
 export { KEYWORDS, tokenize } from "./lexer.js";
 export type { Diagnostic, Token, TokenKind } from "./lexer.js";
