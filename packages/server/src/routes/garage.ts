@@ -17,8 +17,13 @@
  * since Games may reference them. A Revision no Game uses, other than the
  * latest, may be truly deleted.
  *
+ * A design's name and description belong to it, not to a Revision: the
+ * owner may change them at any time, archived or not, without adding a
+ * Revision.
+ *
  * Everything here is owner-only. Programs are visible only to their owner,
  * ever, so another Player's design answers 404 exactly as a missing one does.
+ * Descriptions are private to the owner too, and never appear in Games.
  */
 
 import { randomUUID } from "node:crypto";
@@ -35,6 +40,7 @@ import {
 } from "../http/errors.js";
 import type { ApiModule, Json, RequestContext } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
+import { descriptionSchema, readChanges, readDescription } from "./description.js";
 
 export const DESIGN_NAME_MAX_LENGTH = 64;
 
@@ -112,11 +118,22 @@ const schemas: Record<string, Json> = {
   },
   BotDesignSummary: {
     type: "object",
-    required: ["id", "name", "rulesetVersion", "latestRevision", "copiedFrom", "createdAt", "updatedAt", "archivedAt"],
+    required: [
+      "id",
+      "name",
+      "description",
+      "rulesetVersion",
+      "latestRevision",
+      "copiedFrom",
+      "createdAt",
+      "updatedAt",
+      "archivedAt",
+    ],
     additionalProperties: false,
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      description: { ...descriptionSchema, description: "Private to the owner; never shown in Games. Empty if none." },
       rulesetVersion: { type: "string" },
       latestRevision: ref("BotDesignRevisionSummary"),
       copiedFrom: ref("CopiedFrom"),
@@ -127,11 +144,22 @@ const schemas: Record<string, Json> = {
   },
   BotDesign: {
     type: "object",
-    required: ["id", "name", "rulesetVersion", "latestRevision", "copiedFrom", "createdAt", "updatedAt", "archivedAt"],
+    required: [
+      "id",
+      "name",
+      "description",
+      "rulesetVersion",
+      "latestRevision",
+      "copiedFrom",
+      "createdAt",
+      "updatedAt",
+      "archivedAt",
+    ],
     additionalProperties: false,
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      description: { ...descriptionSchema, description: "Private to the owner; never shown in Games. Empty if none." },
       rulesetVersion: { type: "string" },
       latestRevision: ref("BotDesignRevision"),
       copiedFrom: ref("CopiedFrom"),
@@ -158,6 +186,7 @@ const schemas: Record<string, Json> = {
     additionalProperties: false,
     properties: {
       name: nameSchema,
+      description: { ...descriptionSchema, default: "" },
       rulesetVersion: { type: "string", examples: ["r1"] },
       build: ref("Build"),
       program: { type: "string" },
@@ -171,9 +200,10 @@ const schemas: Record<string, Json> = {
   },
   BotDesignUpdate: {
     type: "object",
-    required: ["name"],
+    description: "The fields to change; at least one. Fields left out are kept.",
+    minProperties: 1,
     additionalProperties: false,
-    properties: { name: nameSchema },
+    properties: { name: nameSchema, description: descriptionSchema },
   },
   CopyToRuleset: {
     type: "object",
@@ -284,6 +314,7 @@ const revisionJson = (r: RevisionRecord): Json => ({
 const designFields = (d: DesignRecord): Record<string, Json> => ({
   id: d.id,
   name: d.name,
+  description: d.description,
   rulesetVersion: d.rulesetVersion,
   copiedFrom: copiedFromJson(d),
   createdAt: d.createdAt,
@@ -332,7 +363,8 @@ export const garageModule: ApiModule = {
         description:
           "Validates the Build (parts exist, Components fit their Slots, cost within the Ruleset's largest Point " +
           "Budget) and checks the Program; on any problem nothing is saved and every problem is listed in " +
-          "`details`. Program problems have path `program` plus `line` and `column`.",
+          "`details`. Program problems have path `program` plus `line` and `column`. The optional `description` " +
+          "is private to you.",
         tags: [TAG],
         security: bearer,
         requestBody: { required: true, content: jsonContent(ref("NewBotDesign")) },
@@ -344,19 +376,26 @@ export const garageModule: ApiModule = {
       },
       handler: async (context) => {
         const { player } = authenticate(context);
-        const fields = ["name", "rulesetVersion", "build", "program"];
-        const body = readObject(await context.readJson(), fields, fields);
+        const required = ["name", "rulesetVersion", "build", "program"];
+        const body = readObject(await context.readJson(), [...required, "description"], required);
         const details: ErrorDetail[] = [];
         const name = readName(body.name, details);
+        const description = body.description === undefined ? "" : readDescription(body.description, details);
         const hosted = readRuleset(context, body.rulesetVersion, details);
         const checked = hosted === undefined ? undefined : checkDesign(hosted, body.build, body.program);
         if (checked !== undefined && !checked.ok) details.push(...checked.problems);
-        if (details.length > 0 || name === undefined || hosted === undefined || checked?.ok !== true) {
+        if (
+          details.length > 0 ||
+          name === undefined ||
+          description === undefined ||
+          hosted === undefined ||
+          checked?.ok !== true
+        ) {
           throw validationFailed(details);
         }
 
         const { design, revision } = context.services.db.garage.createDesign(
-          { id: randomUUID(), playerId: player.id, name, rulesetVersion: hosted.ruleset.version },
+          { id: randomUUID(), playerId: player.id, name, description, rulesetVersion: hosted.ruleset.version },
           { build: checked.build, program: checked.program, cost: checked.cost },
           new Date(),
         );
@@ -434,34 +473,32 @@ export const garageModule: ApiModule = {
       method: "PATCH",
       path: "/bot-designs/{designId}",
       operation: {
-        operationId: "renameBotDesign",
-        summary: "Rename one of your Bot Designs",
-        description: "The name belongs to the design, not a Revision, so renaming adds no Revision.",
+        operationId: "updateBotDesign",
+        summary: "Rename or describe one of your Bot Designs",
+        description:
+          "Changes the name and/or description; fields left out are kept. They belong to the design, not a " +
+          "Revision, so this adds no Revision, and archived designs can be changed too. The description stays " +
+          "private to you.",
         tags: [TAG],
         security: bearer,
         parameters: [designIdParameter],
         requestBody: { required: true, content: jsonContent(ref("BotDesignUpdate")) },
         responses: {
-          "200": { description: "The renamed design.", content: jsonContent(ref("BotDesign")) },
+          "200": { description: "The updated design.", content: jsonContent(ref("BotDesign")) },
           "401": errorResponse,
           "404": errorResponse,
-          "409": errorResponse,
           "422": errorResponse,
         },
       },
       handler: async (context) => {
         const { player } = authenticate(context);
-        const body = readObject(await context.readJson(), ["name"], ["name"]);
-        const details: ErrorDetail[] = [];
-        const name = readName(body.name, details);
-        if (name === undefined) throw validationFailed(details);
+        const changes = readChanges(readName, await context.readJson());
         const garage = context.services.db.garage;
         return context.services.db.transaction(() => {
           const { design } = loadDesign(context, player.id);
-          if (design.archivedAt !== null) throw archived(design.id);
-          garage.renameDesign(player.id, design.id, name, new Date());
-          const renamed = loadDesign(context, player.id);
-          return { body: designJson(renamed.design, renamed.latest) };
+          garage.updateDesign(player.id, design.id, changes, new Date());
+          const updated = loadDesign(context, player.id);
+          return { body: designJson(updated.design, updated.latest) };
         });
       },
     },
@@ -631,7 +668,8 @@ export const garageModule: ApiModule = {
           "saved as a new design in that version, at Revision 1, and the source is untouched. Otherwise nothing " +
           "is saved and the response is 422 `copy_has_problems` listing every problem (removed Components, a " +
           "cost over the largest Point Budget, unknown built-ins, ...). With `dryRun` the report is returned " +
-          "with 200 and nothing is saved either way. Archived designs can be copied.",
+          "with 200 and nothing is saved either way. Archived designs can be copied. The copy keeps the source's " +
+          "description.",
         tags: [TAG],
         security: bearer,
         parameters: [designIdParameter],
@@ -691,6 +729,7 @@ export const garageModule: ApiModule = {
             id: randomUUID(),
             playerId: player.id,
             name: name ?? design.name,
+            description: design.description,
             rulesetVersion: hosted.ruleset.version,
             copiedFrom: { designId: design.id, revision: source.number },
           },

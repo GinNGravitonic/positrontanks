@@ -110,6 +110,7 @@ interface Revision {
 interface Design {
   id: string;
   name: string;
+  description: string;
   rulesetVersion: string;
   latestRevision: Revision;
   copiedFrom: { designId: string; revision: number } | null;
@@ -124,7 +125,7 @@ interface Summary extends Omit<Design, "latestRevision"> {
 
 async function create(
   token: string,
-  fields: { name?: string; rulesetVersion?: string; build?: Build; program?: string } = {},
+  fields: { name?: string; description?: string; rulesetVersion?: string; build?: Build; program?: string } = {},
 ): Promise<Design> {
   const response = await call("POST", "/bot-designs", {
     token,
@@ -151,18 +152,39 @@ describe("creating a Bot Design", () => {
     const design = await create(ada, { name: "  Pellet Scout  " });
     expect(design).toMatchObject({
       name: "Pellet Scout",
+      description: "",
       rulesetVersion: "r1",
       copiedFrom: null,
       archivedAt: null,
       latestRevision: { designId: design.id, number: 1, build: BUILD, program: PROGRAM, cost: 74 },
     });
     expect(Object.keys(design).sort()).toEqual(
-      ["archivedAt", "copiedFrom", "createdAt", "id", "latestRevision", "name", "rulesetVersion", "updatedAt"],
+      ["archivedAt", "copiedFrom", "createdAt", "description", "id", "latestRevision", "name", "rulesetVersion", "updatedAt"],
     );
 
     const fetched = await call("GET", `/bot-designs/${design.id}`, { token: ada });
     expect(fetched.status).toBe(200);
     expect(fetched.body).toEqual(design);
+  });
+
+  it("accepts a description, trimmed, of at most 2000 characters", async () => {
+    const design = await create(ada, { description: "  Fast and\nfragile.  " });
+    expect(design.description).toBe("Fast and\nfragile.");
+    expect((await list(ada))[0]?.description).toBe("Fast and\nfragile.");
+    expect((await create(ada, { description: "d".repeat(2000) })).description).toHaveLength(2000);
+
+    const long = await call("POST", "/bot-designs", {
+      token: ada,
+      body: { name: "x", description: "d".repeat(2001), rulesetVersion: "r1", build: BUILD, program: PROGRAM },
+    });
+    expect(long.status).toBe(422);
+    expect(errorOf(long).details).toEqual([{ path: "description", message: "must be at most 2000 characters" }]);
+    const typed = await call("POST", "/bot-designs", {
+      token: ada,
+      body: { name: "x", description: 5, rulesetVersion: "r1", build: BUILD, program: PROGRAM },
+    });
+    expect(errorOf(typed).details).toEqual([{ path: "description", message: "must be a string" }]);
+    expect(await list(ada)).toHaveLength(2);
   });
 
   it("requires authentication", async () => {
@@ -340,7 +362,7 @@ describe("Revisions", () => {
   });
 });
 
-describe("listing and renaming", () => {
+describe("listing, renaming and describing", () => {
   it("lists the Player's designs without Programs", async () => {
     const a = await create(ada, { name: "A" });
     const b = await create(ada, { name: "B", rulesetVersion: "r1x", build: CHEAP_BUILD, program: CHEAP_PROGRAM });
@@ -365,6 +387,45 @@ describe("listing and renaming", () => {
     expect(bad.status).toBe(422);
     expect((await call("PATCH", "/bot-designs/nope", { token: ada, body: { name: "x" } })).status).toBe(404);
   });
+
+  it("changes the name and description, together or apart, keeping what is left out", async () => {
+    const design = await create(ada, { name: "Old", description: "Old notes" });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const described = await call("PATCH", `/bot-designs/${design.id}`, {
+      token: ada,
+      body: { description: "  Circles left.  " },
+    });
+    expect(described.status).toBe(200);
+    const after = described.body as Design;
+    expect(after).toMatchObject({ name: "Old", description: "Circles left.", latestRevision: design.latestRevision });
+    expect(after.updatedAt > design.updatedAt).toBe(true);
+    expect(after.createdAt).toBe(design.createdAt);
+
+    const both = await call("PATCH", `/bot-designs/${design.id}`, { token: ada, body: { name: "New", description: "" } });
+    expect(both.body).toMatchObject({ name: "New", description: "" });
+    expect((await call("GET", `/bot-designs/${design.id}`, { token: ada })).body).toEqual(both.body);
+    const revisions = (await call("GET", `/bot-designs/${design.id}/revisions`, { token: ada })).body as {
+      revisions: unknown[];
+    };
+    expect(revisions.revisions).toHaveLength(1);
+  });
+
+  it("rejects empty, unknown and invalid changes", async () => {
+    const design = await create(ada);
+    const empty = await call("PATCH", `/bot-designs/${design.id}`, { token: ada, body: {} });
+    expect(empty.status).toBe(422);
+    expect(errorOf(empty).details).toEqual([{ path: "(body)", message: "must have a name or a description to change" }]);
+
+    const bad = await call("PATCH", `/bot-designs/${design.id}`, {
+      token: ada,
+      body: { name: "", description: "d".repeat(2001), program: "x" },
+    });
+    expect(errorOf(bad).details?.map((d) => d.path)).toEqual(["program", "name", "description"]);
+    expect((await call("PATCH", `/bot-designs/${design.id}`, { token: ada, body: [] })).status).toBe(422);
+    expect((await call("PATCH", `/bot-designs/${design.id}`, { body: { name: "x" } })).status).toBe(401);
+    expect((await call("GET", `/bot-designs/${design.id}`, { token: ada })).body).toEqual(design);
+  });
 });
 
 describe("archiving", () => {
@@ -386,7 +447,7 @@ describe("archiving", () => {
     expect((await call("GET", `/bot-designs/${gone.id}/revisions/1`, { token: ada })).body).toEqual(gone.latestRevision);
   });
 
-  it("refuses new Revisions and renames, and is idempotent", async () => {
+  it("refuses new Revisions but allows renaming and describing, and is idempotent", async () => {
     const design = await create(ada);
     await call("DELETE", `/bot-designs/${design.id}`, { token: ada });
     const first = ((await call("GET", `/bot-designs/${design.id}`, { token: ada })).body as Design).archivedAt;
@@ -394,8 +455,9 @@ describe("archiving", () => {
     const edit = await call("POST", `/bot-designs/${design.id}/revisions`, { token: ada, body: { build: BUILD, program: PROGRAM } });
     expect(edit.status).toBe(409);
     expect(errorOf(edit).code).toBe("design_archived");
-    const rename = await call("PATCH", `/bot-designs/${design.id}`, { token: ada, body: { name: "x" } });
-    expect(rename.status).toBe(409);
+    const rename = await call("PATCH", `/bot-designs/${design.id}`, { token: ada, body: { name: "x", description: "Retired" } });
+    expect(rename.status).toBe(200);
+    expect(rename.body).toMatchObject({ name: "x", description: "Retired", archivedAt: first });
 
     expect((await call("DELETE", `/bot-designs/${design.id}`, { token: ada })).status).toBe(204);
     expect(((await call("GET", `/bot-designs/${design.id}`, { token: ada })).body as Design).archivedAt).toBe(first);
@@ -413,7 +475,7 @@ describe("archiving", () => {
 
 describe("copy to Ruleset", () => {
   it("saves a valid copy as a new design at Revision 1, leaving the source alone", async () => {
-    const source = await create(ada, { name: "Cheap", build: CHEAP_BUILD, program: CHEAP_PROGRAM });
+    const source = await create(ada, { name: "Cheap", description: "Notes", build: CHEAP_BUILD, program: CHEAP_PROGRAM });
     const response = await call("POST", `/bot-designs/${source.id}/copies`, { token: ada, body: { rulesetVersion: "r1x" } });
     expect(response.status).toBe(201);
     const { botDesign, report } = response.body as { botDesign: Design; report: unknown };
@@ -421,6 +483,7 @@ describe("copy to Ruleset", () => {
     expect(botDesign.id).not.toBe(source.id);
     expect(botDesign).toMatchObject({
       name: "Cheap",
+      description: "Notes",
       rulesetVersion: "r1x",
       copiedFrom: { designId: source.id, revision: 1 },
       latestRevision: { number: 1, build: CHEAP_BUILD, program: CHEAP_PROGRAM, cost: 64 },
@@ -498,8 +561,8 @@ describe("copy to Ruleset", () => {
 });
 
 describe("privacy", () => {
-  it("keeps designs, Revisions and Programs invisible to other Players", async () => {
-    const design = await create(ada);
+  it("keeps designs, Revisions, Programs and descriptions invisible to other Players", async () => {
+    const design = await create(ada, { description: "private-notes" });
     const grace = await player("grace");
 
     expect(await list(grace)).toEqual([]);
@@ -513,12 +576,14 @@ describe("privacy", () => {
       ["POST", `/bot-designs/${design.id}/copies`, { rulesetVersion: "r1" }],
       ["POST", `/bot-designs/${design.id}/copies`, { rulesetVersion: "r1", dryRun: true }],
       ["PATCH", `/bot-designs/${design.id}`, { name: "Mine now" }],
+      ["PATCH", `/bot-designs/${design.id}`, { description: "Mine now" }],
       ["DELETE", `/bot-designs/${design.id}`],
     ];
     for (const [method, path, body] of attempts) {
       const response = await call(method, path, { token: grace, ...(body === undefined ? {} : { body }) });
       expect(response.status, `${method} ${path}`).toBe(404);
       expect(JSON.stringify(response.body)).not.toContain("rangefind");
+      expect(JSON.stringify(response.body)).not.toContain("private-notes");
     }
 
     // Nothing the other Player tried changed the design.
@@ -549,7 +614,7 @@ describe("the OpenAPI document", () => {
       "getBotDesignRevision",
       "listBotDesignRevisions",
       "listBotDesigns",
-      "renameBotDesign",
+      "updateBotDesign",
     ]);
     expect(Object.keys(doc.components.schemas)).toEqual(expect.arrayContaining(["BotDesign", "Build", "CopyReport"]));
   });

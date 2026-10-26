@@ -2,7 +2,7 @@
  * Queries for Maps and their Revisions.
  *
  * Maps are public: anyone may read any Map, archived or not, so reads take
- * no Player. Changes (new Revisions, archiving) are scoped to the creator
+ * no Player. Changes (new Revisions, renaming, archiving) are scoped to the creator
  * and report whether the Map exists but belongs to someone else, since a
  * Map's existence is no secret. Revisions are only ever inserted; the schema
  * refuses updates to them. Map content is stored as JSON text and handed
@@ -36,6 +36,8 @@ export interface MapRecord {
   readonly id: string;
   readonly creator: { readonly id: string; readonly username: string };
   readonly name: string;
+  /** Free text, public like the rest of the Map; empty if none. */
+  readonly description: string;
   readonly latestRevision: MapRevisionSummary;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -46,6 +48,14 @@ export interface NewMap {
   readonly id: string;
   readonly playerId: string;
   readonly name: string;
+  /** Defaults to empty. */
+  readonly description?: string;
+}
+
+/** What an update changes; fields left out are kept. */
+export interface MapChanges {
+  readonly name?: string;
+  readonly description?: string;
 }
 
 export interface MapListOptions {
@@ -62,6 +72,7 @@ interface MapRow {
   player_id: string;
   username: string;
   name: string;
+  description: string;
   latest_revision: number;
   created_at: string;
   updated_at: string;
@@ -90,7 +101,7 @@ interface SummaryRow {
 }
 
 const MAP_COLUMNS = `
-  m.id, m.player_id, p.username, m.name, m.latest_revision, m.created_at, m.updated_at, m.archived_at,
+  m.id, m.player_id, p.username, m.name, m.description, m.latest_revision, m.created_at, m.updated_at, m.archived_at,
   r.format, r.width, r.height, r.spawn_zones, r.created_at AS revision_created_at
   FROM maps m
   JOIN players p ON p.id = m.player_id
@@ -109,6 +120,7 @@ const toMap = (row: MapRow): MapRecord => ({
   id: row.id,
   creator: { id: row.player_id, username: row.username },
   name: row.name,
+  description: row.description,
   latestRevision: toSummary({ ...row, number: row.latest_revision, created_at: row.revision_created_at }),
   createdAt: row.created_at,
   updatedAt: row.updated_at,
@@ -137,10 +149,10 @@ export class MapStore {
     return this.#transaction(() => {
       this.#db
         .prepare(
-          `INSERT INTO maps (id, player_id, name, latest_revision, created_at, updated_at)
-           VALUES (?, ?, ?, 1, ?, ?)`,
+          `INSERT INTO maps (id, player_id, name, description, latest_revision, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 1, ?, ?)`,
         )
-        .run(map.id, map.playerId, map.name, at, at);
+        .run(map.id, map.playerId, map.name, map.description ?? "", at, at);
       const created = this.#insertRevision(map.id, 1, content, at);
       const record = this.getMap(map.id);
       if (record === undefined) throw new Error(`Map ${map.id} vanished while being created`);
@@ -254,6 +266,27 @@ export class MapStore {
         .get(mapId, number);
       if (used !== undefined) return "in_use";
       this.#db.prepare("DELETE FROM map_revisions WHERE map_id = ? AND number = ?").run(mapId, number);
+      return true;
+    });
+  }
+
+  /**
+   * Changes the name and/or description of a Map `playerId` created,
+   * archived or not, adding no Revision; otherwise says why not.
+   */
+  updateMap(playerId: string, mapId: string, changes: MapChanges, now: Date): true | "not_found" | "not_creator" {
+    return this.#transaction(() => {
+      const row = this.#db.prepare("SELECT player_id FROM maps WHERE id = ?").get(mapId) as
+        | { player_id: string }
+        | undefined;
+      if (row === undefined) return "not_found";
+      if (row.player_id !== playerId) return "not_creator";
+      this.#db
+        .prepare(
+          `UPDATE maps SET name = coalesce(?, name), description = coalesce(?, description), updated_at = ?
+           WHERE id = ?`,
+        )
+        .run(changes.name ?? null, changes.description ?? null, now.toISOString(), mapId);
       return true;
     });
   }

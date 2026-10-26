@@ -76,6 +76,7 @@ interface RevisionSummary {
 interface MapBody {
   id: string;
   name: string;
+  description: string;
   creator: { id: string; username: string };
   latestRevision: Revision;
   createdAt: string;
@@ -87,7 +88,10 @@ interface Summary extends Omit<MapBody, "latestRevision"> {
   latestRevision: RevisionSummary;
 }
 
-async function create(token: string, fields: { name?: string; map?: unknown } = {}): Promise<MapBody> {
+async function create(
+  token: string,
+  fields: { name?: string; description?: string; map?: unknown } = {},
+): Promise<MapBody> {
   const response = await call("POST", "/maps", { token, body: { name: "Duel", map: DUEL, ...fields } });
   expect(response.status).toBe(201);
   return response.body as MapBody;
@@ -110,17 +114,32 @@ describe("creating a Map", () => {
     const map = await create(ada, { name: "  The Duel  " });
     expect(map).toMatchObject({
       name: "The Duel",
+      description: "",
       creator: { username: "ada" },
       archivedAt: null,
       latestRevision: { mapId: map.id, number: 1, map: DUEL },
     });
     expect(Object.keys(map).sort()).toEqual(
-      ["archivedAt", "createdAt", "creator", "id", "latestRevision", "name", "updatedAt"],
+      ["archivedAt", "createdAt", "creator", "description", "id", "latestRevision", "name", "updatedAt"],
     );
 
     const fetched = await call("GET", `/maps/${map.id}`);
     expect(fetched.status).toBe(200);
     expect(fetched.body).toEqual(map);
+  });
+
+  it("accepts a description, trimmed, of at most 2000 characters, shown to everyone", async () => {
+    const map = await create(ada, { description: "  One pillar,\ntwo Bots.  " });
+    expect(map.description).toBe("One pillar,\ntwo Bots.");
+    expect(((await call("GET", `/maps/${map.id}`)).body as MapBody).description).toBe("One pillar,\ntwo Bots.");
+    expect((await list())[0]?.description).toBe("One pillar,\ntwo Bots.");
+
+    const long = await call("POST", "/maps", { token: ada, body: { name: "x", description: "d".repeat(2001), map: DUEL } });
+    expect(long.status).toBe(422);
+    expect(errorOf(long).details).toEqual([{ path: "description", message: "must be at most 2000 characters" }]);
+    const typed = await call("POST", "/maps", { token: ada, body: { name: "x", description: null, map: DUEL } });
+    expect(errorOf(typed).details).toEqual([{ path: "description", message: "must be a string" }]);
+    expect(await list()).toHaveLength(1);
   });
 
   it("requires authentication", async () => {
@@ -308,10 +327,10 @@ describe("Revisions", () => {
       expect(response.status, method).toBe(405);
       expect(errorOf(response).code).toBe("method_not_allowed");
     }
-    for (const method of ["PUT", "PATCH"]) {
-      const response = await call(method, `/maps/${map.id}`, { token: ada, body: { map: FOUR_CORNERS } });
-      expect(response.status, method).toBe(405);
-    }
+    expect((await call("PUT", `/maps/${map.id}`, { token: ada, body: { map: FOUR_CORNERS } })).status).toBe(405);
+    const patch = await call("PATCH", `/maps/${map.id}`, { token: ada, body: { map: FOUR_CORNERS } });
+    expect(patch.status).toBe(422);
+    expect(errorOf(patch).details?.[0]).toEqual({ path: "map", message: "is not a known field" });
 
     // Revision 1 is exactly what was first saved.
     const first = await call("GET", `/maps/${map.id}/revisions/1`);
@@ -322,7 +341,7 @@ describe("Revisions", () => {
 });
 
 describe("ownership", () => {
-  it("lets only the creator add Revisions or archive, answering others 403", async () => {
+  it("lets only the creator add Revisions, rename, describe or archive, answering others 403", async () => {
     const map = await create(ada);
     const grace = await player("grace");
 
@@ -337,6 +356,12 @@ describe("ownership", () => {
     expect(archive.status).toBe(403);
     expect(errorOf(archive).code).toBe("forbidden");
 
+    for (const body of [{ name: "Mine now" }, { description: "Mine now" }, {}]) {
+      const update = await call("PATCH", `/maps/${map.id}`, { token: grace, body });
+      expect(update.status, JSON.stringify(body)).toBe(403);
+      expect(errorOf(update).code).toBe("forbidden");
+    }
+
     // Nothing the other Player tried changed the Map.
     expect((await call("GET", `/maps/${map.id}`)).body).toEqual(map);
     const revisions = (await call("GET", `/maps/${map.id}/revisions`)).body as { revisions: unknown[] };
@@ -348,6 +373,7 @@ describe("ownership", () => {
     expect((await call("POST", `/maps/${map.id}/revisions`, { body: { map: FOUR_CORNERS } })).status).toBe(401);
     expect((await call("DELETE", `/maps/${map.id}`)).status).toBe(401);
     expect((await call("DELETE", `/maps/${map.id}`, { token: "aus_nonsense" })).status).toBe(401);
+    expect((await call("PATCH", `/maps/${map.id}`, { body: { name: "x" } })).status).toBe(401);
     expect((await call("GET", `/maps/${map.id}`)).body).toEqual(map);
   });
 
@@ -396,6 +422,54 @@ describe("archiving", () => {
   });
 });
 
+describe("renaming and describing", () => {
+  it("changes the name and description, together or apart, adding no Revision", async () => {
+    const map = await create(ada, { name: "Old", description: "Old notes" });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+
+    const described = await call("PATCH", `/maps/${map.id}`, { token: ada, body: { description: "  Mind the pillar.  " } });
+    expect(described.status).toBe(200);
+    const after = described.body as MapBody;
+    expect(after).toMatchObject({ name: "Old", description: "Mind the pillar.", latestRevision: map.latestRevision });
+    expect(after.updatedAt > map.updatedAt).toBe(true);
+    expect(after.createdAt).toBe(map.createdAt);
+
+    const renamed = await call("PATCH", `/maps/${map.id}`, { token: ada, body: { name: "  New  " } });
+    expect(renamed.body).toMatchObject({ name: "New", description: "Mind the pillar." });
+    const both = await call("PATCH", `/maps/${map.id}`, { token: ada, body: { name: "Newer", description: "" } });
+    expect(both.body).toMatchObject({ name: "Newer", description: "" });
+    expect((await call("GET", `/maps/${map.id}`)).body).toEqual(both.body);
+    const revisions = (await call("GET", `/maps/${map.id}/revisions`)).body as { revisions: unknown[] };
+    expect(revisions.revisions).toHaveLength(1);
+  });
+
+  it("works on archived Maps", async () => {
+    const map = await create(ada);
+    await call("DELETE", `/maps/${map.id}`, { token: ada });
+    const archivedAt = ((await call("GET", `/maps/${map.id}`)).body as MapBody).archivedAt;
+    const response = await call("PATCH", `/maps/${map.id}`, { token: ada, body: { name: "Retired", description: "Gone" } });
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ name: "Retired", description: "Gone", archivedAt });
+  });
+
+  it("rejects empty, unknown and invalid changes, and unknown Maps", async () => {
+    const map = await create(ada);
+    const empty = await call("PATCH", `/maps/${map.id}`, { token: ada, body: {} });
+    expect(empty.status).toBe(422);
+    expect(errorOf(empty).details).toEqual([{ path: "(body)", message: "must have a name or a description to change" }]);
+    const bad = await call("PATCH", `/maps/${map.id}`, {
+      token: ada,
+      body: { name: "n".repeat(65), description: 3 },
+    });
+    expect(errorOf(bad).details).toEqual([
+      { path: "name", message: "must be 1 to 64 characters" },
+      { path: "description", message: "must be a string" },
+    ]);
+    expect((await call("GET", `/maps/${map.id}`)).body).toEqual(map);
+    expect((await call("PATCH", "/maps/nope", { token: ada, body: { name: "x" } })).status).toBe(404);
+  });
+});
+
 describe("the OpenAPI document", () => {
   it("describes the Map endpoints, with public reads needing no credential", async () => {
     const doc = (await call("GET", "/openapi.json")).body as {
@@ -414,6 +488,7 @@ describe("the OpenAPI document", () => {
       "getMapRevision",
       "listMapRevisions",
       "listMaps",
+      "updateMap",
     ]);
     for (const op of operations) {
       const isRead = /^(get|list)/.test(op.operationId);

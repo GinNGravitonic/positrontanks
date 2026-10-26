@@ -3,9 +3,12 @@
  *
  * Maps are readable by anyone, signed in or not: listing, getting a Map, and
  * reading its Revisions need no credential. Creating a Map needs a Player,
- * who becomes its creator; only the creator may add Revisions or archive it.
- * Since a Map's existence is public, another Player trying to change it is
- * answered 403 `forbidden`, not 404.
+ * who becomes its creator; only the creator may add Revisions, rename or
+ * describe it, or archive it. Since a Map's existence is public, another
+ * Player trying to change it is answered 403 `forbidden`, not 404. The name
+ * and description belong to the Map, not a Revision, and are public like the
+ * rest of it; changing them adds no Revision and is allowed on archived Maps
+ * too.
  *
  * Saving (creating a Map or a new Revision) validates the content as Map
  * Format 1 with ruleset-data's validateMap under the server's Map size
@@ -35,6 +38,7 @@ import {
   type ErrorDetail,
 } from "../http/errors.js";
 import type { ApiModule, Json, RequestContext } from "../http/router.js";
+import { descriptionSchema, readChanges, readDescription } from "./description.js";
 
 export const MAP_NAME_MAX_LENGTH = 64;
 
@@ -168,11 +172,12 @@ const schemas: Record<string, Json> = {
   },
   MapSummary: {
     type: "object",
-    required: ["id", "name", "creator", "latestRevision", "createdAt", "updatedAt", "archivedAt"],
+    required: ["id", "name", "description", "creator", "latestRevision", "createdAt", "updatedAt", "archivedAt"],
     additionalProperties: false,
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      description: descriptionSchema,
       creator: ref("MapCreator"),
       latestRevision: ref("MapRevisionSummary"),
       createdAt: timestamp,
@@ -182,11 +187,12 @@ const schemas: Record<string, Json> = {
   },
   Map: {
     type: "object",
-    required: ["id", "name", "creator", "latestRevision", "createdAt", "updatedAt", "archivedAt"],
+    required: ["id", "name", "description", "creator", "latestRevision", "createdAt", "updatedAt", "archivedAt"],
     additionalProperties: false,
     properties: {
       id: { type: "string" },
       name: { type: "string" },
+      description: descriptionSchema,
       creator: ref("MapCreator"),
       latestRevision: ref("MapRevision"),
       createdAt: timestamp,
@@ -210,7 +216,14 @@ const schemas: Record<string, Json> = {
     type: "object",
     required: ["name", "map"],
     additionalProperties: false,
-    properties: { name: nameSchema, map: ref("MapFormat1") },
+    properties: { name: nameSchema, description: { ...descriptionSchema, default: "" }, map: ref("MapFormat1") },
+  },
+  MapUpdate: {
+    type: "object",
+    description: "The fields to change; at least one. Fields left out are kept.",
+    minProperties: 1,
+    additionalProperties: false,
+    properties: { name: nameSchema, description: descriptionSchema },
   },
   NewMapRevision: {
     type: "object",
@@ -291,6 +304,7 @@ const revisionJson = (r: MapRevisionRecord): Json => ({
 const mapFields = (m: MapRecord): Record<string, Json> => ({
   id: m.id,
   name: m.name,
+  description: m.description,
   creator: { id: m.creator.id, username: m.creator.username },
   createdAt: m.createdAt,
   updatedAt: m.updatedAt,
@@ -324,8 +338,8 @@ export const mapsModule: ApiModule = {
     {
       name: TAG,
       description:
-        "Maps and their immutable Revisions. Anyone may read Maps; only a Map's creator may add Revisions or " +
-        "archive it.",
+        "Maps and their immutable Revisions. Anyone may read Maps; only a Map's creator may add Revisions, " +
+        "rename or describe it, or archive it.",
     },
   ],
   schemas,
@@ -351,14 +365,17 @@ export const mapsModule: ApiModule = {
       },
       handler: async (context) => {
         const { player } = authenticate(context);
-        const body = readObject(await context.readJson(), ["name", "map"], ["name", "map"]);
+        const body = readObject(await context.readJson(), ["name", "description", "map"], ["name", "map"]);
         const details: ErrorDetail[] = [];
         const name = readName(body.name, details);
+        const description = body.description === undefined ? "" : readDescription(body.description, details);
         const content = readMap(context, body.map, details);
-        if (details.length > 0 || name === undefined || content === undefined) throw validationFailed(details);
+        if (details.length > 0 || name === undefined || description === undefined || content === undefined) {
+          throw validationFailed(details);
+        }
 
         const { map, revision } = context.services.db.maps.createMap(
-          { id: randomUUID(), playerId: player.id, name },
+          { id: randomUUID(), playerId: player.id, name, description },
           content,
           new Date(),
         );
@@ -459,6 +476,40 @@ export const mapsModule: ApiModule = {
         if (result === "not_found") throw noMap(id);
         if (result === "not_creator") throw notCreator(id);
         return {};
+      },
+    },
+    {
+      method: "PATCH",
+      path: "/maps/{mapId}",
+      operation: {
+        operationId: "updateMap",
+        summary: "Rename or describe a Map you created",
+        description:
+          "Changes the name and/or description; fields left out are kept. They belong to the Map, not a Revision, " +
+          "so this adds no Revision, and archived Maps can be changed too. Both are public, like the rest of the " +
+          "Map. Only the Map's creator may change them.",
+        tags: [TAG],
+        security: bearer,
+        parameters: [mapIdParameter],
+        requestBody: { required: true, content: jsonContent(ref("MapUpdate")) },
+        responses: {
+          "200": { description: "The updated Map.", content: jsonContent(ref("Map")) },
+          "401": errorResponse,
+          "403": errorResponse,
+          "404": errorResponse,
+          "422": errorResponse,
+        },
+      },
+      handler: async (context) => {
+        const { player } = authenticate(context);
+        const { map } = loadMap(context);
+        if (map.creator.id !== player.id) throw notCreator(map.id);
+        const changes = readChanges(readName, await context.readJson());
+        const result = context.services.db.maps.updateMap(player.id, map.id, changes, new Date());
+        if (result === "not_found") throw noMap(map.id);
+        if (result === "not_creator") throw notCreator(map.id);
+        const updated = loadMap(context);
+        return { body: mapJson(updated.map, updated.latest) };
       },
     },
     {
