@@ -1,5 +1,6 @@
 /**
- * Endpoints about the server itself: health and the OpenAPI document.
+ * Endpoints about the server itself: health, the optional features it
+ * enables (config.ts), and the OpenAPI document.
  */
 
 import { ApiError } from "../http/errors.js";
@@ -12,11 +13,33 @@ const healthSchema: Json = {
   properties: { status: { const: "ok" } },
 };
 
+const serverSchema: Json = {
+  type: "object",
+  required: ["features"],
+  additionalProperties: false,
+  properties: {
+    features: {
+      type: "object",
+      description: "Optional features, and whether this server enables each. Disabled features answer 410 `feature_disabled`.",
+      required: ["tickCostCheck"],
+      additionalProperties: false,
+      properties: {
+        tickCostCheck: {
+          type: "boolean",
+          description:
+            "The tick cost check (`checkTickCost`, `checkBotDesignTickCost`), a local-server feature: on only where " +
+            "the server sets AUMOHTA_TICK_COST_CHECK=on.",
+        },
+      },
+    },
+  },
+};
+
 /** `document` is called per request, so the served document includes every registered module. */
 export function systemModule(document: () => Json): ApiModule {
   return {
     tags: [{ name: "System", description: "The server itself." }],
-    schemas: { Health: healthSchema },
+    schemas: { Health: healthSchema, Server: serverSchema },
     routes: [
       {
         method: "GET",
@@ -43,6 +66,24 @@ export function systemModule(document: () => Json): ApiModule {
           }
           return { body: { status: "ok" } };
         },
+      },
+      {
+        method: "GET",
+        path: "/server",
+        operation: {
+          operationId: "getServerInfo",
+          summary: "Get which optional features this server enables",
+          tags: ["System"],
+          responses: {
+            "200": {
+              description: "This server's features.",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Server" } } },
+            },
+          },
+        },
+        handler: ({ services }) => ({
+          body: { features: { tickCostCheck: services.config.features.tickCostCheck } },
+        }),
       },
       {
         method: "GET",

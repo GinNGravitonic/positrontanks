@@ -90,6 +90,13 @@ describe("server", () => {
     expect(response.body).toMatchObject({ error: { code: "unavailable" } });
   });
 
+  it("reports its optional features, off by default", async () => {
+    await boot();
+    const response = await get("/server");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ features: { tickCostCheck: false } });
+  });
+
   it("serves the OpenAPI document covering every registered route", async () => {
     await boot([testModule]);
     const { status, body } = await get("/openapi.json");
@@ -100,7 +107,14 @@ describe("server", () => {
       components: { schemas: Record<string, unknown> };
     };
     expect(doc.openapi).toBe("3.1.0");
-    expect(Object.keys(doc.paths).sort()).toEqual(["/crash", "/echo/{name}", "/health", "/invalid", "/openapi.json"]);
+    expect(Object.keys(doc.paths).sort()).toEqual([
+      "/crash",
+      "/echo/{name}",
+      "/health",
+      "/invalid",
+      "/openapi.json",
+      "/server",
+    ]);
     expect(doc.paths["/health"]?.get?.operationId).toBe("getHealth");
     expect(doc.paths["/echo/{name}"]?.post?.responses.default).toEqual({ $ref: "#/components/responses/Error" });
     expect(Object.keys(doc.components.schemas)).toEqual(expect.arrayContaining(["Error", "Health", "Echo"]));

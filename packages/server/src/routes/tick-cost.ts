@@ -10,6 +10,10 @@
  * A check never shows anything of another Player: the sample world is built
  * from the Ruleset alone, the report covers only the checked Bot, and
  * another Player's design answers 404 exactly as a missing one does.
+ *
+ * The check is a local-server feature (config.ts, `features.tickCostCheck`):
+ * where it is off, both endpoints answer 410 `feature_disabled`, and
+ * `GET /server` tells clients which it is before they call.
  */
 
 import { authenticate } from "../accounts/auth.js";
@@ -24,7 +28,7 @@ import {
   type TickCostOptions,
 } from "../garage/tick-cost.js";
 import { ApiError, notFound, validationFailed, type ErrorDetail } from "../http/errors.js";
-import type { ApiModule, Json, Reply } from "../http/router.js";
+import type { ApiModule, Json, Reply, RequestContext } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
 import { readObject, readRuleset } from "./garage.js";
 
@@ -147,6 +151,22 @@ const schemas: Record<string, Json> = {
   },
 };
 
+/**
+ * Answers 410 unless this server enables the check. 410 is heuristically
+ * cacheable, so it is marked no-store: enabling the feature takes effect at once.
+ */
+function requireEnabled(context: RequestContext): void {
+  if (context.services.config.features.tickCostCheck) return;
+  throw new ApiError(
+    410,
+    "feature_disabled",
+    "The tick cost check is a local-server feature and is off on this server; run a local server with " +
+      "AUMOHTA_TICK_COST_CHECK=on (see docs/docker.md) to check tick costs",
+    undefined,
+    { "cache-control": "no-store" },
+  );
+}
+
 /** The `ticks` and `seed` options, defaulted, after recording any problems. */
 function readOptions(body: Record<string, unknown>, details: ErrorDetail[]): TickCostOptions {
   const integer = (key: string, min: number, max: number, fallback: number): number => {
@@ -187,13 +207,15 @@ export const tickCostModule: ApiModule = {
         description:
           "Validates the Build and Program exactly as `createBotDesign` does (problems answer 422 with every problem " +
           "in `details`), then runs the Program's init phase and `tick()` for `ticks` Ticks in the sample world and " +
-          "reports the operations each run used, the peak, and persistent memory. Nothing is saved.",
+          "reports the operations each run used, the peak, and persistent memory. Nothing is saved. A local-server " +
+          "feature: servers that do not enable it answer 410 `feature_disabled` (see `getServerInfo`).",
         tags: [TAG],
         security: bearer,
         requestBody: { required: true, content: jsonContent(ref("TickCostCheck")) },
-        responses: { "200": reportResponse, "401": errorResponse, "422": errorResponse },
+        responses: { "200": reportResponse, "401": errorResponse, "410": errorResponse, "422": errorResponse },
       },
       handler: async (context) => {
+        requireEnabled(context);
         authenticate(context);
         const body = readObject(
           await context.readJson(),
@@ -225,10 +247,12 @@ export const tickCostModule: ApiModule = {
           "401": errorResponse,
           "404": errorResponse,
           "409": errorResponse,
+          "410": errorResponse,
           "422": errorResponse,
         },
       },
       handler: async (context) => {
+        requireEnabled(context);
         const { player } = authenticate(context);
         const body = readObject(await context.readJson(), ["revision", "ticks", "seed"], []);
         const details: ErrorDetail[] = [];

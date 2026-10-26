@@ -84,6 +84,18 @@ describe("loadConfig", () => {
     });
   });
 
+  describe("features", () => {
+    it("leaves the tick cost check off unless enabled", () => {
+      expect(loadConfig({}).features.tickCostCheck).toBe(false);
+      expect(loadConfig({ AUMOHTA_TICK_COST_CHECK: "off" }).features.tickCostCheck).toBe(false);
+      expect(loadConfig({ AUMOHTA_TICK_COST_CHECK: "on" }).features.tickCostCheck).toBe(true);
+    });
+
+    it("reports an invalid setting", () => {
+      expect(() => loadConfig({ AUMOHTA_TICK_COST_CHECK: "yes" })).toThrow(/AUMOHTA_TICK_COST_CHECK must be "on" or "off"/);
+    });
+  });
+
   describe("litestream", () => {
     const problems = (env: Record<string, string>): readonly string[] => {
       try {
