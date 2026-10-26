@@ -8,11 +8,11 @@ import { createWorld, type BotState, type EntrySetup, type World } from "./world
 const noArmor = { front: null, left: null, right: null, rear: null } as const;
 
 function weapon(id: string, stats: Component["stats"]): Component {
-  return { id, name: id, kind: "weapon", cost: 5, slotTypes: ["weapon"], stats };
+  return { id, name: id, description: id, kind: "weapon", cost: 5, slotTypes: ["weapon"], stats };
 }
 
 function sensor(id: string, stats: Component["stats"]): Component {
-  return { id, name: id, kind: "sensor", cost: 5, slotTypes: ["sensor"], stats };
+  return { id, name: id, description: id, kind: "sensor", cost: 5, slotTypes: ["sensor"], stats };
 }
 
 export const ruleset: Ruleset = {
@@ -21,9 +21,9 @@ export const ruleset: Ruleset = {
   pointBudget: { min: 10, max: 1000 },
   mapFormats: [1],
   terrains: [
-    { name: "grass", speed: 1, accel: 1 },
-    { name: "sand", speed: 0.5, accel: 0.5 },
-    { name: "road", speed: 1.2, accel: 1 },
+    { name: "grass", description: "grass", speed: 1, accel: 1 },
+    { name: "sand", description: "sand", speed: 0.5, accel: 0.5 },
+    { name: "road", description: "road", speed: 1.2, accel: 1 },
   ],
   limits: {
     initBudgetMultiplier: 20,
@@ -77,6 +77,7 @@ export const ruleset: Ruleset = {
     {
       id: "disc",
       name: "Disc",
+      description: "Disc",
       cost: 10,
       shape: { shape: "circle", radius: 0.5 },
       slots: [
@@ -93,6 +94,7 @@ export const ruleset: Ruleset = {
     {
       id: "box",
       name: "Box",
+      description: "Box",
       cost: 20,
       shape: {
         shape: "polygon",
@@ -114,6 +116,7 @@ export const ruleset: Ruleset = {
     {
       id: "wheels",
       name: "Wheels",
+      description: "Wheels",
       kind: "motor",
       cost: 5,
       slotTypes: ["motor"],
@@ -122,12 +125,13 @@ export const ruleset: Ruleset = {
     {
       id: "tracks",
       name: "Tracks",
+      description: "Tracks",
       kind: "motor",
       cost: 5,
       slotTypes: ["motor"],
       stats: { force: 300, maxSpeed: 6, turnRate: 90, mass: 10, motorTerrain: { sand: { speed: 2, accel: 2 } } },
     },
-    { id: "plate", name: "Plate", kind: "armor", cost: 5, slotTypes: [], stats: { armor: 5, mass: 0 } },
+    { id: "plate", name: "Plate", description: "Plate", kind: "armor", cost: 5, slotTypes: [], stats: { armor: 5, mass: 0 } },
     weapon("spike", { category: "melee", arcWidth: 60, range: 1, reloadTicks: 2, damage: 40, projectileSpeed: 0 }),
     weapon("laser", { category: "beam", arcWidth: 30, range: 50, reloadTicks: 3, damage: 20, projectileSpeed: 0 }),
     weapon("turret", { category: "beam", arcWidth: 360, range: 50, reloadTicks: 1, damage: 10, projectileSpeed: 0 }),
@@ -136,7 +140,7 @@ export const ruleset: Ruleset = {
     sensor("allSeeing", { kind: "radar", arcWidth: 360, range: 200 }),
     sensor("lidar", { kind: "rangefinder", arcWidth: 0, range: 20 }),
     sensor("detector", { kind: "projectileDetector", arcWidth: 360, range: 50 }),
-    { id: "cpu", name: "CPU", kind: "processor", cost: 5, slotTypes: ["utility"], stats: { operationBudget: 3000 } },
+    { id: "cpu", name: "CPU", description: "CPU", kind: "processor", cost: 5, slotTypes: ["utility"], stats: { operationBudget: 3000 } },
   ],
 };
 

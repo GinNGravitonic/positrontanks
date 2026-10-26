@@ -15,6 +15,12 @@
  * cannot be drawn absurdly large. Overlap between drawn Components is never
  * checked.
  *
+ * Every Chassis, Component (Armor included) and Terrain carries a required
+ * `description`: short prose for players and clients, at most
+ * DESCRIPTION_MAX_LENGTH characters of plain text on one line, with no
+ * leading or trailing whitespace. Like `visualSize` it is never a stat and no
+ * engine reads it.
+ *
  * Shapes and Slot positions are in the Bot frame: meters from the Bot's
  * centre, x to the right, y down, with the Heading pointing up (-y). Slot
  * directions are bearings relative to the Heading, in (-180, 180].
@@ -39,6 +45,8 @@ export interface TerrainMultipliers {
 
 export interface Terrain extends TerrainMultipliers {
   readonly name: string;
+  /** Prose for players and clients; no engine reads it. */
+  readonly description: string;
 }
 
 /** Per-Terrain multipliers keyed by Terrain name, as a motor's `motorTerrain` modifiers. */
@@ -81,6 +89,8 @@ export interface Slot {
 export interface Chassis {
   readonly id: string;
   readonly name: string;
+  /** Prose for players and clients; no engine reads it. */
+  readonly description: string;
   readonly cost: number;
   readonly shape: ChassisShape;
   readonly slots: readonly Slot[];
@@ -102,6 +112,8 @@ export interface VisualSize {
 export interface Component {
   readonly id: string;
   readonly name: string;
+  /** Prose for players and clients; no engine reads it. */
+  readonly description: string;
   readonly kind: string;
   readonly cost: number;
   /** The Slot types it fits; empty for side-mounted kinds. */
@@ -166,6 +178,9 @@ const NAME = /^[A-Za-z][A-Za-z0-9_]{0,31}$/;
 const NAME_RULE = "must be 1-32 letters, digits or '_', starting with a letter";
 const ID = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 const ID_RULE = "must be 1-64 letters, digits, '-' or '_', starting with a letter";
+
+/** The longest `description` of a part or Terrain, in characters (code points). */
+export const DESCRIPTION_MAX_LENGTH = 500;
 
 type Json = Record<string, unknown>;
 
@@ -315,12 +330,27 @@ function readMultipliers(r: Reader, v: unknown, path: string): TerrainMultiplier
   return speed === undefined || accel === undefined ? undefined : { speed, accel };
 }
 
+/** Reads a required `description`: trimmed plain text on one line, 1 to DESCRIPTION_MAX_LENGTH characters. */
+function readDescription(r: Reader, obj: Json, path: string): string | undefined {
+  const v = r.string(obj, "description", path);
+  if (v === undefined) return undefined;
+  const descriptionPath = `${path}.description`;
+  if (v.trim() !== v) r.error(descriptionPath, "must not start or end with whitespace");
+  else if (/\p{Cc}/u.test(v)) r.error(descriptionPath, "must be plain text on one line, without control characters");
+  else if (Array.from(v).length > DESCRIPTION_MAX_LENGTH) {
+    r.error(descriptionPath, `must be at most ${String(DESCRIPTION_MAX_LENGTH)} characters`);
+  } else return v;
+  return undefined;
+}
+
 function readTerrain(r: Reader, names: Map<string, string>, obj: Json, path: string): Terrain | undefined {
-  r.keys(obj, ["name", "speed", "accel"], path);
+  r.keys(obj, ["name", "description", "speed", "accel"], path);
   const name = r.string(obj, "name", path, NAME, NAME_RULE);
   if (name !== undefined) r.unique(names, name, `${path}.name`);
+  const description = readDescription(r, obj, path);
   const multipliers = readMultipliers(r, { speed: obj.speed, accel: obj.accel }, path);
-  return name === undefined || multipliers === undefined ? undefined : { name, ...multipliers };
+  if (name === undefined || description === undefined || multipliers === undefined) return undefined;
+  return { name, description, ...multipliers };
 }
 
 function readStatDefinition(r: Reader, v: unknown, path: string): StatDefinition | undefined {
@@ -488,16 +518,19 @@ function readCatalogEntry(r: Reader, ids: Map<string, string>, obj: Json, path: 
   const id = r.string(obj, "id", path, ID, ID_RULE);
   if (id !== undefined) r.unique(ids, id, `${path}.id`);
   const name = r.string(obj, "name", path);
+  const description = readDescription(r, obj, path);
   const cost = r.whole(obj, "cost", path, 0);
   const stats = readStats(r, obj, path);
   const artwork = r.optionalString(obj, "artwork", path);
-  if (id === undefined || name === undefined || cost === undefined || stats === undefined) return undefined;
+  if (id === undefined || name === undefined || description === undefined || cost === undefined || stats === undefined) {
+    return undefined;
+  }
   if (obj.artwork !== undefined && artwork === undefined) return undefined;
-  return { id, name, cost, stats, ...(artwork === undefined ? {} : { artwork }) };
+  return { id, name, description, cost, stats, ...(artwork === undefined ? {} : { artwork }) };
 }
 
 function readChassis(r: Reader, ids: Map<string, string>, obj: Json, path: string): Chassis | undefined {
-  r.keys(obj, ["id", "name", "cost", "shape", "slots", "stats", "artwork"], path);
+  r.keys(obj, ["id", "name", "description", "cost", "shape", "slots", "stats", "artwork"], path);
   const entry = readCatalogEntry(r, ids, obj, path);
   if (entry && entry.cost < 1) r.error(`${path}.cost`, "must be at least 1");
   const shape = readChassisShape(r, obj, path);
@@ -521,7 +554,7 @@ function readVisualSize(r: Reader, obj: Json, path: string): VisualSize | undefi
 }
 
 function readComponent(r: Reader, ids: Map<string, string>, obj: Json, path: string): Component | undefined {
-  r.keys(obj, ["id", "name", "kind", "cost", "slotTypes", "stats", "artwork", "visualSize"], path);
+  r.keys(obj, ["id", "name", "description", "kind", "cost", "slotTypes", "stats", "artwork", "visualSize"], path);
   const entry = readCatalogEntry(r, ids, obj, path);
   const kind = r.string(obj, "kind", path, NAME, NAME_RULE);
   let slotTypes: string[] | undefined = [];

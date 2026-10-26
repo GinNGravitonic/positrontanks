@@ -265,3 +265,58 @@ Derived with engine-r1's `deriveBotSpec` from this catalog, on grass. Wall ram i
 | Brawler: Saw, 2 side Autocannons, Radar, Detector, 2 Tracks, Coprocessor, Medium all round, Light rear | 332 | 372 | 300 | 4.5 | 11.8 | 58 | 4/4/4/2 | 2,000 | 38 | 80 |
 | Brawler: Cannon Turret, Dome Radar, 2 Tracks, Fast Processor, Heavy front, Medium elsewhere | 338 | 383 | 300 | 4.5 | 11.5 | 56 | 7/4/4/4 | 4,000 | 39 | 16.7 |
 | Juggernaut: Rocket Pod, Lance, 2 side Autocannons, tail Pellet Gun, Long + Dome Radar, Detector, 2 Tracks, Fast Processor, Heavy front and sides, Medium rear | 571 | 602 | 500 | 4.5 | 7.3 | 60 | 7/7/7/4 | 4,000 | 61 | 93.7 |
+
+## 9. Descriptions
+
+Every Chassis, Component and Terrain carries a `description` ([v1.md §5](v1.md#5-rulesets-and-the-parts-catalog)): short prose for Players and clients, summarising the numbers above. Descriptions are not stats: no engine reads them. Like the rest of r1 they are frozen once r1 is released.
+
+### 9.1 Terrains
+
+| Terrain | Description |
+|---|---|
+| `grass` | Open ground and the baseline Terrain: no change to speed or acceleration. |
+| `road` | Paved lanes: 1.25 times top speed and 1.2 times acceleration. Wheels gain the most here; Tracks, Hover Fans and Walker Legs give up some of the bonus. |
+| `sand` | Loose ground that cuts top speed and acceleration to 0.6 times. Tracks, Walker Legs and Hover Fans cope well; Wheels bog down to under half speed. |
+| `mud` | Deep mud: 0.4 times top speed and acceleration. Nearly impassable on Wheels, at about a quarter speed; Hover Fans skim it at close to full speed, and Walker Legs and Tracks wade through. |
+| `ice` | Fast but slippery: 1.1 times top speed but only 0.3 times acceleration, so Bots are slow to speed up and to brake. Tracks, Walker Legs and Hover Fans grip far better than Wheels. Turning is unaffected. |
+
+### 9.2 Chassis
+
+| Chassis | Description |
+|---|---|
+| Scout (`scout`) | The cheapest and lightest Chassis: a 1 m disc with 80 Hit Points and one Slot each for a weapon, a sensor, a motor and a utility Component. Quick to accelerate but fragile. |
+| Rover (`rover`) | A 1.4 m disc with 160 Hit Points: two forward weapon Slots, forward and rear sensors, one motor and a utility bay. A versatile all-rounder. |
+| Wedge (`wedge`) | A triangle with 220 Hit Points whose prow points 1 m ahead: one forward weapon, one sensor, two motors and a utility bay, built for charging in nose first. The long prow eats into a Melee Weapon's reach. |
+| Brawler (`brawler`) | A 1.4 by 1.8 m box with 300 Hit Points: a nose weapon plus left- and right-facing side weapons, forward and rear sensors, two motors and a utility bay. Made for close, broadside fighting. |
+| Juggernaut (`juggernaut`) | The biggest and toughest Chassis: a 1.8 by 2.4 m box with 500 Hit Points. Five weapon Slots (two forward, one each side, one rear), three sensors (two forward, one rear), two motors and two utility bays. At 300 kg bare it needs strong motors. |
+
+### 9.3 Components
+
+| Component | Description |
+|---|---|
+| Spike (`spike`) | A cheap fixed spike: 30 damage once a second in a 60° arc. Its 1.5 m range counts from the Bot's centre, so it reaches only 1 m past a Scout's outline, and less past bigger Chassis. |
+| Saw (`saw`) | A spinning saw that bites every 2 Ticks for 8 damage, 40 a second, across a wide 90° arc at 1.4 m. The most sustained damage against bare sides, but Armor blunts its small hits hard. |
+| Hammer (`hammer`) | A heavy hammer: 70 damage every 1.5 seconds in a 60° arc, with the longest melee range at 1.8 m. Armor barely dents it, but at 30 kg it slows the Bot carrying it. |
+| Pellet Gun (`pelletGun`) | A light, cheap gun firing a 5-damage pellet every 3 Ticks at 35 m/s, out to 30 m in a 30° arc. Good against bare sides, but Medium Plate leaves 1 damage a hit and Heavy Plate stops it entirely. |
+| Autocannon (`autocannon`) | A rapid-fire gun: 10 damage every 5 Ticks, with fast 45 m/s shells reaching 45 m in a 20° arc. A solid general-purpose weapon. |
+| Rocket Pod (`rocketPod`) | Slow, heavy rockets: 55 damage every 2.5 seconds out to 60 m in a 20° arc. Armor barely dents them, but at 18 m/s they are easy to detect and dodge. |
+| Cannon Turret (`cannonTurret`) | An autocannon on a turret that fires in any direction: 10 damage every 6 Ticks at 40 m/s, out to 40 m. Frees a slow Bot from turning to aim, at extra cost and 35 kg. |
+| Laser (`laser`) | A beam that hits at once, so it cannot be dodged or detected: 14 damage every 8 Ticks out to 35 m in a 20° arc. |
+| Beam Turret (`beamTurret`) | A turreted beam that fires in any direction and hits at once: 12 damage once a second out to 25 m. |
+| Lance (`lance`) | A long-range beam: 60 damage every 4 seconds out to 70 m, hitting at once and undetectable, but in a narrow 10° arc that needs careful aim. |
+| Short Radar (`shortRadar`) | A cheap radar that spots live Bots in line of sight within a 90° arc, out to 30 m. |
+| Radar (`radar`) | A standard radar that spots live Bots in line of sight within a 120° arc, out to 50 m. |
+| Dome Radar (`domeRadar`) | A radar that sees all around: live Bots in line of sight in any direction, out to 30 m. |
+| Long Radar (`longRadar`) | A narrow, long-range radar: live Bots in line of sight within a 45° arc, out to 90 m. Good for picking out distant targets for long-range weapons. |
+| Rangefinder (`rangefinder`) | Casts a single ray along its Slot direction and reports the distance to the first Bot, Obstacle, wreck or wall within 60 m, and what it is. Cheap and light; useful for navigation. |
+| Projectile Detector (`detector`) | Warns of incoming Projectiles: reports each one within 30 m, in any direction, that is on course to hit this Bot, with its bearing and Ticks to impact. Melee and Beam shots go unseen. |
+| Wheels (`wheels`) | Cheap, light and nimble: 1,000 N of drive, 7 m/s top speed and 200°/s turning. Fastest on road, but they struggle on sand, mud and ice. |
+| Tracks (`tracks`) | Strong but slow: 2,200 N of drive for 4.5 m/s top speed and 120°/s turning. They grip well on sand, mud and ice, but weigh 35 kg. |
+| Hover Fans (`hover`) | The fastest motor at 9 m/s, and agile at 240°/s turning, but weak at 700 N, so slow to accelerate a heavy Bot. Barely slowed by sand or mud, and keeps its grip on ice. |
+| Walker Legs (`walker`) | Powerful, slow legs: 3,000 N of drive but only 3 m/s top speed, turning at 240°/s. They stride through sand, mud and ice with little loss, and at 45 kg are the heaviest motor. |
+| Coprocessor (`coprocessor`) | Raises the Program's Operation Budget to 2,000 operations per Tick, double the built-in Processor's, which it replaces rather than adds to. |
+| Fast Processor (`fastProcessor`) | Raises the Program's Operation Budget to 4,000 operations per Tick, replacing the Chassis' built-in Processor. |
+| Super Processor (`superProcessor`) | Raises the Program's Operation Budget to 8,000 operations per Tick, replacing the Chassis' built-in Processor: the most room for demanding Programs. |
+| Light Plate (`lightPlate`) | A thin plate for one side of the Bot that absorbs 2 damage from every hit on that side. Cheap and light at 8 kg; worth most against rapid, weak hits. |
+| Medium Plate (`mediumPlate`) | A plate for one side of the Bot that absorbs 4 damage from every hit on that side, at 18 kg. |
+| Heavy Plate (`heavyPlate`) | A thick plate for one side of the Bot that absorbs 7 damage from every hit on that side, stopping Pellet Gun pellets entirely, but at 35 kg it costs mobility. |

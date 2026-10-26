@@ -193,6 +193,39 @@ describe("validateRuleset", () => {
     expect(errorsOf(edited(["chassis.0.shape", big], ["components.0.visualSize.length", 3]))).toEqual([]);
   });
 
+  it("reads the description of every part and Terrain, which is not a stat", () => {
+    const ruleset = loaded();
+    expect(ruleset.terrains[0]?.description).toBe("The baseline Terrain.");
+    expect(ruleset.chassis[0]?.description).toBe("A small, light disc.");
+    expect(ruleset.components[6]?.description).toBe("Absorbs damage on one side.");
+    expect(ruleset.components[6]?.stats).not.toHaveProperty("description");
+  });
+
+  it("requires a description on every Chassis, Component, Armor and Terrain", () => {
+    for (const entry of ["terrains.1", "chassis.0", "components.0", "components.6"]) {
+      const path = `ruleset.${entry.replace(/\.(\d+)$/, "[$1]")}.description`;
+      expect(errorsOf(edited([`${entry}.description`, undefined]))).toEqual([{ path, message: "is required" }]);
+      expect(pathsAfter(`${entry}.description`, "")).toEqual([path]);
+      expect(pathsAfter(`${entry}.description`, 7)).toEqual([path]);
+    }
+  });
+
+  it("checks descriptions are trimmed plain text of at most 500 characters", () => {
+    const path = "ruleset.chassis[0].description";
+    const message = (value: unknown) =>
+      errorsOf(edited(["chassis.0.description", value])).map((e) => `${e.path}: ${e.message}`);
+    expect(message(" A disc.")).toEqual([`${path}: must not start or end with whitespace`]);
+    expect(message("A disc.\n")).toEqual([`${path}: must not start or end with whitespace`]);
+    expect(message("   ")).toEqual([`${path}: must not start or end with whitespace`]);
+    expect(message("A disc.\nFast.")).toEqual([`${path}: must be plain text on one line, without control characters`]);
+    expect(message("A\tdisc.")).toEqual([`${path}: must be plain text on one line, without control characters`]);
+    expect(message("x".repeat(501))).toEqual([`${path}: must be at most 500 characters`]);
+    expect(message("x".repeat(500))).toEqual([]);
+    // Characters are code points: 500 astral characters are 1,000 UTF-16 units.
+    expect(message("\u{1F916}".repeat(500))).toEqual([]);
+    expect(message("Turns at 200°/s — fast.")).toEqual([]);
+  });
+
   it("reports every problem at once", () => {
     const errors = errorsOf(edited(["tickRate", -1], ["terrains.0.accel", "fast"], ["components.1.name", ""]));
     expect(errors.map((e) => e.path)).toEqual([

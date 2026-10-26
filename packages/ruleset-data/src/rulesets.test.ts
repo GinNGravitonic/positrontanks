@@ -51,12 +51,20 @@ function entries(marker: string): [string, string, string[]][] {
   });
 }
 
+/** Rows whose first cell holds a backticked id or Terrain name, as [id, row]. */
+function entriesById(marker: string): [string, string[]][] {
+  return table(marker).flatMap((row) => {
+    const id = idOf(cell(row, 0));
+    return id === undefined ? [] : [[id, row] as [string, string[]]];
+  });
+}
+
 const r1 = loadRuleset("r1");
 
-/** The Components of a kind, without their visual size (section 5.6, checked on its own). */
-function ofKind(kind: string): Component[] {
+/** The Components of a kind, without their visual size and description (sections 5.6 and 9, checked on their own). */
+function ofKind(kind: string): Omit<Component, "visualSize" | "description">[] {
   // toEqual ignores undefined fields.
-  return r1.components.filter((c) => c.kind === kind).map((c) => ({ ...c, visualSize: undefined }));
+  return r1.components.filter((c) => c.kind === kind).map((c) => ({ ...c, visualSize: undefined, description: undefined }));
 }
 
 describe("shipped Rulesets", () => {
@@ -93,7 +101,7 @@ describe("r1 matches catalog-r1.md", () => {
       speed: num(cell(row, 1)),
       accel: num(cell(row, 2)),
     }));
-    expect(r1.terrains).toEqual(expected);
+    expect(r1.terrains.map(({ name, speed, accel }) => ({ name, speed, accel }))).toEqual(expected);
   });
 
   it("has the language limits (section 7)", () => {
@@ -275,6 +283,19 @@ describe("r1 matches catalog-r1.md", () => {
     const sized = r1.components.filter((c) => r1.componentKinds[c.kind]?.mount === "slot");
     expect(sized.map((c) => c.id)).toEqual([...expected.keys()]);
     for (const c of r1.components) expect(c.visualSize, c.id).toEqual(expected.get(c.id));
+  });
+
+  it("has the descriptions of every Terrain, Chassis and Component (section 9)", () => {
+    const described = (marker: string) => new Map(entriesById(marker).map(([id, row]) => [id, cell(row, 1)]));
+    const terrains = described("### 9.1 Terrains");
+    expect(r1.terrains.map((t) => t.name)).toEqual([...terrains.keys()]);
+    for (const t of r1.terrains) expect(t.description, t.name).toBe(terrains.get(t.name));
+    const chassis = described("### 9.2 Chassis");
+    expect(r1.chassis.map((c) => c.id)).toEqual([...chassis.keys()]);
+    for (const c of r1.chassis) expect(c.description, c.id).toBe(chassis.get(c.id));
+    const components = described("### 9.3 Components");
+    expect(r1.components.map((c) => c.id)).toEqual([...components.keys()]);
+    for (const c of r1.components) expect(c.description, c.id).toBe(components.get(c.id));
   });
 
   it("has nothing outside the catalog", () => {
