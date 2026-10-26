@@ -17,6 +17,7 @@ import type { GameRunner } from "../games/runner.js";
 import type { RulesetCatalog } from "../rulesets/catalog.js";
 import type { ObjectStore } from "../storage/object-store.js";
 import { badRequest } from "./errors.js";
+import type { EventStream } from "./events.js";
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -62,6 +63,8 @@ export interface Reply {
   /** Defaults to 200, or 204 when there is no body. */
   readonly status?: number;
   readonly body?: unknown;
+  /** Instead of a body: a Server-Sent Events stream (see events.ts). */
+  readonly events?: EventStream;
   readonly headers?: Readonly<Record<string, string>>;
 }
 
