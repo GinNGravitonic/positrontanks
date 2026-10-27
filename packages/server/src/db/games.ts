@@ -24,6 +24,7 @@
 
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import type { Build } from "@aumohta/ruleset-data";
+import { FIRST_PAGE, queryPage, type Page, type PageRequest } from "./paging.js";
 
 export const GAME_STATES = ["open", "running", "finished", "cancelled"] as const;
 export type GameState = (typeof GAME_STATES)[number];
@@ -295,8 +296,8 @@ export class GameStore {
     return row === undefined ? undefined : toGame(row);
   }
 
-  /** Open Games matching every given filter, newest first. */
-  listOpenGames(filters: OpenGameFilters = {}): GameRecord[] {
+  /** A page of the Open Games matching every given filter, newest first. */
+  listOpenGames(filters: OpenGameFilters = {}, page: PageRequest = FIRST_PAGE): Page<GameRecord> {
     const conditions = ["g.state = 'open'"];
     const args: SQLInputValue[] = [];
     const add = (condition: string, value: SQLInputValue | undefined) => {
@@ -309,11 +310,11 @@ export class GameStore {
     add("g.player_count = ?", filters.playerCount);
     add("g.point_budget >= ?", filters.minPointBudget);
     add("g.point_budget <= ?", filters.maxPointBudget);
-    return this.#list(conditions, args);
+    return this.#list(conditions, args, page);
   }
 
-  /** Games the Player initiated or has an Entry in, in any of `states` (all if omitted), newest first. */
-  listPlayerGames(playerId: string, states?: readonly GameState[]): GameRecord[] {
+  /** A page of the Games the Player initiated or has an Entry in, in any of `states` (all if omitted), newest first. */
+  listPlayerGames(playerId: string, states?: readonly GameState[], page: PageRequest = FIRST_PAGE): Page<GameRecord> {
     const conditions = [
       "(g.initiator_id = ? OR EXISTS (SELECT 1 FROM game_entries e WHERE e.game_id = g.id AND e.player_id = ?))",
     ];
@@ -322,7 +323,7 @@ export class GameStore {
       conditions.push(`g.state IN (${states.map(() => "?").join(", ")})`);
       args.push(...states);
     }
-    return this.#list(conditions, args);
+    return this.#list(conditions, args, page);
   }
 
   /** Every Running Game, in the order they started. */
@@ -333,11 +334,13 @@ export class GameStore {
     return rows.map(toGame);
   }
 
-  #list(conditions: readonly string[], args: readonly SQLInputValue[]): GameRecord[] {
-    const rows = this.#db
-      .prepare(`SELECT ${GAME_COLUMNS} WHERE ${conditions.join(" AND ")} ORDER BY g.created_at DESC, g.rowid DESC`)
-      .all(...args) as unknown as GameRow[];
-    return rows.map(toGame);
+  #list(conditions: readonly string[], args: readonly SQLInputValue[], page: PageRequest): Page<GameRecord> {
+    return queryPage(
+      this.#db,
+      { columns: GAME_COLUMNS, conditions, args, sort: "g.created_at", rowid: "g.rowid" },
+      page,
+      toGame,
+    );
   }
 
   /** The Game's Entries in submission order, each with its Bots' Builds. */

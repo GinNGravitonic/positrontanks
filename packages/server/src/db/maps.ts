@@ -13,6 +13,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { MapFormat1 } from "@aumohta/ruleset-data";
 import { usernameKey } from "./accounts.js";
+import { FIRST_PAGE, queryPage, type Page, type PageRequest } from "./paging.js";
 
 export interface MapRevisionRecord {
   readonly mapId: string;
@@ -221,8 +222,8 @@ export class MapStore {
     return row === undefined ? undefined : toMap(row);
   }
 
-  /** Maps, most recently updated first; archived ones only if asked for. */
-  listMaps(options: MapListOptions = {}): MapRecord[] {
+  /** A page of Maps, most recently updated first; archived ones only if asked for. */
+  listMaps(options: MapListOptions = {}, page: PageRequest = FIRST_PAGE): Page<MapRecord> {
     const conditions: string[] = [];
     const args: string[] = [];
     if (options.includeArchived !== true) conditions.push("m.archived_at IS NULL");
@@ -230,11 +231,12 @@ export class MapStore {
       conditions.push("p.username_key = ?");
       args.push(usernameKey(options.creatorUsername));
     }
-    const where = conditions.length === 0 ? "" : `WHERE ${conditions.join(" AND ")}`;
-    const rows = this.#db
-      .prepare(`SELECT ${MAP_COLUMNS} ${where} ORDER BY m.updated_at DESC, m.rowid DESC`)
-      .all(...args) as unknown as MapRow[];
-    return rows.map(toMap);
+    return queryPage(
+      this.#db,
+      { columns: MAP_COLUMNS, conditions, args, sort: "m.updated_at", rowid: "m.rowid" },
+      page,
+      toMap,
+    );
   }
 
   /** A Revision of any Map. */
@@ -245,16 +247,21 @@ export class MapStore {
     return row === undefined ? undefined : toRevision(row);
   }
 
-  /** The Revisions of a Map, newest first; undefined if there is no such Map. */
-  listRevisions(mapId: string): MapRevisionSummary[] | undefined {
+  /** A page of the Revisions of a Map, newest first; undefined if there is no such Map. */
+  listRevisions(mapId: string, page: PageRequest = FIRST_PAGE): Page<MapRevisionSummary> | undefined {
     if (this.#db.prepare("SELECT 1 FROM maps WHERE id = ?").get(mapId) === undefined) return undefined;
-    const rows = this.#db
-      .prepare(
-        `SELECT number, format, width, height, spawn_zones, notes, created_at
-         FROM map_revisions WHERE map_id = ? ORDER BY number DESC`,
-      )
-      .all(mapId) as unknown as SummaryRow[];
-    return rows.map(toSummary);
+    return queryPage(
+      this.#db,
+      {
+        columns: "number, format, width, height, spawn_zones, notes, created_at FROM map_revisions",
+        conditions: ["map_id = ?"],
+        args: [mapId],
+        sort: "number",
+        rowid: "rowid",
+      },
+      page,
+      toSummary,
+    );
   }
 
   /**

@@ -37,7 +37,9 @@ export function buildOpenApiDocument(modules: readonly ApiModule[]): Record<stri
       version: API_VERSION,
       description:
         "Programmable robot combat. Errors use one format everywhere: " +
-        '`{"error": {"code", "message", "details"?}}`; branch on `code`.',
+        '`{"error": {"code", "message", "details"?}}`; branch on `code`. ' +
+        "Lists are paged: pass `limit` (1-200, default 50) and, for later pages, the previous response's " +
+        "`nextCursor` as `cursor`, repeating any filters; `nextCursor` is null on the last page.",
     },
     tags,
     paths,

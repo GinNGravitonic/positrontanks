@@ -9,6 +9,7 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import type { Build } from "@aumohta/ruleset-data";
+import { FIRST_PAGE, queryPage, type Page, type PageRequest } from "./paging.js";
 
 export interface RevisionRecord {
   readonly designId: string;
@@ -215,8 +216,8 @@ export class GarageStore {
     return row === undefined ? undefined : toDesign(row);
   }
 
-  /** The Player's designs, most recently updated first; archived ones only if asked for. */
-  listDesigns(playerId: string, options: ListOptions = {}): DesignRecord[] {
+  /** A page of the Player's designs, most recently updated first; archived ones only if asked for. */
+  listDesigns(playerId: string, options: ListOptions = {}, page: PageRequest = FIRST_PAGE): Page<DesignRecord> {
     const conditions = ["d.player_id = ?"];
     const args: string[] = [playerId];
     if (options.includeArchived !== true) conditions.push("d.archived_at IS NULL");
@@ -224,10 +225,12 @@ export class GarageStore {
       conditions.push("d.ruleset_version = ?");
       args.push(options.rulesetVersion);
     }
-    const rows = this.#db
-      .prepare(`SELECT ${DESIGN_COLUMNS} WHERE ${conditions.join(" AND ")} ORDER BY d.updated_at DESC, d.rowid DESC`)
-      .all(...args) as unknown as DesignRow[];
-    return rows.map(toDesign);
+    return queryPage(
+      this.#db,
+      { columns: DESIGN_COLUMNS, conditions, args, sort: "d.updated_at", rowid: "d.rowid" },
+      page,
+      toDesign,
+    );
   }
 
   /** A Revision of one of the Player's designs. */
@@ -242,14 +245,28 @@ export class GarageStore {
     return row === undefined ? undefined : toRevision(row);
   }
 
-  /** The Revisions of one of the Player's designs, newest first; undefined if it has no such design. */
-  listRevisions(playerId: string, designId: string): RevisionSummary[] | undefined {
+  /** A page of the Revisions of one of the Player's designs, newest first; undefined if it has no such design. */
+  listRevisions(playerId: string, designId: string, page: PageRequest = FIRST_PAGE): Page<RevisionSummary> | undefined {
     if (this.#db.prepare("SELECT 1 FROM bot_designs WHERE id = ? AND player_id = ?").get(designId, playerId) === undefined) {
       return undefined;
     }
-    return this.#db
-      .prepare("SELECT number, cost, notes, created_at AS createdAt FROM bot_design_revisions WHERE design_id = ? ORDER BY number DESC")
-      .all(designId) as unknown as RevisionSummary[];
+    return queryPage(
+      this.#db,
+      {
+        columns: "number, cost, notes, created_at FROM bot_design_revisions",
+        conditions: ["design_id = ?"],
+        args: [designId],
+        sort: "number",
+        rowid: "rowid",
+      },
+      page,
+      (row: { number: number; cost: number; notes: string; created_at: string }): RevisionSummary => ({
+        number: row.number,
+        cost: row.cost,
+        notes: row.notes,
+        createdAt: row.created_at,
+      }),
+    );
   }
 
   /**
