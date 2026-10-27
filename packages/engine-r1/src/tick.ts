@@ -1,6 +1,6 @@
 /**
  * The r1 Tick: commands, weapon fire, kinematics, movement, collisions and
- * Projectiles (spec section 2; the rules are in docs/spec/engine-r1.md).
+ * Projectiles (spec section 2; the rules are in ruleset-data/spec/r1/engine-r1.md).
  *
  * Movement is resolved in substeps short enough that nothing tunnels through
  * a thin Obstacle. In each substep every moving Bot proposes its full move;

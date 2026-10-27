@@ -75,6 +75,7 @@ COPY --from=build /app/packages/ruleset-data/package.json ./packages/ruleset-dat
 COPY --from=build /app/packages/ruleset-data/dist ./packages/ruleset-data/dist
 COPY --from=build /app/packages/ruleset-data/rulesets ./packages/ruleset-data/rulesets
 COPY --from=build /app/packages/ruleset-data/maps ./packages/ruleset-data/maps
+COPY --from=build /app/packages/ruleset-data/spec ./packages/ruleset-data/spec
 
 USER node
 WORKDIR /app/packages/server

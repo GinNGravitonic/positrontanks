@@ -63,6 +63,8 @@ export interface Reply {
   /** Defaults to 200, or 204 when there is no body. */
   readonly status?: number;
   readonly body?: unknown;
+  /** Instead of a JSON body: a text body in the given media type, such as `text/markdown`. */
+  readonly text?: { readonly type: string; readonly content: string };
   /** Instead of a body: a Server-Sent Events stream (see events.ts). */
   readonly events?: EventStream;
   readonly headers?: Readonly<Record<string, string>>;

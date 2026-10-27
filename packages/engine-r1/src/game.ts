@@ -1,6 +1,6 @@
 /**
  * Running Bots' Programs against the r1 world (language-r1 sections 5 to 7;
- * the rules are in docs/spec/engine-r1.md section 10).
+ * the rules are in ruleset-data/spec/r1/engine-r1.md section 10).
  *
  * A Game holds the world and one interpreter per Bot. `createGame` runs every
  * Program's init phase; `playTick` then runs every active Bot's `tick()`

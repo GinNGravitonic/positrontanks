@@ -1,5 +1,5 @@
 import { R1_LANGUAGE } from "@aumohta/language";
-import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
+import { loadRuleset, loadRulesetDocs } from "@aumohta/ruleset-data/rulesets";
 import { afterEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";
@@ -94,7 +94,7 @@ describe("Ruleset endpoints", () => {
   });
 
   it("answer 404 not_found for unknown versions, naming the hosted ones", async () => {
-    for (const path of ["", "/rules", "/language", "/parts", "/terrains"]) {
+    for (const path of ["", "/rules", "/language", "/parts", "/terrains", "/docs", "/docs/engine"]) {
       const { status, body } = await get(`/rulesets/r9${path}`);
       expect(status).toBe(404);
       const error = (body as { error: { code: string; message: string } }).error;
@@ -103,10 +103,57 @@ describe("Ruleset endpoints", () => {
     }
   });
 
+  it("list r1's prose documents", async () => {
+    expect(await get("/rulesets/r1/docs")).toEqual({
+      status: 200,
+      body: {
+        version: "r1",
+        docs: [
+          { id: "engine", title: "Simulation Rules, Ruleset r1", path: "/rulesets/r1/docs/engine" },
+          { id: "language", title: "Aumohta Language Specification, Ruleset r1", path: "/rulesets/r1/docs/language" },
+          { id: "catalog", title: "Parts Catalog and Balance, Ruleset r1", path: "/rulesets/r1/docs/catalog" },
+        ],
+      },
+    });
+  });
+
+  it("serve r1's prose documents as Markdown, linking to each other at their served paths", async () => {
+    const docs = loadRulesetDocs("r1");
+    running ??= await startServer(config, { logger: quiet });
+    const listed = (await get("/rulesets/r1/docs")).body as { docs: { id: keyof typeof docs; path: string }[] };
+    for (const { id, path } of listed.docs) {
+      const response = await fetch(running.url + path);
+      expect(response.status, path).toBe(200);
+      expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+      const text = await response.text();
+      expect(text).toBe(docs[id]);
+      // Links point at served documents, never at repo files.
+      const links = [...text.replace(/`[^`\n]*`/g, "").matchAll(/\]\(([^)\s]*)\)/g)].map((m) => m[1] ?? "");
+      expect(links.length, path).toBeGreaterThan(0);
+      for (const link of links) {
+        expect(link, `${path} links to ${link}`).toMatch(/^\/rulesets\/r1\/docs\/(engine|language|catalog)(#[\w-]+)?$/);
+        const target = await fetch(running.url + link.replace(/#.*/, ""));
+        expect(target.status, link).toBe(200);
+        await target.body?.cancel();
+      }
+    }
+  });
+
+  it("answer 404 not_found for an unknown document, naming the documents", async () => {
+    const { status, body } = await get("/rulesets/r1/docs/catalog-r1");
+    expect(status).toBe(404);
+    const error = (body as { error: { code: string; message: string } }).error;
+    expect(error.code).toBe("not_found");
+    expect(error.message).toContain("engine, language, catalog");
+  });
+
   it("serve each hosted version's own data side by side", async () => {
     const lava = [{ name: "lava", description: "Molten rock.", speed: 0.5, accel: 0.5 }];
     const r1x = {
-      ...engineR1Ruleset({ ...r1, version: "r1x", terrains: lava }),
+      ...engineR1Ruleset(
+        { ...r1, version: "r1x", terrains: lava },
+        { engine: "# Engine r1x\n", language: "# Language r1x\n", catalog: "# Catalog r1x\n" },
+      ),
       language: {
         ...R1_LANGUAGE,
         version: "r1x",
@@ -123,6 +170,13 @@ describe("Ruleset endpoints", () => {
     const language = (await get("/rulesets/r1x/language")).body as { functions: Record<string, unknown> };
     expect(Object.keys(language.functions)).toEqual(["budgetRemaining"]);
     expect(Object.keys(((await get("/rulesets/r1/language")).body as typeof language).functions)).toContain("fire");
+    const docs = (await get("/rulesets/r1x/docs")).body as { docs: { title: string; path: string }[] };
+    expect(docs.docs.map((d) => [d.title, d.path])).toEqual([
+      ["Engine r1x", "/rulesets/r1x/docs/engine"],
+      ["Language r1x", "/rulesets/r1x/docs/language"],
+      ["Catalog r1x", "/rulesets/r1x/docs/catalog"],
+    ]);
+    expect(await (await fetch(`${running?.url ?? ""}/rulesets/r1x/docs/catalog`)).text()).toBe("# Catalog r1x\n");
   });
 
   it("are described in the OpenAPI document, with every schema reference resolving", async () => {
@@ -141,7 +195,13 @@ describe("Ruleset endpoints", () => {
       ["/rulesets/{version}/language", "getRulesetLanguage", []],
       ["/rulesets/{version}/parts", "getPartsCatalog", []],
       ["/rulesets/{version}/terrains", "getTerrainTable", []],
+      ["/rulesets/{version}/docs", "listRulesetDocs", []],
+      ["/rulesets/{version}/docs/{doc}", "getRulesetDoc", []],
     ]);
+    const getDoc = doc.paths["/rulesets/{version}/docs/{doc}"]?.get as unknown as {
+      responses: Record<string, { content?: Record<string, unknown> }>;
+    };
+    expect(Object.keys(getDoc.responses["200"]?.content ?? {})).toEqual(["text/markdown"]);
     const refs = JSON.stringify(doc).matchAll(/"#\/components\/schemas\/([A-Za-z0-9]+)"/g);
     for (const [, name] of refs) expect(doc.components.schemas, name).toHaveProperty([name as string]);
   });

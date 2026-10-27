@@ -6,13 +6,15 @@
  * is frozen, so these responses never change for a given version. They are
  * served as machine-readable data straight from the Ruleset data and the
  * version's language definition, the same values the server validates Bot
- * Designs against and the engine runs; the prose documents that explain them
- * (docs/spec/*-r1.md) are not served here.
+ * Designs against and the engine runs. The prose documents that explain them
+ * (simulation rules, language spec, Parts Catalog), shipped with the Ruleset
+ * data, are served as Markdown under `/rulesets/{version}/docs`.
  *
  * An unknown version is answered 404 `not_found`, naming the hosted versions.
  */
 
 import { DESCRIPTION_MAX_LENGTH, type Ruleset } from "@aumohta/ruleset-data";
+import { isRulesetDoc, RULESET_DOCS } from "@aumohta/ruleset-data/rulesets";
 import { notFound } from "../http/errors.js";
 import type { ApiModule, Json, RequestContext, Route } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
@@ -34,6 +36,11 @@ const versionParameter: Json = {
 const version: Json = { type: "string", description: "The Ruleset version.", examples: ["r1"] };
 const stringList: Json = { type: "array", items: { type: "string" } };
 const recordOf = (schema: Json): Json => ({ type: "object", additionalProperties: schema });
+
+const docIds =
+  "`engine`: the simulation rules (movement, collisions, ramming, weapons, sensors, Programs). `language`: the " +
+  "language specification (grammar, built-ins, operation costs, limits). `catalog`: the Parts Catalog and balance " +
+  "numbers, with the reasoning behind them.";
 
 const description = (what: string): Json => ({
   type: "string",
@@ -324,6 +331,32 @@ const schemas: Record<string, Json> = {
       components: { type: "array", items: ref("Component") },
     },
   },
+  RulesetDocList: {
+    type: "object",
+    description: "The prose documents a Ruleset version publishes.",
+    required: ["version", "docs"],
+    additionalProperties: false,
+    properties: {
+      version,
+      docs: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["id", "title", "path"],
+          additionalProperties: false,
+          properties: {
+            id: { type: "string", enum: [...RULESET_DOCS], description: docIds },
+            title: { type: "string", description: "The document's title, its first heading." },
+            path: {
+              type: "string",
+              description: "Where the server serves it as Markdown, such as `/rulesets/r1/docs/engine`.",
+              examples: ["/rulesets/r1/docs/engine"],
+            },
+          },
+        },
+      },
+    },
+  },
   TerrainTable: {
     type: "object",
     required: ["version", "terrains"],
@@ -375,6 +408,18 @@ const catalogJson = (r: Ruleset) => ({
 });
 
 const terrainJson = (r: Ruleset) => ({ version: r.version, terrains: r.terrains });
+
+/** A Markdown document's title: its first line, a level-1 heading. */
+const titleOf = (markdown: string): string => /^# (.+)/.exec(markdown)?.[1]?.trim() ?? "";
+
+const docListJson = ({ ruleset, docs }: HostedRuleset) => ({
+  version: ruleset.version,
+  docs: RULESET_DOCS.map((id) => ({
+    id,
+    title: titleOf(docs[id]),
+    path: `/rulesets/${encodeURIComponent(ruleset.version)}/docs/${id}`,
+  })),
+});
 
 /** The hosted Ruleset named by the `version` path parameter, or 404. */
 function hosted(context: RequestContext): HostedRuleset {
@@ -428,7 +473,8 @@ export const rulesetsModule: ApiModule = {
       name: TAG,
       description:
         "The Ruleset versions this server hosts, side by side: each version's rules, language spec, Parts " +
-        "Catalog and Terrain table. Public and frozen per version.",
+        "Catalog and Terrain table as data, and the prose documents that explain them as Markdown. Public and " +
+        "frozen per version.",
     },
   ],
   schemas,
@@ -502,5 +548,56 @@ export const rulesetsModule: ApiModule = {
       returns: "The Terrain table.",
       body: (h) => terrainJson(h.ruleset),
     }),
+    versionRoute({
+      path: "/docs",
+      operationId: "listRulesetDocs",
+      summary: "List a Ruleset version's prose documents",
+      description:
+        "The documents that explain the version in prose, with where each is served: the simulation rules " +
+        "(`engine`), the language specification (`language`) and the Parts Catalog with its balance numbers " +
+        "(`catalog`). The machine-readable endpoints give the same values as data.",
+      schema: "RulesetDocList",
+      returns: "The documents, in a fixed order.",
+      body: docListJson,
+    }),
+    {
+      method: "GET",
+      path: "/rulesets/{version}/docs/{doc}",
+      operation: {
+        operationId: "getRulesetDoc",
+        summary: "Get one of a Ruleset version's prose documents",
+        description:
+          "The document as Markdown. Links between a version's documents use the paths they are served at " +
+          "(`/rulesets/{version}/docs/{doc}`, with a heading anchor). Anyone may read it; no credential is " +
+          "needed. A hosted version never changes. An unknown version or document is 404 `not_found`.",
+        tags: [TAG],
+        security: [],
+        parameters: [
+          versionParameter,
+          {
+            name: "doc",
+            in: "path",
+            required: true,
+            schema: { type: "string", enum: [...RULESET_DOCS] },
+            description: docIds,
+          },
+        ],
+        responses: {
+          "200": {
+            description: "The document.",
+            content: { "text/markdown": { schema: { type: "string" } } },
+          },
+          "404": errorResponse,
+        },
+      },
+      handler: (context) => {
+        const h = hosted(context);
+        const doc = context.params.doc ?? "";
+        if (!isRulesetDoc(doc)) {
+          throw notFound(`Ruleset ${h.ruleset.version} has no document ${doc}; it has ${RULESET_DOCS.join(", ")}`);
+        }
+        return { text: { type: "text/markdown", content: h.docs[doc] } };
+      },
+    },
   ],
 };

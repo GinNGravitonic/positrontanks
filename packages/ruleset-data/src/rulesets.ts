@@ -7,6 +7,12 @@
  * validates them so consumers (engine tests, golden Games, the CLI, the
  * server) need not know the package layout. It is kept out of the main entry
  * point so that entry stays free of `node:fs`.
+ *
+ * Each released Ruleset also ships its prose documents, which the server
+ * publishes per version, at `spec/<version>/<doc>-<version>.md` for each of
+ * RULESET_DOCS. These files are the single source of those documents. Links
+ * between them use the URLs the server serves them at
+ * (`/rulesets/<version>/docs/<doc>`); they never link to other repo files.
  */
 
 import { readFileSync } from "node:fs";
@@ -40,4 +46,26 @@ export function loadRuleset(version: RulesetVersion): Ruleset {
     throw new Error(`Ruleset ${version} is invalid: ${details}`);
   }
   return result.ruleset;
+}
+
+/** The prose documents each shipped Ruleset version publishes: its simulation rules, language spec and Parts Catalog. */
+export const RULESET_DOCS = ["engine", "language", "catalog"] as const;
+export type RulesetDoc = (typeof RULESET_DOCS)[number];
+
+/** A Ruleset version's prose documents, as Markdown text. */
+export type RulesetDocs = Readonly<Record<RulesetDoc, string>>;
+
+export function isRulesetDoc(d: string): d is RulesetDoc {
+  return RULESET_DOCS.some((known) => known === d);
+}
+
+/** The absolute file path of one of a shipped Ruleset's prose documents. */
+export function rulesetDocPath(version: RulesetVersion, doc: RulesetDoc): string {
+  return fileURLToPath(new URL(`../spec/${version}/${doc}-${version}.md`, import.meta.url));
+}
+
+/** Reads a shipped Ruleset's prose documents (Markdown). */
+export function loadRulesetDocs(version: RulesetVersion): RulesetDocs {
+  const read = (doc: RulesetDoc): string => readFileSync(rulesetDocPath(version, doc), "utf8");
+  return { engine: read("engine"), language: read("language"), catalog: read("catalog") };
 }

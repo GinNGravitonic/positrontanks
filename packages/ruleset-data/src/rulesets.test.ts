@@ -1,11 +1,20 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { validateRuleset, type Component, type Ruleset, type Slot } from "./ruleset.js";
-import { RULESET_VERSIONS, isRulesetVersion, loadRuleset, readRulesetJson, rulesetPath } from "./rulesets.js";
+import {
+  RULESET_DOCS,
+  RULESET_VERSIONS,
+  isRulesetDoc,
+  isRulesetVersion,
+  loadRuleset,
+  loadRulesetDocs,
+  readRulesetJson,
+  rulesetDocPath,
+  rulesetPath,
+} from "./rulesets.js";
 
 // The approved catalog. These tests read its tables, so r1.json is checked
 // against the document itself rather than against a second transcription.
-const catalog = readFileSync(new URL("../../../docs/spec/catalog-r1.md", import.meta.url), "utf8").split(/\r?\n/);
+const catalog = loadRulesetDocs("r1").catalog.split(/\r?\n/);
 
 function cell(row: readonly string[], i: number): string {
   const v = row[i];
@@ -80,6 +89,57 @@ describe("shipped Rulesets", () => {
     expect(isRulesetVersion("sample")).toBe(false);
     expect(isRulesetVersion("../r1")).toBe(false);
     expect(rulesetPath("r1").replace(/\\/g, "/")).toMatch(/\/ruleset-data\/rulesets\/r1\.json$/);
+  });
+});
+
+/** The anchor a Markdown renderer gives a heading, GitHub style: "10.4 Disabled Bots" is "104-disabled-bots". */
+const anchorOf = (heading: string): string =>
+  heading
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N} _-]/gu, "")
+    .replace(/ /g, "-");
+
+describe("shipped prose documents", () => {
+  it("names the documents", () => {
+    expect(RULESET_DOCS).toEqual(["engine", "language", "catalog"]);
+    expect(isRulesetDoc("catalog")).toBe(true);
+    expect(isRulesetDoc("catalog-r1")).toBe(false);
+    expect(rulesetDocPath("r1", "engine").replace(/\\/g, "/")).toMatch(/\/ruleset-data\/spec\/r1\/engine-r1\.md$/);
+  });
+
+  describe.each(RULESET_VERSIONS)("%s", (version) => {
+    const docs = loadRulesetDocs(version);
+    const anchors = new Map(
+      RULESET_DOCS.map((doc) => [
+        doc,
+        new Set(
+          docs[doc]
+            .split(/\r?\n/)
+            .flatMap((line) => /^#{1,6} (.+)$/.exec(line)?.slice(1) ?? [])
+            .map(anchorOf),
+        ),
+      ]),
+    );
+
+    it.each(RULESET_DOCS)("%s starts with a title", (doc) => {
+      expect(docs[doc]).toMatch(/^# \S/);
+    });
+
+    it.each(RULESET_DOCS)("%s links only to served documents and their headings", (doc) => {
+      const prose = docs[doc].replace(/`[^`\n]*`/g, ""); // code spans such as `fs[0](x)` hold no links
+      const links = [...prose.matchAll(/\]\(([^)\s]*)\)/g)].map((m) => m[1] ?? "");
+      expect(links.length).toBeGreaterThan(0);
+      for (const link of links) {
+        const served = new RegExp(`^/rulesets/${version}/docs/([a-z]+)(?:#(.+))?$`).exec(link);
+        expect(served, `${doc} links to ${link}`).not.toBeNull();
+        const target = served?.[1] ?? "";
+        expect(isRulesetDoc(target), `${doc} links to ${link}`).toBe(true);
+        const anchor = served?.[2];
+        if (isRulesetDoc(target) && anchor !== undefined) {
+          expect(anchors.get(target)?.has(anchor), `${doc} links to ${link}`).toBe(true);
+        }
+      }
+    });
   });
 });
 

@@ -1,6 +1,6 @@
 /**
  * Weapon fire: aiming, legality, instant Melee and Beam shots, and Projectiles
- * in flight (spec section 2, Weapons; the rules are in docs/spec/engine-r1.md
+ * in flight (spec section 2, Weapons; the rules are in ruleset-data/spec/r1/engine-r1.md
  * section 6).
  *
  * Every shot is aimed, measured and traced as a ray (rays.ts) from the Bot's

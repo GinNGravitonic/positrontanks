@@ -128,13 +128,15 @@ export function createApp(services: Services, options: AppOptions = {}): Request
 }
 
 function send(response: ServerResponse, reply: Reply): void {
-  const hasBody = reply.body !== undefined;
+  const { text } = reply;
+  const hasBody = reply.body !== undefined || text !== undefined;
   const status = reply.status ?? (hasBody ? 200 : 204);
-  const payload = hasBody ? JSON.stringify(reply.body) : undefined;
+  const payload = text?.content ?? (reply.body === undefined ? undefined : JSON.stringify(reply.body));
+  const type = text === undefined ? "application/json" : text.type;
   response.writeHead(status, {
     ...(payload === undefined
       ? {}
-      : { "content-type": "application/json; charset=utf-8", "content-length": Buffer.byteLength(payload) }),
+      : { "content-type": `${type}; charset=utf-8`, "content-length": Buffer.byteLength(payload) }),
     ...reply.headers,
   });
   response.end(payload);
