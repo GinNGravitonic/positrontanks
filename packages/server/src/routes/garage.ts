@@ -19,11 +19,13 @@
  *
  * A design's name and description belong to it, not to a Revision: the
  * owner may change them at any time, archived or not, without adding a
- * Revision.
+ * Revision. Each Revision instead carries optional notes on what changed
+ * (Build and/or Program), given when it is saved and immutable with it.
  *
  * Everything here is owner-only. Programs are visible only to their owner,
  * ever, so another Player's design answers 404 exactly as a missing one does.
- * Descriptions are private to the owner too, and never appear in Games.
+ * Descriptions and Revision notes are private to the owner too, and never
+ * appear in Games.
  */
 
 import { randomUUID } from "node:crypto";
@@ -40,7 +42,7 @@ import {
 } from "../http/errors.js";
 import type { ApiModule, Json, RequestContext } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
-import { descriptionSchema, readChanges, readDescription } from "./description.js";
+import { descriptionSchema, notesSchema, readChanges, readDescription, readNotes } from "./description.js";
 
 export const DESIGN_NAME_MAX_LENGTH = 64;
 
@@ -61,6 +63,9 @@ const revisionParameter: Json = {
 
 const nameSchema: Json = { type: "string", minLength: 1, maxLength: DESIGN_NAME_MAX_LENGTH };
 const timestamp: Json = { type: "string", format: "date-time" };
+const NOTES_VISIBILITY = "Private to the owner; never shown in Games.";
+const revisionNotes = notesSchema(NOTES_VISIBILITY);
+const newNotes: Json = { ...revisionNotes, default: "" };
 
 const schemas: Record<string, Json> = {
   Build: {
@@ -91,8 +96,9 @@ const schemas: Record<string, Json> = {
   },
   BotDesignRevision: {
     type: "object",
-    description: "An immutable snapshot of a Bot Design. The Program is visible only to the design's owner.",
-    required: ["designId", "number", "build", "program", "cost", "createdAt"],
+    description:
+      "An immutable snapshot of a Bot Design. The Program and notes are visible only to the design's owner.",
+    required: ["designId", "number", "build", "program", "cost", "notes", "createdAt"],
     additionalProperties: false,
     properties: {
       designId: { type: "string" },
@@ -100,14 +106,20 @@ const schemas: Record<string, Json> = {
       build: ref("Build"),
       program: { type: "string", description: "Source code in the design's Ruleset's language." },
       cost: { type: "integer", description: "The Build's point cost." },
+      notes: revisionNotes,
       createdAt: timestamp,
     },
   },
   BotDesignRevisionSummary: {
     type: "object",
-    required: ["number", "cost", "createdAt"],
+    required: ["number", "cost", "notes", "createdAt"],
     additionalProperties: false,
-    properties: { number: { type: "integer", minimum: 1 }, cost: { type: "integer" }, createdAt: timestamp },
+    properties: {
+      number: { type: "integer", minimum: 1 },
+      cost: { type: "integer" },
+      notes: revisionNotes,
+      createdAt: timestamp,
+    },
   },
   CopiedFrom: {
     type: ["object", "null"],
@@ -190,13 +202,14 @@ const schemas: Record<string, Json> = {
       rulesetVersion: { type: "string", examples: ["r1"] },
       build: ref("Build"),
       program: { type: "string" },
+      notes: { ...notesSchema(NOTES_VISIBILITY, "Notes for Revision 1. "), default: "" },
     },
   },
   NewBotDesignRevision: {
     type: "object",
     required: ["build", "program"],
     additionalProperties: false,
-    properties: { build: ref("Build"), program: { type: "string" } },
+    properties: { build: ref("Build"), program: { type: "string" }, notes: newNotes },
   },
   BotDesignUpdate: {
     type: "object",
@@ -213,6 +226,10 @@ const schemas: Record<string, Json> = {
       rulesetVersion: { type: "string", description: "The hosted Ruleset version to copy into." },
       revision: { type: "integer", minimum: 1, description: "The Revision to copy; defaults to the latest." },
       name: { ...nameSchema, description: "The new design's name; defaults to the source design's." },
+      notes: {
+        ...notesSchema(NOTES_VISIBILITY, "Notes for the copy's Revision 1 (the source's are not copied). "),
+        default: "",
+      },
       dryRun: { type: "boolean", default: false, description: "Report problems without saving anything." },
     },
   },
@@ -300,7 +317,12 @@ function revisionNumber(raw: string | undefined): number | undefined {
 const copiedFromJson = (d: DesignRecord): Json =>
   d.copiedFrom === null ? null : { designId: d.copiedFrom.designId, revision: d.copiedFrom.revision };
 
-const revisionSummaryJson = (r: RevisionSummary): Json => ({ number: r.number, cost: r.cost, createdAt: r.createdAt });
+const revisionSummaryJson = (r: RevisionSummary): Json => ({
+  number: r.number,
+  cost: r.cost,
+  notes: r.notes,
+  createdAt: r.createdAt,
+});
 
 const revisionJson = (r: RevisionRecord): Json => ({
   designId: r.designId,
@@ -308,6 +330,7 @@ const revisionJson = (r: RevisionRecord): Json => ({
   build: { chassis: r.build.chassis, components: { ...r.build.components }, armor: { ...r.build.armor } },
   program: r.program,
   cost: r.cost,
+  notes: r.notes,
   createdAt: r.createdAt,
 });
 
@@ -364,7 +387,7 @@ export const garageModule: ApiModule = {
           "Validates the Build (parts exist, Components fit their Slots, cost within the Ruleset's largest Point " +
           "Budget) and checks the Program; on any problem nothing is saved and every problem is listed in " +
           "`details`. Program problems have path `program` plus `line` and `column`. The optional `description` " +
-          "is private to you.",
+          "and Revision 1's optional `notes` are private to you.",
         tags: [TAG],
         security: bearer,
         requestBody: { required: true, content: jsonContent(ref("NewBotDesign")) },
@@ -377,10 +400,11 @@ export const garageModule: ApiModule = {
       handler: async (context) => {
         const { player } = authenticate(context);
         const required = ["name", "rulesetVersion", "build", "program"];
-        const body = readObject(await context.readJson(), [...required, "description"], required);
+        const body = readObject(await context.readJson(), [...required, "description", "notes"], required);
         const details: ErrorDetail[] = [];
         const name = readName(body.name, details);
         const description = body.description === undefined ? "" : readDescription(body.description, details);
+        const notes = readNotes(body.notes, details);
         const hosted = readRuleset(context, body.rulesetVersion, details);
         const checked = hosted === undefined ? undefined : checkDesign(hosted, body.build, body.program);
         if (checked !== undefined && !checked.ok) details.push(...checked.problems);
@@ -388,6 +412,7 @@ export const garageModule: ApiModule = {
           details.length > 0 ||
           name === undefined ||
           description === undefined ||
+          notes === undefined ||
           hosted === undefined ||
           checked?.ok !== true
         ) {
@@ -396,7 +421,7 @@ export const garageModule: ApiModule = {
 
         const { design, revision } = context.services.db.garage.createDesign(
           { id: randomUUID(), playerId: player.id, name, description, rulesetVersion: hosted.ruleset.version },
-          { build: checked.build, program: checked.program, cost: checked.cost },
+          { build: checked.build, program: checked.program, cost: checked.cost, notes },
           new Date(),
         );
         return { status: 201, body: designJson(design, revision) };
@@ -532,7 +557,8 @@ export const garageModule: ApiModule = {
         summary: "Save an edit to one of your Bot Designs as a new Revision",
         description:
           "Validated exactly as when creating a design, under the design's Ruleset version. Earlier Revisions are " +
-          "unchanged.",
+          "unchanged. The optional `notes` say what changed (Build and/or Program); like the rest of the Revision " +
+          "they can never be changed, and they are private to you.",
         tags: [TAG],
         security: bearer,
         parameters: [designIdParameter],
@@ -547,7 +573,9 @@ export const garageModule: ApiModule = {
       },
       handler: async (context) => {
         const { player } = authenticate(context);
-        const body = readObject(await context.readJson(), ["build", "program"], ["build", "program"]);
+        const body = readObject(await context.readJson(), ["build", "program", "notes"], ["build", "program"]);
+        const notesProblems: ErrorDetail[] = [];
+        const notes = readNotes(body.notes, notesProblems);
         const { design } = loadDesign(context, player.id);
         if (design.archivedAt !== null) throw archived(design.id);
         const hosted = context.services.rulesets.get(design.rulesetVersion);
@@ -559,12 +587,14 @@ export const garageModule: ApiModule = {
           );
         }
         const checked = checkDesign(hosted, body.build, body.program);
-        if (!checked.ok) throw validationFailed(checked.problems);
+        if (!checked.ok || notes === undefined) {
+          throw validationFailed([...notesProblems, ...(checked.ok ? [] : checked.problems)]);
+        }
 
         const result = context.services.db.garage.addRevision(
           player.id,
           design.id,
-          { build: checked.build, program: checked.program, cost: checked.cost },
+          { build: checked.build, program: checked.program, cost: checked.cost, notes },
           new Date(),
         );
         if (result === undefined) throw noDesign(design.id);
@@ -669,7 +699,7 @@ export const garageModule: ApiModule = {
           "is saved and the response is 422 `copy_has_problems` listing every problem (removed Components, a " +
           "cost over the largest Point Budget, unknown built-ins, ...). With `dryRun` the report is returned " +
           "with 200 and nothing is saved either way. Archived designs can be copied. The copy keeps the source's " +
-          "description.",
+          "description; its Revision 1 takes `notes` from the request (empty if left out), not the source's.",
         tags: [TAG],
         security: bearer,
         parameters: [designIdParameter],
@@ -684,19 +714,20 @@ export const garageModule: ApiModule = {
       },
       handler: async (context) => {
         const { player } = authenticate(context);
-        const body = readObject(await context.readJson(), ["rulesetVersion", "revision", "name", "dryRun"], [
+        const body = readObject(await context.readJson(), ["rulesetVersion", "revision", "name", "notes", "dryRun"], [
           "rulesetVersion",
         ]);
         const details: ErrorDetail[] = [];
         const hosted = readRuleset(context, body.rulesetVersion, details);
         const name = body.name === undefined ? undefined : readName(body.name, details);
+        const notes = readNotes(body.notes, details);
         if (body.revision !== undefined && !(Number.isSafeInteger(body.revision) && Number(body.revision) >= 1)) {
           details.push({ path: "revision", message: "must be a positive integer" });
         }
         if (body.dryRun !== undefined && typeof body.dryRun !== "boolean") {
           details.push({ path: "dryRun", message: "must be a boolean" });
         }
-        if (details.length > 0 || hosted === undefined) throw validationFailed(details);
+        if (details.length > 0 || hosted === undefined || notes === undefined) throw validationFailed(details);
 
         const { design, latest } = loadDesign(context, player.id);
         const garage = context.services.db.garage;
@@ -733,7 +764,7 @@ export const garageModule: ApiModule = {
             rulesetVersion: hosted.ruleset.version,
             copiedFrom: { designId: design.id, revision: source.number },
           },
-          { build: checked.build, program: checked.program, cost: checked.cost },
+          { build: checked.build, program: checked.program, cost: checked.cost, notes },
           new Date(),
         );
         return { status: 201, body: { botDesign: designJson(copy.design, copy.revision), report } };

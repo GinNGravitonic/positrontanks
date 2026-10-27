@@ -3,7 +3,7 @@
  *
  * Every lookup is scoped to the owning Player, so a Player can never reach
  * another Player's design (or its Program) through this store. Revisions are
- * only ever inserted; the schema refuses updates to them. Builds are stored
+ * only ever inserted, notes included; the schema refuses updates to them. Builds are stored
  * as JSON text and handed back parsed; callers validate before saving.
  */
 
@@ -18,6 +18,8 @@ export interface RevisionRecord {
   readonly program: string;
   /** The Build's point cost under the design's Ruleset. */
   readonly cost: number;
+  /** What changed, private to the owner like the Program; empty if none. */
+  readonly notes: string;
   readonly createdAt: string;
 }
 
@@ -25,6 +27,7 @@ export interface RevisionRecord {
 export interface RevisionSummary {
   readonly number: number;
   readonly cost: number;
+  readonly notes: string;
   readonly createdAt: string;
 }
 
@@ -62,6 +65,8 @@ export interface NewRevision {
   readonly build: Build;
   readonly program: string;
   readonly cost: number;
+  /** Defaults to empty. */
+  readonly notes?: string;
 }
 
 export interface ListOptions {
@@ -82,6 +87,7 @@ interface DesignRow {
   updated_at: string;
   archived_at: string | null;
   cost: number;
+  revision_notes: string;
   revision_created_at: string;
 }
 
@@ -91,12 +97,14 @@ interface RevisionRow {
   build: string;
   program: string;
   cost: number;
+  notes: string;
   created_at: string;
 }
 
 const DESIGN_COLUMNS = `
   d.id, d.player_id, d.name, d.description, d.ruleset_version, d.latest_revision, d.copied_from_design_id,
-  d.copied_from_revision, d.created_at, d.updated_at, d.archived_at, r.cost, r.created_at AS revision_created_at
+  d.copied_from_revision, d.created_at, d.updated_at, d.archived_at, r.cost, r.notes AS revision_notes,
+  r.created_at AS revision_created_at
   FROM bot_designs d JOIN bot_design_revisions r ON r.design_id = d.id AND r.number = d.latest_revision`;
 
 const toDesign = (row: DesignRow): DesignRecord => ({
@@ -105,7 +113,12 @@ const toDesign = (row: DesignRow): DesignRecord => ({
   name: row.name,
   description: row.description,
   rulesetVersion: row.ruleset_version,
-  latestRevision: { number: row.latest_revision, cost: row.cost, createdAt: row.revision_created_at },
+  latestRevision: {
+    number: row.latest_revision,
+    cost: row.cost,
+    notes: row.revision_notes,
+    createdAt: row.revision_created_at,
+  },
   copiedFrom:
     row.copied_from_design_id === null || row.copied_from_revision === null
       ? null
@@ -121,6 +134,7 @@ const toRevision = (row: RevisionRow): RevisionRecord => ({
   build: JSON.parse(row.build) as Build,
   program: row.program,
   cost: row.cost,
+  notes: row.notes,
   createdAt: row.created_at,
 });
 
@@ -183,12 +197,14 @@ export class GarageStore {
   }
 
   #insertRevision(designId: string, number: number, revision: NewRevision, at: string): RevisionRecord {
+    const notes = revision.notes ?? "";
     this.#db
       .prepare(
-        "INSERT INTO bot_design_revisions (design_id, number, build, program, cost, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        `INSERT INTO bot_design_revisions (design_id, number, build, program, cost, notes, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(designId, number, JSON.stringify(revision.build), revision.program, revision.cost, at);
-    return { designId, number, build: revision.build, program: revision.program, cost: revision.cost, createdAt: at };
+      .run(designId, number, JSON.stringify(revision.build), revision.program, revision.cost, notes, at);
+    return { designId, number, build: revision.build, program: revision.program, cost: revision.cost, notes, createdAt: at };
   }
 
   /** One of the Player's designs, archived or not. */
@@ -218,7 +234,7 @@ export class GarageStore {
   getRevision(playerId: string, designId: string, number: number): RevisionRecord | undefined {
     const row = this.#db
       .prepare(
-        `SELECT r.design_id, r.number, r.build, r.program, r.cost, r.created_at
+        `SELECT r.design_id, r.number, r.build, r.program, r.cost, r.notes, r.created_at
          FROM bot_design_revisions r JOIN bot_designs d ON d.id = r.design_id
          WHERE r.design_id = ? AND r.number = ? AND d.player_id = ?`,
       )
@@ -232,7 +248,7 @@ export class GarageStore {
       return undefined;
     }
     return this.#db
-      .prepare("SELECT number, cost, created_at AS createdAt FROM bot_design_revisions WHERE design_id = ? ORDER BY number DESC")
+      .prepare("SELECT number, cost, notes, created_at AS createdAt FROM bot_design_revisions WHERE design_id = ? ORDER BY number DESC")
       .all(designId) as unknown as RevisionSummary[];
   }
 

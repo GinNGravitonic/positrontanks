@@ -16,7 +16,8 @@
  * independent of Rulesets, so Terrain names are not checked against any
  * Ruleset here; that happens when a Game picks a Ruleset and a Map Revision.
  * Revisions are immutable and numbered from 1; editing a Map always adds a
- * Revision.
+ * Revision. Each Revision carries optional notes on what changed, given when
+ * it is saved, immutable with it and public like the rest of the Map.
  *
  * "Deleting" a Map archives it: it disappears from listings (unless asked
  * for) and accepts no new Revisions, but it and its Revisions stay readable
@@ -38,7 +39,7 @@ import {
   type ErrorDetail,
 } from "../http/errors.js";
 import type { ApiModule, Json, RequestContext } from "../http/router.js";
-import { descriptionSchema, readChanges, readDescription } from "./description.js";
+import { descriptionSchema, notesSchema, readChanges, readDescription, readNotes } from "./description.js";
 
 export const MAP_NAME_MAX_LENGTH = 64;
 
@@ -59,6 +60,9 @@ const revisionParameter: Json = {
 
 const nameSchema: Json = { type: "string", minLength: 1, maxLength: MAP_NAME_MAX_LENGTH };
 const timestamp: Json = { type: "string", format: "date-time" };
+const NOTES_VISIBILITY = "Public, like the rest of the Map.";
+const revisionNotes = notesSchema(NOTES_VISIBILITY);
+const newNotes: Json = { ...revisionNotes, default: "" };
 
 const point: Json = {
   type: "object",
@@ -142,18 +146,19 @@ const schemas: Record<string, Json> = {
   MapRevision: {
     type: "object",
     description: "An immutable snapshot of a Map.",
-    required: ["mapId", "number", "map", "createdAt"],
+    required: ["mapId", "number", "map", "notes", "createdAt"],
     additionalProperties: false,
     properties: {
       mapId: { type: "string" },
       number: { type: "integer", minimum: 1 },
       map: ref("MapFormat1"),
+      notes: revisionNotes,
       createdAt: timestamp,
     },
   },
   MapRevisionSummary: {
     type: "object",
-    required: ["number", "format", "width", "height", "spawnZones", "createdAt"],
+    required: ["number", "format", "width", "height", "spawnZones", "notes", "createdAt"],
     additionalProperties: false,
     properties: {
       number: { type: "integer", minimum: 1 },
@@ -161,6 +166,7 @@ const schemas: Record<string, Json> = {
       width: { type: "number" },
       height: { type: "number" },
       spawnZones: { type: "integer", description: "How many Spawn Zones, and so at most how many Players." },
+      notes: revisionNotes,
       createdAt: timestamp,
     },
   },
@@ -216,7 +222,12 @@ const schemas: Record<string, Json> = {
     type: "object",
     required: ["name", "map"],
     additionalProperties: false,
-    properties: { name: nameSchema, description: { ...descriptionSchema, default: "" }, map: ref("MapFormat1") },
+    properties: {
+      name: nameSchema,
+      description: { ...descriptionSchema, default: "" },
+      map: ref("MapFormat1"),
+      notes: { ...notesSchema(NOTES_VISIBILITY, "Notes for Revision 1. "), default: "" },
+    },
   },
   MapUpdate: {
     type: "object",
@@ -229,7 +240,7 @@ const schemas: Record<string, Json> = {
     type: "object",
     required: ["map"],
     additionalProperties: false,
-    properties: { map: ref("MapFormat1") },
+    properties: { map: ref("MapFormat1"), notes: newNotes },
   },
 };
 
@@ -291,6 +302,7 @@ const revisionSummaryJson = (r: MapRevisionSummary): Json => ({
   width: r.width,
   height: r.height,
   spawnZones: r.spawnZones,
+  notes: r.notes,
   createdAt: r.createdAt,
 });
 
@@ -298,6 +310,7 @@ const revisionJson = (r: MapRevisionRecord): Json => ({
   mapId: r.mapId,
   number: r.number,
   map: r.map as unknown as Json,
+  notes: r.notes,
   createdAt: r.createdAt,
 });
 
@@ -353,7 +366,8 @@ export const mapsModule: ApiModule = {
         description:
           "Validates the content as Map Format 1 under this server's Map size limits; on any problem nothing is " +
           "saved and every problem is listed in `details`, with paths such as `map.obstacles[2].hitPoints`. " +
-          "Terrain names are checked against a Ruleset only when a Game uses the Map.",
+          "Terrain names are checked against a Ruleset only when a Game uses the Map. The optional `notes` " +
+          "go on Revision 1.",
         tags: [TAG],
         security: bearer,
         requestBody: { required: true, content: jsonContent(ref("NewMap")) },
@@ -365,12 +379,19 @@ export const mapsModule: ApiModule = {
       },
       handler: async (context) => {
         const { player } = authenticate(context);
-        const body = readObject(await context.readJson(), ["name", "description", "map"], ["name", "map"]);
+        const body = readObject(await context.readJson(), ["name", "description", "map", "notes"], ["name", "map"]);
         const details: ErrorDetail[] = [];
         const name = readName(body.name, details);
         const description = body.description === undefined ? "" : readDescription(body.description, details);
         const content = readMap(context, body.map, details);
-        if (details.length > 0 || name === undefined || description === undefined || content === undefined) {
+        const notes = readNotes(body.notes, details);
+        if (
+          details.length > 0 ||
+          name === undefined ||
+          description === undefined ||
+          content === undefined ||
+          notes === undefined
+        ) {
           throw validationFailed(details);
         }
 
@@ -378,6 +399,7 @@ export const mapsModule: ApiModule = {
           { id: randomUUID(), playerId: player.id, name, description },
           content,
           new Date(),
+          notes,
         );
         return { status: 201, body: mapJson(map, revision) };
       },
@@ -520,7 +542,8 @@ export const mapsModule: ApiModule = {
         summary: "Save an edit to a Map you created as a new Revision",
         description:
           "Validated exactly as when creating a Map. Earlier Revisions are unchanged, and Games that use them are " +
-          "unaffected. Only the Map's creator may add Revisions.",
+          "unaffected. Only the Map's creator may add Revisions. The optional `notes` say what changed; like the " +
+          "rest of the Revision they are public and can never be changed.",
         tags: [TAG],
         security: bearer,
         parameters: [mapIdParameter],
@@ -539,12 +562,13 @@ export const mapsModule: ApiModule = {
         const { map } = loadMap(context);
         if (map.creator.id !== player.id) throw notCreator(map.id);
         if (map.archivedAt !== null) throw archived(map.id);
-        const body = readObject(await context.readJson(), ["map"], ["map"]);
+        const body = readObject(await context.readJson(), ["map", "notes"], ["map"]);
         const details: ErrorDetail[] = [];
         const content = readMap(context, body.map, details);
-        if (content === undefined) throw validationFailed(details);
+        const notes = readNotes(body.notes, details);
+        if (content === undefined || notes === undefined) throw validationFailed(details);
 
-        const result = context.services.db.maps.addRevision(player.id, map.id, content, new Date());
+        const result = context.services.db.maps.addRevision(player.id, map.id, content, new Date(), notes);
         if (result === "not_found") throw noMap(map.id);
         if (result === "not_creator") throw notCreator(map.id);
         if (result === "archived") throw archived(map.id);

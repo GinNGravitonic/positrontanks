@@ -104,6 +104,7 @@ interface Revision {
   build: Build;
   program: string;
   cost: number;
+  notes: string;
   createdAt: string;
 }
 
@@ -120,12 +121,19 @@ interface Design {
 }
 
 interface Summary extends Omit<Design, "latestRevision"> {
-  latestRevision: { number: number; cost: number; createdAt: string };
+  latestRevision: { number: number; cost: number; notes: string; createdAt: string };
 }
 
 async function create(
   token: string,
-  fields: { name?: string; description?: string; rulesetVersion?: string; build?: Build; program?: string } = {},
+  fields: {
+    name?: string;
+    description?: string;
+    rulesetVersion?: string;
+    build?: Build;
+    program?: string;
+    notes?: string;
+  } = {},
 ): Promise<Design> {
   const response = await call("POST", "/bot-designs", {
     token,
@@ -156,7 +164,7 @@ describe("creating a Bot Design", () => {
       rulesetVersion: "r1",
       copiedFrom: null,
       archivedAt: null,
-      latestRevision: { designId: design.id, number: 1, build: BUILD, program: PROGRAM, cost: 74 },
+      latestRevision: { designId: design.id, number: 1, build: BUILD, program: PROGRAM, cost: 74, notes: "" },
     });
     expect(Object.keys(design).sort()).toEqual(
       ["archivedAt", "copiedFrom", "createdAt", "description", "id", "latestRevision", "name", "rulesetVersion", "updatedAt"],
@@ -362,6 +370,85 @@ describe("Revisions", () => {
   });
 });
 
+describe("Revision notes", () => {
+  it("are given when a Revision is saved, trimmed, and returned wherever Revisions are", async () => {
+    const design = await create(ada, { notes: "  First try.  " });
+    expect(design.latestRevision.notes).toBe("First try.");
+    const added = await call("POST", `/bot-designs/${design.id}/revisions`, {
+      token: ada,
+      body: { build: CHEAP_BUILD, program: CHEAP_PROGRAM, notes: "n".repeat(500) },
+    });
+    expect(added.status).toBe(201);
+    expect((added.body as Revision).notes).toBe("n".repeat(500));
+    const plain = await call("POST", `/bot-designs/${design.id}/revisions`, { token: ada, body: { build: BUILD, program: PROGRAM } });
+    expect((plain.body as Revision).notes).toBe("");
+
+    const first = (await call("GET", `/bot-designs/${design.id}/revisions/1`, { token: ada })).body as Revision;
+    expect(first.notes).toBe("First try.");
+    const revisions = (await call("GET", `/bot-designs/${design.id}/revisions`, { token: ada })).body as {
+      revisions: { notes: string }[];
+    };
+    expect(revisions.revisions.map((r) => r.notes)).toEqual(["", "n".repeat(500), "First try."]);
+    expect((await list(ada))[0]?.latestRevision.notes).toBe("");
+  });
+
+  it("are checked along with the Build and Program, and bad notes save nothing", async () => {
+    const tooLong = await call("POST", "/bot-designs", {
+      token: ada,
+      body: { name: "Scout", rulesetVersion: "r1", build: BUILD, program: PROGRAM, notes: "n".repeat(501) },
+    });
+    expect(tooLong.status).toBe(422);
+    expect(errorOf(tooLong).details).toEqual([{ path: "notes", message: "must be at most 500 characters" }]);
+    expect(await list(ada)).toEqual([]);
+
+    const design = await create(ada);
+    const typed = await call("POST", `/bot-designs/${design.id}/revisions`, {
+      token: ada,
+      body: { build: BUILD, program: "function tick() {", notes: 5 },
+    });
+    expect(typed.status).toBe(422);
+    expect((errorOf(typed).details ?? []).map((d) => d.path)).toEqual(["notes", "program"]);
+    const valid = await call("POST", `/bot-designs/${design.id}/revisions`, {
+      token: ada,
+      body: { build: BUILD, program: PROGRAM, notes: ["x"] },
+    });
+    expect(errorOf(valid).details).toEqual([{ path: "notes", message: "must be a string" }]);
+    const revisions = (await call("GET", `/bot-designs/${design.id}/revisions`, { token: ada })).body as { revisions: unknown[] };
+    expect(revisions.revisions).toHaveLength(1);
+  });
+
+  it("can never be changed", async () => {
+    const design = await create(ada, { notes: "Original" });
+    const patch = await call("PATCH", `/bot-designs/${design.id}`, { token: ada, body: { notes: "Rewritten" } });
+    expect(patch.status).toBe(422);
+    expect(errorOf(patch).details?.[0]).toEqual({ path: "notes", message: "is not a known field" });
+    for (const method of ["PUT", "PATCH"]) {
+      const response = await call(method, `/bot-designs/${design.id}/revisions/1`, { token: ada, body: { notes: "Rewritten" } });
+      expect(response.status, method).toBe(405);
+    }
+    const first = (await call("GET", `/bot-designs/${design.id}/revisions/1`, { token: ada })).body as Revision;
+    expect(first.notes).toBe("Original");
+  });
+
+  it("on a copy come from the request, not the source", async () => {
+    const source = await create(ada, { build: CHEAP_BUILD, program: CHEAP_PROGRAM, notes: "Source notes" });
+    const plain = await call("POST", `/bot-designs/${source.id}/copies`, { token: ada, body: { rulesetVersion: "r1x" } });
+    expect((plain.body as { botDesign: Design }).botDesign.latestRevision.notes).toBe("");
+    const noted = await call("POST", `/bot-designs/${source.id}/copies`, {
+      token: ada,
+      body: { rulesetVersion: "r1x", notes: "  Ported to r1x.  " },
+    });
+    expect(noted.status).toBe(201);
+    expect((noted.body as { botDesign: Design }).botDesign.latestRevision.notes).toBe("Ported to r1x.");
+    const bad = await call("POST", `/bot-designs/${source.id}/copies`, {
+      token: ada,
+      body: { rulesetVersion: "r1x", notes: "n".repeat(501) },
+    });
+    expect(errorOf(bad).details).toEqual([{ path: "notes", message: "must be at most 500 characters" }]);
+    expect(await list(ada)).toHaveLength(3);
+  });
+});
+
 describe("listing, renaming and describing", () => {
   it("lists the Player's designs without Programs", async () => {
     const a = await create(ada, { name: "A" });
@@ -562,7 +649,7 @@ describe("copy to Ruleset", () => {
 
 describe("privacy", () => {
   it("keeps designs, Revisions, Programs and descriptions invisible to other Players", async () => {
-    const design = await create(ada, { description: "private-notes" });
+    const design = await create(ada, { description: "private-notes", notes: "private-revision-notes" });
     const grace = await player("grace");
 
     expect(await list(grace)).toEqual([]);
@@ -584,6 +671,7 @@ describe("privacy", () => {
       expect(response.status, `${method} ${path}`).toBe(404);
       expect(JSON.stringify(response.body)).not.toContain("rangefind");
       expect(JSON.stringify(response.body)).not.toContain("private-notes");
+      expect(JSON.stringify(response.body)).not.toContain("private-revision-notes");
     }
 
     // Nothing the other Player tried changed the design.

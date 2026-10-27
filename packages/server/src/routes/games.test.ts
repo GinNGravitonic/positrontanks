@@ -410,6 +410,27 @@ describe("Entries", () => {
     for (const body of responses) expect(JSON.stringify(body)).not.toContain("bob-design-notes");
   });
 
+  it("never shows a Bot Design's Revision notes, even to its owner", async () => {
+    const game = await createGame(alice, mapId);
+    const secret = await design(bob);
+    const revised = await call("POST", `/bot-designs/${secret}/revisions`, {
+      token: bob,
+      body: { build: CHEAP_BUILD, program: PROGRAM, notes: "bob-revision-notes" },
+    });
+    expect(revised.status).toBe(201);
+    const responses: unknown[] = [];
+    const open = await enter(bob, game.id, [{ designId: secret, name: "Rex" }]);
+    responses.push(open, await getGame(bob, game.id), await getGame(carol, game.id), await browse(carol));
+    const started = await enter(carol, game.id, [{ designId: await design(carol), name: "Plato" }]);
+    expect(started.game.state).toBe("running");
+    responses.push(started);
+    for (const token of [alice, bob, carol]) {
+      responses.push(await getGame(token, game.id), (await call("GET", "/players/me/games", { token })).body);
+      responses.push((await call("GET", `/games/${game.id}/snapshot`, { token })).body);
+    }
+    for (const body of responses) expect(JSON.stringify(body)).not.toContain("bob-revision-notes");
+  });
+
   it("reports every problem with an Entry", async () => {
     const game = await createGame(alice, mapId);
     const mine = await design(bob);

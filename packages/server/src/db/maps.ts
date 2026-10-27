@@ -4,7 +4,8 @@
  * Maps are public: anyone may read any Map, archived or not, so reads take
  * no Player. Changes (new Revisions, renaming, archiving) are scoped to the creator
  * and report whether the Map exists but belongs to someone else, since a
- * Map's existence is no secret. Revisions are only ever inserted; the schema
+ * Map's existence is no secret. Revisions are only ever inserted, notes
+ * included (public, like the rest of the Map); the schema
  * refuses updates to them. Map content is stored as JSON text and handed
  * back parsed; callers validate before saving.
  */
@@ -18,6 +19,8 @@ export interface MapRevisionRecord {
   /** 1 for the first Revision, then one more for each edit. */
   readonly number: number;
   readonly map: MapFormat1;
+  /** What changed, public like the rest of the Map; empty if none. */
+  readonly notes: string;
   readonly createdAt: string;
 }
 
@@ -29,6 +32,7 @@ export interface MapRevisionSummary {
   readonly height: number;
   /** How many Spawn Zones, and so at most how many Players, the Revision has. */
   readonly spawnZones: number;
+  readonly notes: string;
   readonly createdAt: string;
 }
 
@@ -81,6 +85,7 @@ interface MapRow {
   width: number;
   height: number;
   spawn_zones: number;
+  notes: string;
   revision_created_at: string;
 }
 
@@ -88,6 +93,7 @@ interface RevisionRow {
   map_id: string;
   number: number;
   content: string;
+  notes: string;
   created_at: string;
 }
 
@@ -97,12 +103,13 @@ interface SummaryRow {
   width: number;
   height: number;
   spawn_zones: number;
+  notes: string;
   created_at: string;
 }
 
 const MAP_COLUMNS = `
   m.id, m.player_id, p.username, m.name, m.description, m.latest_revision, m.created_at, m.updated_at, m.archived_at,
-  r.format, r.width, r.height, r.spawn_zones, r.created_at AS revision_created_at
+  r.format, r.width, r.height, r.spawn_zones, r.notes, r.created_at AS revision_created_at
   FROM maps m
   JOIN players p ON p.id = m.player_id
   JOIN map_revisions r ON r.map_id = m.id AND r.number = m.latest_revision`;
@@ -113,6 +120,7 @@ const toSummary = (row: SummaryRow): MapRevisionSummary => ({
   width: row.width,
   height: row.height,
   spawnZones: row.spawn_zones,
+  notes: row.notes,
   createdAt: row.created_at,
 });
 
@@ -131,6 +139,7 @@ const toRevision = (row: RevisionRow): MapRevisionRecord => ({
   mapId: row.map_id,
   number: row.number,
   map: JSON.parse(row.content) as MapFormat1,
+  notes: row.notes,
   createdAt: row.created_at,
 });
 
@@ -143,8 +152,8 @@ export class MapStore {
     this.#transaction = transaction;
   }
 
-  /** Creates a Map with `content` as its Revision 1. */
-  createMap(map: NewMap, content: MapFormat1, now: Date): { map: MapRecord; revision: MapRevisionRecord } {
+  /** Creates a Map with `content` (and `notes`, if any) as its Revision 1. */
+  createMap(map: NewMap, content: MapFormat1, now: Date, notes = ""): { map: MapRecord; revision: MapRevisionRecord } {
     const at = now.toISOString();
     return this.#transaction(() => {
       this.#db
@@ -153,7 +162,7 @@ export class MapStore {
            VALUES (?, ?, ?, ?, 1, ?, ?)`,
         )
         .run(map.id, map.playerId, map.name, map.description ?? "", at, at);
-      const created = this.#insertRevision(map.id, 1, content, at);
+      const created = this.#insertRevision(map.id, 1, content, notes, at);
       const record = this.getMap(map.id);
       if (record === undefined) throw new Error(`Map ${map.id} vanished while being created`);
       return { map: record, revision: created };
@@ -161,10 +170,16 @@ export class MapStore {
   }
 
   /**
-   * Adds the next Revision to a Map, if `playerId` created it and it is not
-   * archived; otherwise says why not.
+   * Adds the next Revision, with `notes` if any, to a Map, if `playerId`
+   * created it and it is not archived; otherwise says why not.
    */
-  addRevision(playerId: string, mapId: string, content: MapFormat1, now: Date): MapRevisionRecord | MapChangeRefusal {
+  addRevision(
+    playerId: string,
+    mapId: string,
+    content: MapFormat1,
+    now: Date,
+    notes = "",
+  ): MapRevisionRecord | MapChangeRefusal {
     const at = now.toISOString();
     return this.#transaction(() => {
       const row = this.#db
@@ -174,17 +189,17 @@ export class MapStore {
       if (row.player_id !== playerId) return "not_creator";
       if (row.archived_at !== null) return "archived";
       const number = row.latest_revision + 1;
-      const created = this.#insertRevision(mapId, number, content, at);
+      const created = this.#insertRevision(mapId, number, content, notes, at);
       this.#db.prepare("UPDATE maps SET latest_revision = ?, updated_at = ? WHERE id = ?").run(number, at, mapId);
       return created;
     });
   }
 
-  #insertRevision(mapId: string, number: number, content: MapFormat1, at: string): MapRevisionRecord {
+  #insertRevision(mapId: string, number: number, content: MapFormat1, notes: string, at: string): MapRevisionRecord {
     this.#db
       .prepare(
-        `INSERT INTO map_revisions (map_id, number, content, format, width, height, spawn_zones, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO map_revisions (map_id, number, content, format, width, height, spawn_zones, notes, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         mapId,
@@ -194,9 +209,10 @@ export class MapStore {
         content.width,
         content.height,
         content.spawnZones.length,
+        notes,
         at,
       );
-    return { mapId, number, map: content, createdAt: at };
+    return { mapId, number, map: content, notes, createdAt: at };
   }
 
   /** Any Map, archived or not. */
@@ -224,7 +240,7 @@ export class MapStore {
   /** A Revision of any Map. */
   getRevision(mapId: string, number: number): MapRevisionRecord | undefined {
     const row = this.#db
-      .prepare("SELECT map_id, number, content, created_at FROM map_revisions WHERE map_id = ? AND number = ?")
+      .prepare("SELECT map_id, number, content, notes, created_at FROM map_revisions WHERE map_id = ? AND number = ?")
       .get(mapId, number) as RevisionRow | undefined;
     return row === undefined ? undefined : toRevision(row);
   }
@@ -234,7 +250,7 @@ export class MapStore {
     if (this.#db.prepare("SELECT 1 FROM maps WHERE id = ?").get(mapId) === undefined) return undefined;
     const rows = this.#db
       .prepare(
-        `SELECT number, format, width, height, spawn_zones, created_at
+        `SELECT number, format, width, height, spawn_zones, notes, created_at
          FROM map_revisions WHERE map_id = ? ORDER BY number DESC`,
       )
       .all(mapId) as unknown as SummaryRow[];

@@ -61,6 +61,7 @@ interface Revision {
   mapId: string;
   number: number;
   map: MapContent;
+  notes: string;
   createdAt: string;
 }
 
@@ -70,6 +71,7 @@ interface RevisionSummary {
   width: number;
   height: number;
   spawnZones: number;
+  notes: string;
   createdAt: string;
 }
 
@@ -90,7 +92,7 @@ interface Summary extends Omit<MapBody, "latestRevision"> {
 
 async function create(
   token: string,
-  fields: { name?: string; description?: string; map?: unknown } = {},
+  fields: { name?: string; description?: string; map?: unknown; notes?: string } = {},
 ): Promise<MapBody> {
   const response = await call("POST", "/maps", { token, body: { name: "Duel", map: DUEL, ...fields } });
   expect(response.status).toBe(201);
@@ -117,7 +119,7 @@ describe("creating a Map", () => {
       description: "",
       creator: { username: "ada" },
       archivedAt: null,
-      latestRevision: { mapId: map.id, number: 1, map: DUEL },
+      latestRevision: { mapId: map.id, number: 1, map: DUEL, notes: "" },
     });
     expect(Object.keys(map).sort()).toEqual(
       ["archivedAt", "createdAt", "creator", "description", "id", "latestRevision", "name", "updatedAt"],
@@ -224,7 +226,7 @@ describe("public reads", () => {
     expect(maps.map((m) => m.id)).toEqual([corners.id, duel.id]);
     expect(maps[1]).toEqual({
       ...duel,
-      latestRevision: { number: 1, format: 1, width: 60, height: 40, spawnZones: 2, createdAt: duel.createdAt },
+      latestRevision: { number: 1, format: 1, width: 60, height: 40, spawnZones: 2, notes: "", createdAt: duel.createdAt },
     });
     expect(maps[0]?.latestRevision.spawnZones).toBe(FOUR_CORNERS.spawnZones.length);
 
@@ -337,6 +339,61 @@ describe("Revisions", () => {
     expect(first.body).toEqual(map.latestRevision);
     expect(((await call("GET", `/maps/${map.id}/revisions/2`)).body as Revision).map).toEqual(FOUR_CORNERS);
     expect(((await call("GET", `/maps/${map.id}`)).body as MapBody).latestRevision.number).toBe(3);
+  });
+});
+
+describe("Revision notes", () => {
+  it("are given when a Revision is saved, trimmed, and shown to everyone wherever Revisions are", async () => {
+    const map = await create(ada, { notes: "  First cut.  " });
+    expect(map.latestRevision.notes).toBe("First cut.");
+    const added = await call("POST", `/maps/${map.id}/revisions`, {
+      token: ada,
+      body: { map: FOUR_CORNERS, notes: "n".repeat(500) },
+    });
+    expect(added.status).toBe(201);
+    expect((added.body as Revision).notes).toBe("n".repeat(500));
+    const plain = await call("POST", `/maps/${map.id}/revisions`, { token: ada, body: { map: DUEL } });
+    expect((plain.body as Revision).notes).toBe("");
+
+    const grace = await player("grace");
+    expect(((await call("GET", `/maps/${map.id}/revisions/1`)).body as Revision).notes).toBe("First cut.");
+    expect(((await call("GET", `/maps/${map.id}/revisions/2`, { token: grace })).body as Revision).notes).toBe(
+      "n".repeat(500),
+    );
+    const revisions = (await call("GET", `/maps/${map.id}/revisions`)).body as { revisions: RevisionSummary[] };
+    expect(revisions.revisions.map((r) => r.notes)).toEqual(["", "n".repeat(500), "First cut."]);
+    expect((await list()).find((m) => m.id === map.id)?.latestRevision.notes).toBe("");
+  });
+
+  it("are checked, and a bad note saves nothing", async () => {
+    const tooLong = await call("POST", "/maps", { token: ada, body: { name: "Duel", map: DUEL, notes: "n".repeat(501) } });
+    expect(tooLong.status).toBe(422);
+    expect(errorOf(tooLong).details).toEqual([{ path: "notes", message: "must be at most 500 characters" }]);
+    expect(await list()).toEqual([]);
+
+    const map = await create(ada);
+    const typed = await call("POST", `/maps/${map.id}/revisions`, {
+      token: ada,
+      body: { map: { ...DUEL, height: -1 }, notes: 5 },
+    });
+    expect(errorOf(typed).details).toEqual([
+      { path: "map.height", message: "must be greater than 0" },
+      { path: "notes", message: "must be a string" },
+    ]);
+    const revisions = (await call("GET", `/maps/${map.id}/revisions`)).body as { revisions: unknown[] };
+    expect(revisions.revisions).toHaveLength(1);
+  });
+
+  it("can never be changed", async () => {
+    const map = await create(ada, { notes: "Original" });
+    const patch = await call("PATCH", `/maps/${map.id}`, { token: ada, body: { notes: "Rewritten" } });
+    expect(patch.status).toBe(422);
+    expect(errorOf(patch).details?.[0]).toEqual({ path: "notes", message: "is not a known field" });
+    for (const method of ["PUT", "PATCH"]) {
+      const response = await call(method, `/maps/${map.id}/revisions/1`, { token: ada, body: { notes: "Rewritten" } });
+      expect(response.status, method).toBe(405);
+    }
+    expect(((await call("GET", `/maps/${map.id}/revisions/1`)).body as Revision).notes).toBe("Original");
   });
 });
 
