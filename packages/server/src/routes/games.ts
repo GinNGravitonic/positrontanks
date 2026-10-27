@@ -679,8 +679,8 @@ export const gamesModule: ApiModule = {
         operationId: "getGame",
         summary: "Get a Game with its Entries",
         description:
-          "Any Player may read any Game. Other Players' Builds are hidden while the Game is Open (and if it was " +
-          "Cancelled); Programs are never shown.",
+          "Any Player may read any Game. Other Players' Builds and costs are hidden while the Game is Open (and " +
+          "if it was Cancelled); Programs are never shown.",
         tags: [TAG],
         security: bearer,
         parameters: [gameIdParameter],

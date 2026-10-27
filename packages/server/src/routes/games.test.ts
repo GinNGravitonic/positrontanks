@@ -227,6 +227,20 @@ describe("creating Games", () => {
     expect(paths(missing)).toEqual(["mapRevision"]);
   });
 
+  it("states the resolved Map Revision wherever the Game appears when none was given", async () => {
+    expect((await call("POST", `/maps/${mapId}/revisions`, { token: alice, body: { map: DUEL } })).status).toBe(201);
+    const game = await createGame(bob, mapId);
+    expect(game.map).toEqual({ id: mapId, name: "Arena", revision: 2 });
+    expect((await getGame(carol, game.id)).map.revision).toBe(2);
+    expect((await browse(carol)).map((g) => g.map.revision)).toEqual([2]);
+    const mine = (await call("GET", "/players/me/games", { token: bob })).body as { games: Game[] };
+    expect(mine.games.map((g) => g.map.revision)).toEqual([2]);
+
+    // A later Revision does not move a Game already created.
+    expect((await call("POST", `/maps/${mapId}/revisions`, { token: alice, body: { map: DUEL } })).status).toBe(201);
+    expect((await getGame(bob, game.id)).map.revision).toBe(2);
+  });
+
   it("reports every problem with the settings", async () => {
     const response = await call("POST", "/games", {
       token: alice,
@@ -382,6 +396,32 @@ describe("Entries", () => {
     expect(withdraw.status).toBe(409);
     expect(errorOf(withdraw).code).toBe("game_not_open");
     expect(await browse(alice)).toEqual([]);
+  });
+
+  it("states the resolved Bot Design Revision to the owner when none was given", async () => {
+    const id = await design(bob);
+    const revised = await call("POST", `/bot-designs/${id}/revisions`, {
+      token: bob,
+      body: { build: PLATED_BUILD, program: PROGRAM },
+    });
+    expect(revised.status).toBe(201);
+    const game = await createGame(alice, mapId, { playerCount: 2, pointBudget: 200 });
+
+    const { entry, game: after } = await enter(bob, game.id, [
+      { designId: id, name: "Latest" },
+      { designId: id, revision: 1, name: "First" },
+    ]);
+    const expected = [
+      { name: "Latest", design: { designId: id, revision: 2 }, cost: 69, build: PLATED_BUILD },
+      { name: "First", design: { designId: id, revision: 1 }, cost: 64, build: CHEAP_BUILD },
+    ];
+    expect(entry.bots).toEqual(expected);
+    expect(after.entries[0]?.bots).toEqual(expected);
+    expect((await getGame(bob, game.id)).entries[0]?.bots).toEqual(expected);
+
+    // A later Revision does not move an Entry already submitted.
+    await call("POST", `/bot-designs/${id}/revisions`, { token: bob, body: { build: CHEAP_BUILD, program: PROGRAM } });
+    expect((await getGame(bob, game.id)).entries[0]?.bots[0]?.design).toEqual({ designId: id, revision: 2 });
   });
 
   it("lets a Player submit several Entries to one Game", async () => {
