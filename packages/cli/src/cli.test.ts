@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { replayGame, tickCostCheck, type GameRecord, type GameResult, type Replay, type TickCost } from "@aumohta/engine-r1";
 import { validateBuild } from "@aumohta/ruleset-data";
-import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
+import { loadRuleset, RULESET_VERSIONS } from "@aumohta/ruleset-data/rulesets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { main, type Io } from "./cli.js";
+import { DEFAULT_RULESET, main, USAGE, type Io } from "./cli.js";
 import type { BudgetPeak } from "./report.js";
 
 const examples = fileURLToPath(new URL("../examples/", import.meta.url));
@@ -122,14 +122,14 @@ describe("aumohta run", () => {
     await writeFile(at("e.json"), JSON.stringify({ bots: [{ name: "E", build: scout, program: "function tick() {}" }] }));
     await writeFile(at("f.json"), JSON.stringify({ bots: [{ name: "F", build: scout, program: "function tick() {}" }] }));
     const io: Io = { out: () => undefined, err: () => undefined };
-    const argv = ["run", "--map", at("duel.json"), "--entry", at("e.json"), "--entry", at("f.json"), "--time-limit", "0.5", "--out", at("out")];
+    const argv = ["run", "--map", at("duel.json"), "--entry", at("e.json"), "--entry", at("f.json"), "--time-limit", "1", "--out", at("out")];
     const sleep = (ms: number) => {
       waits.push(ms);
       return Promise.resolve();
     };
     expect(await main(argv, io, { now: () => 0, sleep })).toBe(0);
     // Ticks are 100 ms apart; no wait after the last one.
-    expect(waits).toEqual([100, 200, 300, 400]);
+    expect(waits).toEqual([100, 200, 300, 400, 500, 600, 700, 800, 900]);
     waits.length = 0;
     expect(await main([...argv, "--unthrottled"], io, { now: () => 0, sleep })).toBe(0);
     expect(waits).toEqual([]);
@@ -173,11 +173,29 @@ describe("aumohta run", () => {
     expect((await run("--entry", at("alice.entry.json"), "--entry", at("bob.entry.json"), "--entry", at("alice.entry.json"))).err).toContain(
       "the Map has 2 Spawn Zones, so at most 2 Entries, not 3",
     );
-    expect((await run("--entry", at("alice.entry.json"), "--time-limit", "0.05")).err).toContain("whole number of Ticks");
+    // Whole seconds, at least 1, as the server takes them; whole Ticks are not enough.
+    for (const limit of ["0.5", "1.5", "0", "-3"]) {
+      expect(await run("--entry", at("alice.entry.json"), `--time-limit=${limit}`)).toMatchObject({
+        code: 1,
+        err: expect.stringContaining(`--time-limit must be a whole number of seconds, at least 1, got ${String(Number(limit))}`) as unknown,
+      });
+    }
     expect((await run("--entry", at("alice.entry.json"), "--point-budget", "50")).err).toContain("range 100 to 800");
     expect((await run("--entry", at("alice.entry.json"), "--ruleset", "r9")).err).toContain('unknown Ruleset "r9"');
     expect((await run("--entry", at("alice.entry.json"), "--seed", "1.5")).err).toContain("the seed must be a whole number");
     expect((await cli("run", "--map", at("alice.entry.json"), "--entry", at("alice.entry.json"))).err).toMatch(/map\.format is required/);
+  });
+
+  it("defaults to the latest Ruleset", async () => {
+    const latest = RULESET_VERSIONS[RULESET_VERSIONS.length - 1];
+    expect(DEFAULT_RULESET).toBe(latest);
+    expect(USAGE).toContain(`--ruleset VERSION     The Ruleset version (default: ${DEFAULT_RULESET}, the latest)`);
+    expect(USAGE).toContain(`its ruleset defaults\n                        to ${DEFAULT_RULESET}`);
+    const run = await duel("out", "--json");
+    expect((JSON.parse(run.out) as { ruleset: string }).ruleset).toBe(latest);
+    await writeFile(at("plain.json"), JSON.stringify({ bots: [{ name: "P", build: scout, program: "function tick() {}" }] }));
+    const check = JSON.parse((await cli("tick-cost", "--entry", at("plain.json"), "--ticks", "1", "--json")).out) as { bots: { report: TickCost }[] };
+    expect(check.bots[0]?.report.rulesetVersion).toBe(latest);
   });
 
   it("explains its usage", async () => {

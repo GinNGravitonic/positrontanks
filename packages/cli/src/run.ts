@@ -35,7 +35,7 @@ export interface GameOptions {
   /** The Ruleset version. */
   readonly ruleset: string;
   readonly seed: number;
-  /** In simulated seconds; must be a whole number of Ticks. */
+  /** In simulated seconds; a whole number, at least 1, as on the server. */
   readonly timeLimitSeconds: number;
   /** Defaults to the Ruleset's maximum. */
   readonly pointBudget?: number;
@@ -57,10 +57,8 @@ export async function loadGame(options: GameOptions): Promise<LoadedGame> {
   const ruleset = rulesetFor(options.ruleset);
   const { seed, timeLimitSeconds } = options;
   if (!Number.isInteger(seed) || seed < 0 || seed >= SEED_LIMIT) throw new InputError(`the seed must be a whole number in [0, 2^32), got ${String(seed)}`);
+  if (!Number.isInteger(timeLimitSeconds) || timeLimitSeconds < 1) throw new InputError(`the time limit must be a whole number of seconds, at least 1, got ${String(timeLimitSeconds)}`);
   const timeLimitTicks = timeLimitSeconds * ruleset.tickRate;
-  if (!Number.isInteger(timeLimitTicks) || timeLimitTicks < 1) {
-    throw new InputError(`the time limit must be a positive whole number of Ticks (${String(ruleset.tickRate)} per second), got ${String(timeLimitSeconds)} s`);
-  }
   const { min, max } = ruleset.pointBudget;
   const pointBudget = options.pointBudget ?? max;
   if (!Number.isFinite(pointBudget) || pointBudget < min || pointBudget > max) {
