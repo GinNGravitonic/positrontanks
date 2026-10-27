@@ -118,7 +118,10 @@ export function createApp(services: Services, options: AppOptions = {}): Request
       })
       .then((reply) => {
         if (reply.events === undefined) send(response, reply);
-        else stream(response, reply, reply.events, closing);
+        else {
+          const { maxEventStreamBufferBytes } = services.config.limits;
+          stream(response, reply, reply.events, closing, request.url, maxEventStreamBufferBytes, logger);
+        }
       })
       .catch((error: unknown) => {
         logger.error("Failed to send response", { error: String(error) });
@@ -142,7 +145,22 @@ function send(response: ServerResponse, reply: Reply): void {
   response.end(payload);
 }
 
-function stream(response: ServerResponse, reply: Reply, events: EventStream, closing: AbortSignal): void {
+/**
+ * Streams events until the stream closes the sink or is cut short. A client
+ * that reads too slowly would make every unsent event pile up in memory (an
+ * unthrottled Game plays far faster than anyone watches), so once more than
+ * `maxBufferedBytes` are waiting the stream is dropped, without `end`, and
+ * the client reconnects for a fresh snapshot.
+ */
+function stream(
+  response: ServerResponse,
+  reply: Reply,
+  events: EventStream,
+  closing: AbortSignal,
+  url: string | undefined,
+  maxBufferedBytes: number,
+  logger: Logger,
+): void {
   response.writeHead(reply.status ?? 200, {
     "content-type": "text/event-stream; charset=utf-8",
     "cache-control": "no-cache",
@@ -152,35 +170,50 @@ function stream(response: ServerResponse, reply: Reply, events: EventStream, clo
   });
   response.flushHeaders();
   let open = true;
-  let cancel = (): void => undefined;
-  const heartbeat = setInterval(() => {
-    response.write(": keep-alive\n\n");
-  }, SSE_HEARTBEAT_MS);
-  heartbeat.unref();
-  const finish = (): void => {
+  // A stream cut short while still starting has not returned its cancel yet; it is cancelled once it does.
+  const started: { cancel?: () => void; cutShort: boolean } = { cutShort: false };
+  const finish = (end: () => void): void => {
     open = false;
     clearInterval(heartbeat);
     response.off("close", cutShort);
     closing.removeEventListener("abort", cutShort);
-    response.end();
+    end();
+  };
+  const stop = (end: () => void): void => {
+    if (!open) return;
+    finish(end);
+    if (started.cancel === undefined) started.cutShort = true;
+    else started.cancel();
   };
   // The client went away, or the server is shutting down.
   const cutShort = (): void => {
-    if (!open) return;
-    finish();
-    cancel();
+    stop(() => response.end());
   };
+  const write = (chunk: string): void => {
+    response.write(chunk);
+    const bufferedBytes = response.writableLength;
+    if (bufferedBytes <= maxBufferedBytes) return;
+    logger.info("Dropped a slow event stream", { url: url ?? "", bufferedBytes });
+    // Ending would keep the buffer until it is sent; destroying frees it now.
+    stop(() => response.destroy());
+  };
+  const heartbeat = setInterval(() => {
+    write(": keep-alive\n\n");
+  }, SSE_HEARTBEAT_MS);
+  heartbeat.unref();
   response.on("close", cutShort);
   closing.addEventListener("abort", cutShort);
-  cancel = events({
+  const cancel = events({
     send: (event) => {
-      if (open) response.write(formatEvent(event));
+      if (open) write(formatEvent(event));
     },
     close: () => {
-      if (open) finish();
+      if (open) finish(() => response.end());
     },
   });
-  if (closing.aborted) cutShort();
+  started.cancel = cancel;
+  if (started.cutShort) cancel();
+  else if (closing.aborted) cutShort();
 }
 
 export interface RunningServer {

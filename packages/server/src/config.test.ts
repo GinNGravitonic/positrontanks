@@ -19,6 +19,7 @@ describe("loadConfig", () => {
       AUMOHTA_DATABASE_PATH: "/data/db.sqlite",
       AUMOHTA_MAX_MAP_WIDTH: "500",
       AUMOHTA_MAX_UNTHROTTLED_GAMES: "0",
+      AUMOHTA_MAX_EVENT_STREAM_BUFFER_BYTES: "65536",
     });
     expect(config.host).toBe("0.0.0.0");
     expect(config.port).toBe(3000);
@@ -26,6 +27,7 @@ describe("loadConfig", () => {
     expect(config.limits.map.maxWidth).toBe(500);
     expect(config.limits.map.maxHeight).toBe(defaultConfig.limits.map.maxHeight);
     expect(config.limits.maxConcurrentUnthrottledGames).toBe(0);
+    expect(config.limits.maxEventStreamBufferBytes).toBe(65536);
   });
 
   it("reports every invalid value at once", () => {
