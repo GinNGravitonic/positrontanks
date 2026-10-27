@@ -169,7 +169,7 @@ describe("the game_failures migration", () => {
       result: { tick: 42, end: "last_standing", winner: { id: "p2", username: "Bix" }, decidedBy: "foe_damage" },
     });
     expect(reopened.games.listEntries("g3").map((entry) => entry.id)).toEqual(["e2"]);
-    expect(reopened.games.listPlayerGames("p1").map((game) => game.id)).toEqual(["g5", "g2", "g3", "g1", "g4"]);
+    expect(reopened.games.listPlayerGames("p1").items.map((game) => game.id)).toEqual(["g5", "g2", "g3", "g1", "g4"]);
     reopened.close();
   });
 });

@@ -60,6 +60,7 @@ import {
   validationFailed,
   type ErrorDetail,
 } from "../http/errors.js";
+import { nextCursor, nextCursorSchema, pageParameters, readPage } from "../http/paging.js";
 import type { ApiModule, Json, RequestContext } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
 
@@ -164,9 +165,9 @@ const schemas: Record<string, Json> = {
   },
   GameList: {
     type: "object",
-    required: ["games"],
+    required: ["games", "nextCursor"],
     additionalProperties: false,
-    properties: { games: { type: "array", items: ref("GameSummary") } },
+    properties: { games: { type: "array", items: ref("GameSummary") }, nextCursor: nextCursorSchema },
   },
   GameEntryBot: {
     type: "object",
@@ -606,6 +607,7 @@ export const gamesModule: ApiModule = {
             schema: { type: "integer", minimum: 0 },
             description: "Only Games whose Point Budget is at most this.",
           },
+          ...pageParameters,
         ],
         responses: {
           "200": { description: "Open Games.", content: jsonContent(ref("GameList")) },
@@ -628,8 +630,10 @@ export const gamesModule: ApiModule = {
           ...(minPointBudget === undefined ? {} : { minPointBudget }),
           ...(maxPointBudget === undefined ? {} : { maxPointBudget }),
         };
+        const pageRequest = readPage(query, "string");
         sweep(context);
-        return { body: { games: context.services.db.games.listOpenGames(filters).map(gameFields) } };
+        const page = context.services.db.games.listOpenGames(filters, pageRequest);
+        return { body: { games: page.items.map(gameFields), ...nextCursor(page) } };
       },
     },
     {
@@ -650,6 +654,7 @@ export const gamesModule: ApiModule = {
             description: `Comma-separated states to include, from ${GAME_STATES.join(", ")}.`,
             examples: { live: { value: "open,running" } },
           },
+          ...pageParameters,
         ],
         responses: {
           "200": { description: "Your Games.", content: jsonContent(ref("GameList")) },
@@ -659,7 +664,8 @@ export const gamesModule: ApiModule = {
       },
       handler: (context) => {
         const { player } = authenticate(context);
-        const raw = context.url.searchParams.get("state");
+        const query = context.url.searchParams;
+        const raw = query.get("state");
         let states: GameState[] | undefined;
         if (raw !== null) {
           const parts = raw.split(",");
@@ -668,8 +674,10 @@ export const gamesModule: ApiModule = {
           }
           states = parts as GameState[];
         }
+        const pageRequest = readPage(query, "string");
         sweep(context);
-        return { body: { games: context.services.db.games.listPlayerGames(player.id, states).map(gameFields) } };
+        const page = context.services.db.games.listPlayerGames(player.id, states, pageRequest);
+        return { body: { games: page.items.map(gameFields), ...nextCursor(page) } };
       },
     },
     {

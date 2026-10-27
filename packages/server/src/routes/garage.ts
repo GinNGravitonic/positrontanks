@@ -40,6 +40,7 @@ import {
   validationFailed,
   type ErrorDetail,
 } from "../http/errors.js";
+import { nextCursor, nextCursorSchema, pageParameters, readPage } from "../http/paging.js";
 import type { ApiModule, Json, RequestContext } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
 import { descriptionSchema, notesSchema, readChanges, readDescription, readNotes } from "./description.js";
@@ -182,15 +183,15 @@ const schemas: Record<string, Json> = {
   },
   BotDesignList: {
     type: "object",
-    required: ["botDesigns"],
+    required: ["botDesigns", "nextCursor"],
     additionalProperties: false,
-    properties: { botDesigns: { type: "array", items: ref("BotDesignSummary") } },
+    properties: { botDesigns: { type: "array", items: ref("BotDesignSummary") }, nextCursor: nextCursorSchema },
   },
   BotDesignRevisionList: {
     type: "object",
-    required: ["revisions"],
+    required: ["revisions", "nextCursor"],
     additionalProperties: false,
-    properties: { revisions: { type: "array", items: ref("BotDesignRevisionSummary") } },
+    properties: { revisions: { type: "array", items: ref("BotDesignRevisionSummary") }, nextCursor: nextCursorSchema },
   },
   NewBotDesign: {
     type: "object",
@@ -450,6 +451,7 @@ export const garageModule: ApiModule = {
             schema: { type: "string" },
             description: "Only designs authored against this Ruleset version.",
           },
+          ...pageParameters,
         ],
         responses: {
           "200": { description: "Your designs, most recently changed first.", content: jsonContent(ref("BotDesignList")) },
@@ -465,11 +467,15 @@ export const garageModule: ApiModule = {
           throw badRequest('includeArchived must be "true" or "false"');
         }
         const rulesetVersion = query.get("rulesetVersion");
-        const designs = context.services.db.garage.listDesigns(player.id, {
-          includeArchived: includeArchived === "true",
-          ...(rulesetVersion === null ? {} : { rulesetVersion }),
-        });
-        return { body: { botDesigns: designs.map(designSummaryJson) } };
+        const page = context.services.db.garage.listDesigns(
+          player.id,
+          {
+            includeArchived: includeArchived === "true",
+            ...(rulesetVersion === null ? {} : { rulesetVersion }),
+          },
+          readPage(query, "string"),
+        );
+        return { body: { botDesigns: page.items.map(designSummaryJson), ...nextCursor(page) } };
       },
     },
     {
@@ -610,9 +616,10 @@ export const garageModule: ApiModule = {
         summary: "List the Revisions of one of your Bot Designs",
         tags: [TAG],
         security: bearer,
-        parameters: [designIdParameter],
+        parameters: [designIdParameter, ...pageParameters],
         responses: {
           "200": { description: "The Revisions, newest first.", content: jsonContent(ref("BotDesignRevisionList")) },
+          "400": errorResponse,
           "401": errorResponse,
           "404": errorResponse,
         },
@@ -620,9 +627,9 @@ export const garageModule: ApiModule = {
       handler: (context) => {
         const { player } = authenticate(context);
         const id = context.params.designId ?? "";
-        const revisions = context.services.db.garage.listRevisions(player.id, id);
-        if (revisions === undefined) throw noDesign(id);
-        return { body: { revisions: revisions.map(revisionSummaryJson) } };
+        const page = context.services.db.garage.listRevisions(player.id, id, readPage(context.url.searchParams, "number"));
+        if (page === undefined) throw noDesign(id);
+        return { body: { revisions: page.items.map(revisionSummaryJson), ...nextCursor(page) } };
       },
     },
     {

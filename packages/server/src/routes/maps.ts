@@ -38,6 +38,7 @@ import {
   validationFailed,
   type ErrorDetail,
 } from "../http/errors.js";
+import { nextCursor, nextCursorSchema, pageParameters, readPage } from "../http/paging.js";
 import type { ApiModule, Json, RequestContext } from "../http/router.js";
 import { descriptionSchema, notesSchema, readChanges, readDescription, readNotes } from "./description.js";
 
@@ -208,15 +209,15 @@ const schemas: Record<string, Json> = {
   },
   MapList: {
     type: "object",
-    required: ["maps"],
+    required: ["maps", "nextCursor"],
     additionalProperties: false,
-    properties: { maps: { type: "array", items: ref("MapSummary") } },
+    properties: { maps: { type: "array", items: ref("MapSummary") }, nextCursor: nextCursorSchema },
   },
   MapRevisionList: {
     type: "object",
-    required: ["revisions"],
+    required: ["revisions", "nextCursor"],
     additionalProperties: false,
-    properties: { revisions: { type: "array", items: ref("MapRevisionSummary") } },
+    properties: { revisions: { type: "array", items: ref("MapRevisionSummary") }, nextCursor: nextCursorSchema },
   },
   NewMap: {
     type: "object",
@@ -429,6 +430,7 @@ export const mapsModule: ApiModule = {
             schema: { type: "string" },
             description: "Only Maps created by the Player with this username.",
           },
+          ...pageParameters,
         ],
         responses: {
           "200": { description: "Maps, most recently changed first.", content: jsonContent(ref("MapList")) },
@@ -442,13 +444,17 @@ export const mapsModule: ApiModule = {
           throw badRequest('includeArchived must be "true" or "false"');
         }
         const creator = query.get("creator");
+        const pageRequest = readPage(query, "string");
         // No Player can have a malformed username, so such a filter matches nothing.
-        if (creator !== null && !USERNAME_PATTERN.test(creator)) return { body: { maps: [] } };
-        const maps = context.services.db.maps.listMaps({
-          includeArchived: includeArchived === "true",
-          ...(creator === null ? {} : { creatorUsername: creator }),
-        });
-        return { body: { maps: maps.map(mapSummaryJson) } };
+        if (creator !== null && !USERNAME_PATTERN.test(creator)) return { body: { maps: [], nextCursor: null } };
+        const page = context.services.db.maps.listMaps(
+          {
+            includeArchived: includeArchived === "true",
+            ...(creator === null ? {} : { creatorUsername: creator }),
+          },
+          pageRequest,
+        );
+        return { body: { maps: page.items.map(mapSummaryJson), ...nextCursor(page) } };
       },
     },
     {
@@ -584,17 +590,18 @@ export const mapsModule: ApiModule = {
         description: "Anyone may list them; no credential is needed.",
         tags: [TAG],
         security: [],
-        parameters: [mapIdParameter],
+        parameters: [mapIdParameter, ...pageParameters],
         responses: {
           "200": { description: "The Revisions, newest first.", content: jsonContent(ref("MapRevisionList")) },
+          "400": errorResponse,
           "404": errorResponse,
         },
       },
       handler: (context) => {
         const id = context.params.mapId ?? "";
-        const revisions = context.services.db.maps.listRevisions(id);
-        if (revisions === undefined) throw noMap(id);
-        return { body: { revisions: revisions.map(revisionSummaryJson) } };
+        const page = context.services.db.maps.listRevisions(id, readPage(context.url.searchParams, "number"));
+        if (page === undefined) throw noMap(id);
+        return { body: { revisions: page.items.map(revisionSummaryJson), ...nextCursor(page) } };
       },
     },
     {
