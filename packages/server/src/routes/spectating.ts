@@ -334,7 +334,8 @@ export const spectatingModule: ApiModule = {
           "is being played; then a `tick` (a ReplayTick) for every Tick played after it, in order, with the Tick " +
           "as the event id; then, once the Game is Finished, an `end` (a GameEnded) and the stream closes. A " +
           "Finished Game gives its last snapshot and `end` at once. If the stream closes without `end` (the " +
-          "server is restarting), reconnect: you get a fresh snapshot (`Last-Event-ID` is not used). Comment " +
+          "server is restarting, or you read too slowly and fell too far behind), reconnect: you get a fresh " +
+          "snapshot (`Last-Event-ID` is not used). Comment " +
           "lines keep idle streams open. Open and Cancelled Games answer 409 as for the snapshot.",
         tags: [TAG],
         security: bearer,

@@ -24,6 +24,11 @@ export interface Limits {
   readonly maxFillTimeoutSeconds: number;
   /** Unthrottled Games allowed to run at once. */
   readonly maxConcurrentUnthrottledGames: number;
+  /**
+   * Most unsent bytes an event stream may hold for a client that reads too
+   * slowly; past it the stream is dropped and the client reconnects.
+   */
+  readonly maxEventStreamBufferBytes: number;
 }
 
 /** Where blobs (Game Records, Replays, images) are kept; see storage/. */
@@ -90,6 +95,7 @@ export const defaultConfig: ServerConfig = {
     maxTimeLimitSeconds: 600,
     maxFillTimeoutSeconds: 24 * 60 * 60,
     maxConcurrentUnthrottledGames: 2,
+    maxEventStreamBufferBytes: 1024 * 1024,
   },
   features: { tickCostCheck: false },
 };
@@ -200,6 +206,11 @@ export function loadConfig(env: Env): ServerConfig {
         "AUMOHTA_MAX_UNTHROTTLED_GAMES",
         l.maxConcurrentUnthrottledGames,
         0,
+      ),
+      maxEventStreamBufferBytes: integer(
+        "AUMOHTA_MAX_EVENT_STREAM_BUFFER_BYTES",
+        l.maxEventStreamBufferBytes,
+        1,
       ),
     },
     features: { tickCostCheck: flag("AUMOHTA_TICK_COST_CHECK", d.features.tickCostCheck) },

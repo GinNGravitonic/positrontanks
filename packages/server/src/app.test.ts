@@ -1,20 +1,22 @@
+import { get as httpGet, type IncomingMessage } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "./app.js";
 import { defaultConfig, type ServerConfig } from "./config.js";
 import { migrations } from "./db/migrations.js";
 import { validationFailed } from "./http/errors.js";
+import type { EventStream } from "./http/events.js";
 import type { ApiModule } from "./http/router.js";
 
 const config: ServerConfig = {
   ...defaultConfig,
   port: 0,
   databasePath: ":memory:",
-  limits: { ...defaultConfig.limits, maxRequestBodyBytes: 64 },
+  limits: { ...defaultConfig.limits, maxRequestBodyBytes: 64, maxEventStreamBufferBytes: 64 * 1024 },
 };
 
 const logged: string[] = [];
 const logger: Logger = {
-  info: () => undefined,
+  info: (message, fields) => logged.push(`${message} ${JSON.stringify(fields)}`),
   error: (message, fields) => logged.push(`${message} ${JSON.stringify(fields)}`),
 };
 
@@ -182,5 +184,117 @@ describe("error format", () => {
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: { code: "internal_error", message: "Internal server error" } });
     expect(logged.join("\n")).toContain("secret internals");
+  });
+});
+
+describe("event streams", () => {
+  const EVENT_DATA = "x".repeat(4096);
+  let cancelled = (): void => undefined;
+
+  /** Sends `count` events, one per turn of the event loop, then closes; or never closes without a count. */
+  const events =
+    (count = Infinity): EventStream =>
+    (sink) => {
+      let sent = 0;
+      let stopped = false;
+      const send = (): void => {
+        if (stopped) return;
+        if (sent === count) {
+          sink.close();
+          return;
+        }
+        sink.send({ event: "tick", id: String(sent++), data: EVENT_DATA });
+        setImmediate(send);
+      };
+      send();
+      return () => {
+        stopped = true;
+        cancelled();
+      };
+    };
+
+  const streamModule: ApiModule = {
+    schemas: {},
+    routes: [
+      {
+        method: "GET",
+        path: "/flood",
+        operation: { operationId: "flood", summary: "Flood", responses: {} },
+        handler: () => ({ events: events() }),
+      },
+      {
+        method: "GET",
+        path: "/burst",
+        operation: { operationId: "burst", summary: "Burst", responses: {} },
+        handler: () => ({ events: events(200) }),
+      },
+      {
+        method: "GET",
+        path: "/huge-start",
+        operation: { operationId: "hugeStart", summary: "Huge start", responses: {} },
+        // Like a snapshot too big for the limit, sent before the stream has returned its cancel.
+        handler: () => ({
+          events: (sink) => {
+            sink.send({ event: "snapshot", data: "x".repeat(config.limits.maxEventStreamBufferBytes * 4) });
+            return () => {
+              cancelled();
+            };
+          },
+        }),
+      },
+    ],
+  };
+
+  it("drops a client that stops reading once its buffer passes the limit", async () => {
+    const server = await boot([streamModule]);
+    const stopped = new Promise<void>((resolve) => {
+      cancelled = resolve;
+    });
+    // Never reads: everything the server sends past the socket's own buffers waits in memory.
+    const response = await new Promise<IncomingMessage>((resolve) => {
+      httpGet(`${server.url}/flood`, (res) => {
+        res.pause();
+        resolve(res);
+      });
+    });
+    expect(response.statusCode).toBe(200);
+    const closed = new Promise<void>((resolve) => {
+      response.on("error", () => undefined).on("close", resolve);
+    });
+    await stopped;
+    // Reading again, the client finds the connection gone.
+    response.resume();
+    await closed;
+
+    const dropped = logged.find((line) => line.startsWith("Dropped a slow event stream"));
+    expect(dropped).toContain('"url":"/flood"');
+    const { bufferedBytes } = JSON.parse(dropped?.slice(dropped.indexOf("{")) ?? "{}") as { bufferedBytes: number };
+    // Never more than the limit plus the one event that crossed it.
+    expect(bufferedBytes).toBeGreaterThan(config.limits.maxEventStreamBufferBytes);
+    expect(bufferedBytes).toBeLessThanOrEqual(config.limits.maxEventStreamBufferBytes + EVENT_DATA.length + 64);
+  });
+
+  it("cancels a stream that passes the limit while it is starting", async () => {
+    const server = await boot([streamModule]);
+    const stopped = new Promise<void>((resolve) => {
+      cancelled = resolve;
+    });
+    const response = await new Promise<IncomingMessage>((resolve) => {
+      httpGet(`${server.url}/huge-start`, (res) => {
+        res.pause();
+        resolve(res);
+      });
+    });
+    response.on("error", () => undefined);
+    await stopped;
+    response.resume();
+    expect(logged.join("\n")).toContain("Dropped a slow event stream");
+  });
+
+  it("delivers every event to a client that keeps up", async () => {
+    const server = await boot([streamModule]);
+    const body = await (await fetch(`${server.url}/burst`)).text();
+    expect(body.match(/^event: tick$/gm)).toHaveLength(200);
+    expect(logged).toEqual([]);
   });
 });
