@@ -25,6 +25,7 @@ const processIo: Io = {
 };
 
 export const DEFAULT_RULESET = "r1";
+/** Must stay at or below the server's default maximum time limit (checked in packages/server/src/config.test.ts; docs/spec/cli-runner.md). */
 export const DEFAULT_TIME_LIMIT_SECONDS = 120;
 
 export const USAGE = `Usage: aumohta run --map FILE --entry FILE [--entry FILE ...] [options]

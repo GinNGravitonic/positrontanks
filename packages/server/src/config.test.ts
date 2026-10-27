@@ -6,6 +6,12 @@ describe("loadConfig", () => {
     expect(loadConfig({})).toEqual(defaultConfig);
   });
 
+  it("allows the CLI runner's default time limit, so a local Game can be repeated on the server", () => {
+    // DEFAULT_TIME_LIMIT_SECONDS in packages/cli/src/cli.ts; see docs/spec/cli-runner.md.
+    const cliDefaultTimeLimitSeconds = 120;
+    expect(defaultConfig.limits.maxTimeLimitSeconds).toBeGreaterThanOrEqual(cliDefaultTimeLimitSeconds);
+  });
+
   it("reads overrides", () => {
     const config = loadConfig({
       AUMOHTA_HOST: "0.0.0.0",
