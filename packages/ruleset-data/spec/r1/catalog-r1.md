@@ -1,8 +1,8 @@
 # Parts Catalog and Balance, Ruleset r1
 
-The starter Parts Catalog and balance numbers for Ruleset r1. [v1.md §5](v1.md#5-rulesets-and-the-parts-catalog) fixes the structure, the Ruleset schema in `packages/ruleset-data/src/ruleset.ts` fixes the data shape, and [engine-r1.md](engine-r1.md) gives each stat its meaning. This document fixes the values. The r1 Ruleset data file (aumohta-0ka.27) transcribes them. Like the rest of a Ruleset, they are frozen once r1 is released.
+The starter Parts Catalog and balance numbers for Ruleset r1. v1.md §5 fixes the structure, the Ruleset schema in `packages/ruleset-data/src/ruleset.ts` fixes the data shape, and [engine-r1.md](/rulesets/r1/docs/engine) gives each stat its meaning. This document fixes the values. The r1 Ruleset data file (aumohta-0ka.27) transcribes them. Like the rest of a Ruleset, they are frozen once r1 is released.
 
-Vocabulary follows [GLOSSARY.md](../../GLOSSARY.md).
+Vocabulary follows the Aumohta glossary (GLOSSARY.md).
 
 ---
 
@@ -21,7 +21,7 @@ Vocabulary follows [GLOSSARY.md](../../GLOSSARY.md).
 
 | Key | Value | Notes |
 |---|---|---|
-| `tickRate` | 10 | Confirms [v1.md §2](v1.md#time). |
+| `tickRate` | 10 | Confirms v1.md §2. |
 | `pointBudget` | 100–800 | 100 fields one useful Scout; 800 fields a fully kitted Juggernaut plus escort, or ten armed Scouts. |
 | `mapFormats` | `[1]` | |
 | `slotTypes` | `weapon`, `sensor`, `motor`, `utility` | `utility` holds Processors in r1. |
@@ -196,7 +196,7 @@ Armor absorbs per hit, so its worth depends on what it faces. Damage left per hi
 
 ### 5.6 Visual size
 
-How big clients draw each Slot-mounted Component (`visualSize`, [v1.md §5](v1.md#5-rulesets-and-the-parts-catalog)): length along the Slot direction and width across it, in meters, with the origin at the Slot. These are placeholders chosen by eye for v1's placeholder shapes. They are not stats: no engine reads them, and weapon and sensor `range` is still measured from the Bot's centre (engine-r1 §6 and §9). Each is at most the largest Chassis dimension (2.4 m, the Juggernaut's length); drawn Components may overlap one another or other Bots. Armor has no visual size.
+How big clients draw each Slot-mounted Component (`visualSize`, v1.md §5): length along the Slot direction and width across it, in meters, with the origin at the Slot. These are placeholders chosen by eye for v1's placeholder shapes. They are not stats: no engine reads them, and weapon and sensor `range` is still measured from the Bot's centre (engine-r1 §6 and §9). Each is at most the largest Chassis dimension (2.4 m, the Juggernaut's length); drawn Components may overlap one another or other Bots. Armor has no visual size.
 
 | Component | Length (m) | Width (m) |
 |---|---|---|
@@ -226,7 +226,7 @@ How big clients draw each Slot-mounted Component (`visualSize`, [v1.md §5](v1.m
 
 ## 6. Ramming
 
-Confirms the constants of [engine-r1 §5](engine-r1.md#5-ramming):
+Confirms the constants of [engine-r1 §5](/rulesets/r1/docs/engine#5-ramming):
 
 | Constant | Value |
 |---|---|
@@ -237,7 +237,7 @@ Each party takes `0.01 × ½ × m × v²`. Driving into a wall at full speed on 
 
 ## 7. Language limits
 
-Confirms [language-r1 §8.3 and §11](language-r1.md#11-ruleset-limits):
+Confirms [language-r1 §8.3 and §11](/rulesets/r1/docs/language#11-ruleset-limits):
 
 | Key | Value |
 |---|---|
@@ -268,7 +268,7 @@ Derived with engine-r1's `deriveBotSpec` from this catalog, on grass. Wall ram i
 
 ## 9. Descriptions
 
-Every Chassis, Component and Terrain carries a `description` ([v1.md §5](v1.md#5-rulesets-and-the-parts-catalog)): short prose for Players and clients, summarising the numbers above. Descriptions are not stats: no engine reads them. Like the rest of r1 they are frozen once r1 is released.
+Every Chassis, Component and Terrain carries a `description` (v1.md §5): short prose for Players and clients, summarising the numbers above. Descriptions are not stats: no engine reads them. Like the rest of r1 they are frozen once r1 is released.
 
 ### 9.1 Terrains
 

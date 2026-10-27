@@ -1,8 +1,8 @@
 # Aumohta Language Specification, Ruleset r1
 
-This document is the detailed language specification for Ruleset r1. It fills in the structure fixed by [v1.md §4](v1.md#4-the-aumohta-language-structure-only) and [ADR-0002](../adr/0002-counted-operation-budget.md). Vocabulary follows [GLOSSARY.md](../../GLOSSARY.md).
+This document is the detailed language specification for Ruleset r1. It fills in the structure fixed by v1.md §4 and ADR-0002. Vocabulary follows the Aumohta glossary (GLOSSARY.md).
 
-Numeric limits are Ruleset data. This document defines what they mean and states the r1 values, which [catalog-r1.md](catalog-r1.md) confirms.
+Numeric limits are Ruleset data. This document defines what they mean and states the r1 values, which [catalog-r1.md](/rulesets/r1/docs/catalog) confirms.
 
 ---
 
@@ -13,7 +13,7 @@ Numeric limits are Ruleset data. This document defines what they mean and states
 - A Program declares top-level state and functions, an optional `init()`, and a required `tick()`.
 - Every evaluated piece of code costs operations against the Bot's **Operation Budget**. Every built-in has a **constant** documented cost.
 - Persistent state is limited by a **memory cap** measured in cells.
-- Fully deterministic: no wall-clock time, no I/O, and all math and randomness come from the engine's pinned implementations ([ADR-0005](../adr/0005-own-deterministic-math-library.md)).
+- Fully deterministic: no wall-clock time, no I/O, and all math and randomness come from the engine's pinned implementations (ADR-0005).
 
 ---
 
@@ -180,7 +180,7 @@ These are **forbidden** during the init phase: `throttle`, `turn`, `fire`, `fire
 
 ### 5.3 The Tick
 
-Each Tick, every Bot's `tick()` runs against the same world snapshot ([ADR-0001](../adr/0001-fixed-tick-simultaneous-simulation.md)). `self`, `game`, `map` and all sensor results describe that snapshot. Calling a sensor twice in one Tick returns the same data, but each call still costs operations.
+Each Tick, every Bot's `tick()` runs against the same world snapshot (ADR-0001). `self`, `game`, `map` and all sensor results describe that snapshot. Calling a sensor twice in one Tick returns the same data, but each call still costs operations.
 
 Commands issued during `tick()` are collected and resolved after every Bot's Program has run:
 
@@ -192,7 +192,7 @@ Commands issued during `tick()` are collected and resolved after every Bot's Pro
 
 ## 6. Built-in values
 
-All built-in values are read-only (§4.5). Reading a field the Ruleset does not define is a save-time error when written directly (`self.foo`), and a runtime error otherwise. The fields below are those of r1. Later Rulesets may add more ([ADR-0004](../adr/0004-extensibility-through-ruleset-data.md)).
+All built-in values are read-only (§4.5). Reading a field the Ruleset does not define is a save-time error when written directly (`self.foo`), and a runtime error otherwise. The fields below are those of r1. Later Rulesets may add more (ADR-0004).
 
 ### 6.1 `self`
 
@@ -252,7 +252,7 @@ Bearings are relative to the Bot's Heading, in degrees within (-180, 180], posit
 
 | Signature | Returns | Meaning |
 |---|---|---|
-| `throttle(f)` | null | Target speed as a fraction of the Build's top speed on the current Terrain, clamped to [-1, 1]. Negative values mean reverse. The Bot accelerates or brakes towards it ([engine-r1.md](engine-r1.md#movement)). |
+| `throttle(f)` | null | Target speed as a fraction of the Build's top speed on the current Terrain, clamped to [-1, 1]. Negative values mean reverse. The Bot accelerates or brakes towards it ([engine-r1.md](/rulesets/r1/docs/engine#3-movement)). |
 | `turn(f)` | null | Turn as a fraction of the Build's maximum turn rate, clamped to [-1, 1]. Positive values mean clockwise. |
 | `fire(weaponId, target)` | boolean | `target` is either a record with numeric `x` and `y` (such as a contact from `scan()`; it aims at that point, with no automatic lead) or a number (a relative bearing). |
 | `fireAbs(weaponId, absBearing)` | boolean | Fire along an absolute bearing. |
@@ -265,9 +265,9 @@ Bearings are relative to the Bot's Heading, in degrees within (-180, 180], posit
 |---|---|
 | `scan()` | A list of contacts, merged across all of the Bot's Radars with no duplicates: `{id, name, x, y, distance, bearing, absBearing, heading, speed, isFoe}`. `id` is an opaque number that stays stable for the whole Game. Friends are included with `isFoe: false`. The Bot itself and Disabled Bots are never included. With no Radar, the list is empty. |
 | `rangefind(sensorId)` | `{distance, hit}`, where `hit` is `"bot"`, `"obstacle"` or `"boundary"` (wrecks count as `"obstacle"`), or `null` if nothing is within range. It is a runtime error if `sensorId` is not one of the Bot's rangefinders. |
-| `incoming()` | A list of `{bearing, ticksToImpact, category}` for Projectiles on a collision course, as detected by the Bot's Projectile Detectors ([v1.md §2](v1.md#sensors-and-knowledge)). With no detector, the list is empty. |
+| `incoming()` | A list of `{bearing, ticksToImpact, category}` for Projectiles on a collision course, as detected by the Bot's Projectile Detectors (v1.md §2). With no detector, the list is empty. |
 
-What each sensor sees, and where distances and bearings are measured from, is in [engine-r1.md §9](engine-r1.md#9-sensors).
+What each sensor sees, and where distances and bearings are measured from, is in [engine-r1.md §9](/rulesets/r1/docs/engine#9-sensors).
 
 ### 7.3 Terrain (Map knowledge; these see through Obstacles)
 
@@ -374,7 +374,7 @@ Reading `self.*`, `game.*` and `map.*` is ordinary member access: 1 per node. `.
 
 ### 8.3 Budget sizes
 
-- The per-Tick budget is set by the Bot's Processor (Parts Catalog). In r1, the minimal Processor every Chassis includes gives 1,000 operations per Tick ([catalog-r1.md §5.4](catalog-r1.md#54-processors)).
+- The per-Tick budget is set by the Bot's Processor (Parts Catalog). In r1, the minimal Processor every Chassis includes gives 1,000 operations per Tick ([catalog-r1.md §5.4](/rulesets/r1/docs/catalog#54-processors)).
 - The init budget is `initBudgetMultiplier` × the per-Tick budget. r1 multiplier: 50.
 - Per-Tick usage is reported in CLI output, the owner's Program log and the Game Record, and by the check-tick-cost endpoint.
 
@@ -452,7 +452,7 @@ The owner-only Program log records runtime errors, halts, per-Tick budget usage 
 
 ## 11. Ruleset limits
 
-Every value below is Ruleset data, confirmed for r1 in [catalog-r1.md §7](catalog-r1.md#7-language-limits).
+Every value below is Ruleset data, confirmed for r1 in [catalog-r1.md §7](/rulesets/r1/docs/catalog#7-language-limits).
 
 | Key | r1 value |
 |---|---|

@@ -4,7 +4,7 @@
  * Rulesets declare open-ended stat sets (ADR-0004); this module is where
  * engine-r1 says which stats it gives meaning to. checkRuleset reports a
  * Ruleset that lacks them, and deriveBotSpec turns a valid Build into the
- * numbers the simulation uses. The rules are in docs/spec/engine-r1.md.
+ * numbers the simulation uses. The rules are in ruleset-data/spec/r1/engine-r1.md.
  */
 
 // Types only: the engine keeps no runtime dependency on ruleset-data, so a

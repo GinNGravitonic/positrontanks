@@ -1,6 +1,6 @@
 /**
  * Sensors: Radar, Rangefinder and Projectile Detector (spec section 2,
- * Sensors and knowledge; the rules are in docs/spec/engine-r1.md section 9).
+ * Sensors and knowledge; the rules are in ruleset-data/spec/r1/engine-r1.md section 9).
  *
  * A sensor looks from the Bot's centre, whichever Slot it is in, within an
  * arc centred on the Slot direction; ranges, distances and bearings are all

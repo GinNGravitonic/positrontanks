@@ -6,6 +6,7 @@
  * Build's weapon and rangefinder Slots, which comes from that version's
  * frozen engine so save-time checks agree exactly with what the engine runs,
  * and that engine itself, which the Game runner plays the version's Games on.
+ * It also carries the version's prose documents, which the server publishes.
  *
  * Adding a Ruleset version means shipping its data in ruleset-data and adding
  * an entry to `hostVersion` below wired to its engine.
@@ -15,12 +16,20 @@ import { deriveBotSpec, programSlots } from "@aumohta/engine-r1";
 import { R1_LANGUAGE, type LanguageDefinition, type ProgramSlots } from "@aumohta/language";
 import type { Build, Ruleset } from "@aumohta/ruleset-data";
 import { r1Engine, type GameEngine } from "../games/engine.js";
-import { loadRuleset, RULESET_VERSIONS, type RulesetVersion } from "@aumohta/ruleset-data/rulesets";
+import {
+  loadRuleset,
+  loadRulesetDocs,
+  RULESET_VERSIONS,
+  type RulesetDocs,
+  type RulesetVersion,
+} from "@aumohta/ruleset-data/rulesets";
 import { checkTickCostR1, type TickCost, type TickCostOptions } from "../garage/tick-cost.js";
 
 export interface HostedRuleset {
   readonly ruleset: Ruleset;
   readonly language: LanguageDefinition;
+  /** The prose documents (Markdown) explaining the version: simulation rules, language spec and Parts Catalog. */
+  readonly docs: RulesetDocs;
   /** The Slot ids a Program may name in `fire`, `fireAbs` and `rangefind`, for a Build validated under `ruleset`. */
   programSlots(build: Build): ProgramSlots;
   /** Runs a checked Program in that version's sample world and reports its operation cost (garage/tick-cost.ts). */
@@ -52,11 +61,15 @@ export class RulesetCatalog {
   }
 }
 
-/** A Ruleset run by engine-r1 with the r1 language: r1 itself, or a test variant of it. */
-export function engineR1Ruleset(ruleset: Ruleset): HostedRuleset {
+/**
+ * A Ruleset run by engine-r1 with the r1 language: r1 itself, or a test
+ * variant of it, which publishes r1's prose documents unless given its own.
+ */
+export function engineR1Ruleset(ruleset: Ruleset, docs: RulesetDocs = loadRulesetDocs("r1")): HostedRuleset {
   return {
     ruleset,
     language: R1_LANGUAGE,
+    docs,
     programSlots: (build) => programSlots(deriveBotSpec(ruleset, build)),
     checkTickCost: (build, program, options) => checkTickCostR1(ruleset, build, program, options),
     engine: r1Engine(ruleset),
@@ -65,7 +78,7 @@ export function engineR1Ruleset(ruleset: Ruleset): HostedRuleset {
 
 /** How to host each shipped version; a version shipped without an entry here fails to compile. */
 const hostVersion: Readonly<Record<RulesetVersion, (ruleset: Ruleset) => HostedRuleset>> = {
-  r1: engineR1Ruleset,
+  r1: (ruleset) => engineR1Ruleset(ruleset, loadRulesetDocs("r1")),
 };
 
 /** The catalog of every Ruleset version ruleset-data ships. */

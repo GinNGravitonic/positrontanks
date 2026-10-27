@@ -1,6 +1,6 @@
 /**
  * How a Game ends and who wins it (v1.md section 2, Win condition; the rules
- * are in docs/spec/engine-r1.md section 11).
+ * are in ruleset-data/spec/r1/engine-r1.md section 11).
  *
  * A Game ends when at most one Player has any Bot not Disabled, or when its
  * time limit is reached. At the time limit, or when the last Players are all
