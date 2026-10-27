@@ -8,4 +8,4 @@ The per-Ruleset prose documents are published with each Ruleset version and live
 - [language-r1.md](../../packages/ruleset-data/spec/r1/language-r1.md): language specification.
 - [catalog-r1.md](../../packages/ruleset-data/spec/r1/catalog-r1.md): Parts Catalog and balance.
 
-Links between those documents use their served paths (`/rulesets/r1/docs/...`), so they work when served rather than when browsed in the repo.
+Links between those documents are relative to their served paths (`catalog#7-language-limits` from `/rulesets/r1/docs/language`), so they work when served, under any version or path prefix, rather than when browsed in the repo.

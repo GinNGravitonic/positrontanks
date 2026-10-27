@@ -117,7 +117,7 @@ describe("Ruleset endpoints", () => {
     });
   });
 
-  it("serve r1's prose documents as Markdown, linking to each other at their served paths", async () => {
+  it("serve r1's prose documents as Markdown, linking to each other by relative paths", async () => {
     const docs = loadRulesetDocs("r1");
     running ??= await startServer(config, { logger: quiet });
     const listed = (await get("/rulesets/r1/docs")).body as { docs: { id: keyof typeof docs; path: string }[] };
@@ -127,12 +127,14 @@ describe("Ruleset endpoints", () => {
       expect(response.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
       const text = await response.text();
       expect(text).toBe(docs[id]);
-      // Links point at served documents, never at repo files.
+      // Links are relative to the document's own URL and resolve to its sibling documents.
       const links = [...text.replace(/`[^`\n]*`/g, "").matchAll(/\]\(([^)\s]*)\)/g)].map((m) => m[1] ?? "");
       expect(links.length, path).toBeGreaterThan(0);
       for (const link of links) {
-        expect(link, `${path} links to ${link}`).toMatch(/^\/rulesets\/r1\/docs\/(engine|language|catalog)(#[\w-]+)?$/);
-        const target = await fetch(running.url + link.replace(/#.*/, ""));
+        expect(link, `${path} links to ${link}`).toMatch(/^(engine|language|catalog)(#[\w-]+)?$/);
+        const resolved = new URL(link, running.url + path);
+        expect(resolved.pathname, link).toMatch(/^\/rulesets\/r1\/docs\/(engine|language|catalog)$/);
+        const target = await fetch(resolved.origin + resolved.pathname);
         expect(target.status, link).toBe(200);
         await target.body?.cancel();
       }

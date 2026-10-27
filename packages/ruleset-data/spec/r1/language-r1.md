@@ -2,7 +2,7 @@
 
 This document is the detailed language specification for Ruleset r1. It fills in the structure fixed by v1.md §4 and ADR-0002. Vocabulary follows the Aumohta glossary (GLOSSARY.md).
 
-Numeric limits are Ruleset data. This document defines what they mean and states the r1 values, which [catalog-r1.md](/rulesets/r1/docs/catalog) confirms.
+Numeric limits are Ruleset data. This document defines what they mean and states the r1 values, which [catalog-r1.md](catalog) confirms.
 
 ---
 
@@ -252,7 +252,7 @@ Bearings are relative to the Bot's Heading, in degrees within (-180, 180], posit
 
 | Signature | Returns | Meaning |
 |---|---|---|
-| `throttle(f)` | null | Target speed as a fraction of the Build's top speed on the current Terrain, clamped to [-1, 1]. Negative values mean reverse. The Bot accelerates or brakes towards it ([engine-r1.md](/rulesets/r1/docs/engine#3-movement)). |
+| `throttle(f)` | null | Target speed as a fraction of the Build's top speed on the current Terrain, clamped to [-1, 1]. Negative values mean reverse. The Bot accelerates or brakes towards it ([engine-r1.md](engine#3-movement)). |
 | `turn(f)` | null | Turn as a fraction of the Build's maximum turn rate, clamped to [-1, 1]. Positive values mean clockwise. |
 | `fire(weaponId, target)` | boolean | `target` is either a record with numeric `x` and `y` (such as a contact from `scan()`; it aims at that point, with no automatic lead) or a number (a relative bearing). |
 | `fireAbs(weaponId, absBearing)` | boolean | Fire along an absolute bearing. |
@@ -267,7 +267,7 @@ Bearings are relative to the Bot's Heading, in degrees within (-180, 180], posit
 | `rangefind(sensorId)` | `{distance, hit}`, where `hit` is `"bot"`, `"obstacle"` or `"boundary"` (wrecks count as `"obstacle"`), or `null` if nothing is within range. It is a runtime error if `sensorId` is not one of the Bot's rangefinders. |
 | `incoming()` | A list of `{bearing, ticksToImpact, category}` for Projectiles on a collision course, as detected by the Bot's Projectile Detectors (v1.md §2). With no detector, the list is empty. |
 
-What each sensor sees, and where distances and bearings are measured from, is in [engine-r1.md §9](/rulesets/r1/docs/engine#9-sensors).
+What each sensor sees, and where distances and bearings are measured from, is in [engine-r1.md §9](engine#9-sensors).
 
 ### 7.3 Terrain (Map knowledge; these see through Obstacles)
 
@@ -374,7 +374,7 @@ Reading `self.*`, `game.*` and `map.*` is ordinary member access: 1 per node. `.
 
 ### 8.3 Budget sizes
 
-- The per-Tick budget is set by the Bot's Processor (Parts Catalog). In r1, the minimal Processor every Chassis includes gives 1,000 operations per Tick ([catalog-r1.md §5.4](/rulesets/r1/docs/catalog#54-processors)).
+- The per-Tick budget is set by the Bot's Processor (Parts Catalog). In r1, the minimal Processor every Chassis includes gives 1,000 operations per Tick ([catalog-r1.md §5.4](catalog#54-processors)).
 - The init budget is `initBudgetMultiplier` × the per-Tick budget. r1 multiplier: 50.
 - Per-Tick usage is reported in CLI output, the owner's Program log and the Game Record, and by the check-tick-cost endpoint.
 
@@ -452,7 +452,7 @@ The owner-only Program log records runtime errors, halts, per-Tick budget usage 
 
 ## 11. Ruleset limits
 
-Every value below is Ruleset data, confirmed for r1 in [catalog-r1.md §7](/rulesets/r1/docs/catalog#7-language-limits).
+Every value below is Ruleset data, confirmed for r1 in [catalog-r1.md §7](catalog#7-language-limits).
 
 | Key | r1 value |
 |---|---|

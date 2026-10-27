@@ -1,6 +1,6 @@
 # Parts Catalog and Balance, Ruleset r1
 
-The starter Parts Catalog and balance numbers for Ruleset r1. v1.md §5 fixes the structure, the Ruleset schema in `packages/ruleset-data/src/ruleset.ts` fixes the data shape, and [engine-r1.md](/rulesets/r1/docs/engine) gives each stat its meaning. This document fixes the values. The r1 Ruleset data file (aumohta-0ka.27) transcribes them. Like the rest of a Ruleset, they are frozen once r1 is released.
+The starter Parts Catalog and balance numbers for Ruleset r1. v1.md §5 fixes the structure, the Ruleset schema in `packages/ruleset-data/src/ruleset.ts` fixes the data shape, and [engine-r1.md](engine) gives each stat its meaning. This document fixes the values. The r1 Ruleset data file (aumohta-0ka.27) transcribes them. Like the rest of a Ruleset, they are frozen once r1 is released.
 
 Vocabulary follows the Aumohta glossary (GLOSSARY.md).
 
@@ -226,7 +226,7 @@ How big clients draw each Slot-mounted Component (`visualSize`, v1.md §5): leng
 
 ## 6. Ramming
 
-Confirms the constants of [engine-r1 §5](/rulesets/r1/docs/engine#5-ramming):
+Confirms the constants of [engine-r1 §5](engine#5-ramming):
 
 | Constant | Value |
 |---|---|
@@ -237,7 +237,7 @@ Each party takes `0.01 × ½ × m × v²`. Driving into a wall at full speed on 
 
 ## 7. Language limits
 
-Confirms [language-r1 §8.3 and §11](/rulesets/r1/docs/language#11-ruleset-limits):
+Confirms [language-r1 §8.3 and §11](language#11-ruleset-limits):
 
 | Key | Value |
 |---|---|

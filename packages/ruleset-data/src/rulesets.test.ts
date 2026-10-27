@@ -125,12 +125,13 @@ describe("shipped prose documents", () => {
       expect(docs[doc]).toMatch(/^# \S/);
     });
 
-    it.each(RULESET_DOCS)("%s links only to served documents and their headings", (doc) => {
+    it.each(RULESET_DOCS)("%s links only to sibling served documents and their headings", (doc) => {
       const prose = docs[doc].replace(/`[^`\n]*`/g, ""); // code spans such as `fs[0](x)` hold no links
       const links = [...prose.matchAll(/\]\(([^)\s]*)\)/g)].map((m) => m[1] ?? "");
       expect(links.length).toBeGreaterThan(0);
       for (const link of links) {
-        const served = new RegExp(`^/rulesets/${version}/docs/([a-z]+)(?:#(.+))?$`).exec(link);
+        // Relative to the document's own served path, so no version or prefix is written in.
+        const served = /^([a-z]+)(?:#(.+))?$/.exec(link);
         expect(served, `${doc} links to ${link}`).not.toBeNull();
         const target = served?.[1] ?? "";
         expect(isRulesetDoc(target), `${doc} links to ${link}`).toBe(true);

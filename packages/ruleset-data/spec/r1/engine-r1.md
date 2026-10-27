@@ -2,7 +2,7 @@
 
 How the r1 engine (`packages/engine-r1`) moves Bots, resolves collisions and weapon fire, takes sensor readings and runs Programs. v1.md §2 states what the simulation does; this document fixes how, so that Players and LLM agents can predict it. Like the rest of a Ruleset, these rules are frozen once r1 is released.
 
-The balance numbers, including the ramming constants in §5, are confirmed in [catalog-r1.md](/rulesets/r1/docs/catalog).
+The balance numbers, including the ramming constants in §5, are confirmed in [catalog-r1.md](catalog).
 
 ---
 
@@ -108,7 +108,7 @@ An illegal shot does nothing. Range is not part of legality: a shot at something
 ## 7. Damage and Disabling
 
 - Damage dealt is capped at the target's remaining Hit Points. Each damage event records the raw damage, the part Armor absorbed, the damage dealt, the side struck, the impact point and the absorbing entity (always the Chassis in r1).
-- A Bot at 0 Hit Points is **Disabled** (`destroyed`) at once, mid-Tick: it stops dead, its commands are cleared, and it becomes an indestructible wreck in place ([language-r1.md §10.4](/rulesets/r1/docs/language#104-disabled-bots)).
+- A Bot at 0 Hit Points is **Disabled** (`destroyed`) at once, mid-Tick: it stops dead, its commands are cleared, and it becomes an indestructible wreck in place ([language-r1.md §10.4](language#104-disabled-bots)).
 - A destructible Obstacle at 0 Hit Points still blocks movement and shots for the rest of the Tick, taking no more damage, and is gone from the next.
 - `stopped` is a Bot status reserved for later Rulesets (overheating). r1 never enters it.
 
@@ -130,7 +130,7 @@ A sensor looks from the Bot's **centre**, whichever Slot it is in, like a weapon
 
 ## 10. Programs
 
-Each Bot's Program runs in the r1 interpreter ([language-r1.md](/rulesets/r1/docs/language)).
+Each Bot's Program runs in the r1 interpreter ([language-r1.md](language)).
 
 - **Game start**: after placement (§8), each Program is checked against the Bot's Build, then its init phase runs, in Bot id order, with the init budget (`initBudgetMultiplier` × the Operation Budget). A Program that halts in its init phase Disables its Bot (`programHalted`) before Tick 1.
 - **Each Tick**: every active Bot's `tick()` runs, in Bot id order, with its Operation Budget, against the snapshot at the start of the Tick. No Program sees another's commands; built-ins only read the world. Calling a sensor again in the same Tick returns the same reading.
