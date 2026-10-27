@@ -2,7 +2,8 @@ import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { replayGame, type GameRecord, type GameResult, type Replay } from "@aumohta/engine-r1";
+import { replayGame, tickCostCheck, type GameRecord, type GameResult, type Replay, type TickCost } from "@aumohta/engine-r1";
+import { validateBuild } from "@aumohta/ruleset-data";
 import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { main, type Io } from "./cli.js";
@@ -186,5 +187,68 @@ describe("aumohta run", () => {
     expect(await cli("fly")).toMatchObject({ code: 2, err: expect.stringContaining('unknown command "fly"') as unknown });
     expect(await cli("--help")).toMatchObject({ code: 0, out: expect.stringContaining("Usage: aumohta run") as unknown });
     expect(await cli()).toMatchObject({ code: 2 });
+  });
+});
+
+describe("aumohta tick-cost", () => {
+  interface Summary {
+    player: string;
+    bots: { name: string; report: TickCost }[];
+  }
+
+  it("reports each Bot's tick cost, as the engine's tick cost check does, with the endpoint's defaults", async () => {
+    const run = await cli("tick-cost", "--entry", at("alice.entry.json"), "--json");
+    expect(run.err).toBe("");
+    expect(run.code).toBe(0);
+    const summary = JSON.parse(run.out) as Summary;
+    expect(summary.player).toBe("alice");
+    expect(summary.bots.map((b) => b.name)).toEqual(["Pecker"]);
+    const r1 = loadRuleset("r1");
+    const build = validateBuild(r1, scout);
+    if (!build.ok) throw new Error("the scout Build is invalid");
+    const expected = tickCostCheck(r1, build.build, await readFile(at("hunter.aum"), "utf8"), { ticks: 20, seed: 1 });
+    expect(summary.bots[0]?.report).toEqual(expected);
+    expect(expected.runs).toHaveLength(20);
+  });
+
+  it("honours --ticks and --seed and prints a text report", async () => {
+    await writeFile(at("steady.json"), JSON.stringify({ bots: [{ name: "Steady", build: scout, program: "function tick() { throttle(1); turn(0.5); }" }, { name: "Idle", build: scout, program: "function tick() {}" }] }));
+    const json = JSON.parse((await cli("tick-cost", "--entry", at("steady.json"), "--ticks", "3", "--seed", "7", "--json")).out) as Summary;
+    expect(json.bots.map((b) => [b.name, b.report.ticks, b.report.seed, b.report.runs.map((r) => r.operations)])).toEqual([
+      ["Steady", 3, 7, [6, 6, 6]],
+      ["Idle", 3, 7, [0, 0, 0]],
+    ]);
+
+    const text = await cli("tick-cost", "--entry", at("steady.json"), "--ticks", "3");
+    expect(text.code).toBe(0);
+    expect(text.out).toContain("Ruleset r1");
+    expect(text.out).toContain("seed 1, 3 Ticks");
+    expect(text.out).toMatch(/Steady\s+0\/50000 \(0%\)\s+6\/1000 \(1%\) at Tick 1/);
+    expect(text.out).toMatch(/Steady\s+6 6 6/);
+  });
+
+  it("checks the Builds, Programs and options as the server does", async () => {
+    const [beam, dome, heavy] = ["beamTurret", "domeRadar", "heavyPlate"];
+    // 803 points, over r1's largest Point Budget of 800.
+    const pricey = {
+      chassis: "juggernaut",
+      components: { leftNose: beam, rightNose: beam, leftGun: beam, rightGun: beam, tail: beam, eye: dome, topEye: dome, rearEye: dome, leftDrive: "tracks", rightDrive: "tracks", bay1: "superProcessor", bay2: "fastProcessor" },
+      armor: { front: heavy, left: heavy, right: heavy, rear: heavy },
+    };
+    await writeFile(
+      at("bad.json"),
+      JSON.stringify({ bots: [{ name: "Typo", build: scout, program: 'function tick() { fire("cannon", 0); }' }, { name: "Heavy", build: pricey, program: "function tick() {}" }] }),
+    );
+    const bad = await cli("tick-cost", "--entry", at("bad.json"));
+    expect(bad.code).toBe(1);
+    expect(bad.err).toMatch(/bad\.json:1:\d+: Bot "Typo": /);
+    expect(bad.err).toContain('Bot "Heavy": the Build costs');
+
+    expect((await cli("tick-cost", "--entry", at("alice.entry.json"), "--ticks", "101")).err).toContain("from 1 to 100");
+    expect((await cli("tick-cost", "--entry", at("alice.entry.json"), "--ticks", "0")).code).toBe(1);
+    expect((await cli("tick-cost", "--entry", at("alice.entry.json"), "--seed=-1")).err).toContain("the seed must be a whole number");
+    expect(await cli("tick-cost")).toMatchObject({ code: 2, err: expect.stringContaining("--entry is required") as unknown });
+    expect(await cli("tick-cost", "--entry", at("alice.entry.json"), "--map", "m.json")).toMatchObject({ code: 2 });
+    expect(await cli("tick-cost", "--help")).toMatchObject({ code: 0, out: expect.stringContaining("aumohta tick-cost --entry FILE") as unknown });
   });
 });

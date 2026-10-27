@@ -62,6 +62,17 @@ export { absBearing, headingVector, inArc, placeShape } from "./geometry.js";
 export type { LocalShape, Point, WorldShape } from "./geometry.js";
 export { hashWorld } from "./hash.js";
 export { terrainAt } from "./terrain.js";
+export {
+  SAMPLE_BOT_NAME,
+  SAMPLE_FOE_NAME,
+  SAMPLE_FOE_PROGRAM,
+  sampleMap,
+  TICK_COST_DEFAULT_SEED,
+  TICK_COST_DEFAULT_TICKS,
+  TICK_COST_MAX_TICKS,
+  tickCostCheck,
+} from "./tick-cost.js";
+export type { CostedRun, RunStop, TickCost, TickCostOptions } from "./tick-cost.js";
 export { MAX_SUBSTEPS, MIN_RAM_SPEED, RAM_DAMAGE_PER_JOULE, SUBSTEP_LENGTH, step, terrainMultipliers } from "./tick.js";
 export type { BotCommands } from "./tick.js";
 export { canFire, inFiringArc, weaponOf } from "./weapons.js";

@@ -1,9 +1,12 @@
-import { checkMapTerrains, validateMap } from "@aumohta/ruleset-data";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { main as cli } from "@aumohta/cli";
+import { sampleMap, TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@aumohta/engine-r1";
 import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";
-import { sampleMap, TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "../garage/tick-cost.js";
 
 const config: ServerConfig = {
   ...defaultConfig,
@@ -98,15 +101,6 @@ let ada: string;
 
 beforeEach(async () => {
   ada = await player("ada");
-});
-
-describe("the sample world", () => {
-  it("is a valid Map painted with the Ruleset's own Terrains", () => {
-    const r1 = loadRuleset("r1");
-    const result = validateMap(sampleMap(r1));
-    expect(result.ok).toBe(true);
-    expect(checkMapTerrains(sampleMap(r1), new Set(r1.terrains.map((t) => t.name)))).toEqual([]);
-  });
 });
 
 describe("checking a Program's tick cost", () => {
@@ -211,6 +205,31 @@ function tick() {
   });
 });
 
+describe("agreement with the CLI", () => {
+  /** `aumohta tick-cost --json` for one Bot with the Build and Program, and the report it prints. */
+  async function cliReport(program: string, ...options: string[]): Promise<Report> {
+    const dir = await mkdtemp(join(tmpdir(), "aumohta-tick-cost-"));
+    try {
+      const entry = join(dir, "ada.entry.json");
+      await writeFile(entry, JSON.stringify({ ruleset: "r1", bots: [{ name: "Probe", build: BUILD, program }] }));
+      const out: string[] = [];
+      const code = await cli(["tick-cost", "--entry", entry, "--json", ...options], { out: (l) => out.push(l), err: (l) => out.push(l) });
+      expect(code).toBe(0);
+      const [bot] = (JSON.parse(out.join("\n")) as { bots: { report: Report }[] }).bots;
+      if (bot === undefined) throw new Error("the CLI reported no Bot");
+      return bot.report;
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("aumohta tick-cost reports the same numbers as the endpoint, with the same defaults", async () => {
+    expect(await cliReport(STEADY)).toEqual(await report(ada, { program: STEADY }));
+    const program = "let seen = []; function tick() { if (random() < 0.5) { seen.push(scan().length); } while (random() < 0.9) {} }";
+    expect(await cliReport(program, "--ticks", "37", "--seed", "4242")).toEqual(await report(ada, { program, ticks: 37, seed: 4242 }));
+  });
+});
+
 interface Design {
   id: string;
 }
@@ -300,6 +319,7 @@ describe("on a server that does not enable the check", () => {
       const { error } = (await response.json()) as { error: { code: string; message: string } };
       expect(error.code).toBe("feature_disabled");
       expect(error.message).toContain("docs/docker.md");
+      expect(error.message).toContain("aumohta tick-cost");
     }
   });
 

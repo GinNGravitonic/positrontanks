@@ -59,6 +59,10 @@ deployment (`packages/infra`), leave it unset, and the endpoints answer
 `410 feature_disabled`. `GET /server` reports `features.tickCostCheck` so
 clients can tell before calling.
 
+With no server at all, `aumohta tick-cost --entry FILE` runs the same check
+offline from an Entry file and reports the same numbers (see
+[docs/spec/cli-runner.md](spec/cli-runner.md#tick-cost-check)).
+
 ## Litestream
 
 Setting `AUMOHTA_LITESTREAM_REPLICA_URL` (for example

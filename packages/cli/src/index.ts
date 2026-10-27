@@ -6,3 +6,5 @@ export { budgetPeaks, formatBudgetPeaks, formatResult } from "./report.js";
 export type { BudgetPeak } from "./report.js";
 export { SEED_LIMIT, loadGame, outputFiles, playLocalGame, startGame, writeOutputs } from "./run.js";
 export type { GameOptions, LoadedGame, OutputFiles, PlayOptions } from "./run.js";
+export { formatTickCosts, loadTickCostCheck, runTickCostCheck } from "./tick-cost.js";
+export type { BotTickCost, LoadedTickCostCheck, TickCostCheckOptions } from "./tick-cost.js";

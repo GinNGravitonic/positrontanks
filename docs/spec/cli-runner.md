@@ -1,6 +1,6 @@
 # CLI runner
 
-The CLI runner (`packages/cli`, command `aumohta`) plays a Game locally from files, with no account, server or database ([v1.md section 10](v1.md#10-architecture)). This document records its input format, its defaults and its output files. Vocabulary follows [GLOSSARY.md](../../GLOSSARY.md).
+The CLI runner (`packages/cli`, command `aumohta`) plays a Game locally from files, with no account, server or database ([v1.md section 10](v1.md#10-architecture)), and runs the tick cost check offline ([`aumohta tick-cost`](#tick-cost-check)). This document records its input format, its defaults and its output files. Vocabulary follows [GLOSSARY.md](../../GLOSSARY.md).
 
 Worked examples are in [`packages/cli/examples`](../../packages/cli/examples): two Entry files (`alice.entry.json`, `bob.entry.json`) and their Programs (`hunter.aum`, `rammer.aum`). With the bundled duel Map:
 
@@ -84,6 +84,26 @@ After the Game the runner prints the result and each Program's per-Tick budget p
 | `program-logs.json` | Every Bot's Program log. Locally you own every participant, so all logs are written. |
 
 The files are compact JSON (one line each). With `--json`, stdout is a summary object with `ruleset`, `seed`, `timeLimitTicks`, `pointBudget`, `costs` (each Entry's point cost, in Entry order), `result`, `budgetPeaks` and `files` (the three paths).
+
+## Tick cost check
+
+```
+aumohta tick-cost --entry FILE [--ticks N] [--seed N] [--json]
+```
+
+Runs the tick cost check ([ADR-0002](../adr/0002-counted-operation-budget.md)) offline, with no server: each Bot of the Entry file runs its init phase and then `tick()` for `--ticks` Ticks in the sample world, exactly as the server's tick cost endpoints (`POST /tick-cost-checks`) run it, so the two report the same numbers for the same Build, Program, Ticks and seed. It is the offline alternative where a server leaves the endpoints off (`410 feature_disabled`; see [docs/docker.md](../docker.md#tick-cost-check)). Both run `tickCostCheck` from `packages/engine-r1`.
+
+| Option | Meaning | Default |
+| --- | --- | --- |
+| `--entry FILE` | An [Entry file](#entry-file). Required. Its `ruleset`, if any, chooses the Ruleset. | Ruleset `r1` |
+| `--ticks N` | Ticks to run `tick()` for, 1 to 100. | `20` |
+| `--seed N` | The sample Game's seed, a whole number in [0, 2^32). It drives `random()` and which side the Bot starts on. | `1` |
+| `--json` | Print JSON instead of text. | Text |
+| `-h`, `--help` | Show usage. | |
+
+The defaults and the 100-Tick maximum are the endpoint's. Each Bot is checked alone, as the server checks a Bot Design: its Build against the Ruleset and the Ruleset's largest Point Budget, and its Program with the language checker. Bot Names need not be unique and the Entry's total cost is not checked. Every problem is reported at once; exit codes are as for `run`.
+
+The text output is a table of each Bot's init phase, Tick peak, Ticks out of budget or stopped at an error, memory peak and halt, then each Bot's operations by Tick. With `--json`, stdout is `{ "player": ..., "bots": [{ "name": ..., "report": ... }] }`, one per Bot in Entry file order, where each `report` has exactly the fields of the endpoint's `TickCostReport` (`rulesetVersion`, `operationBudget`, `seed`, `ticks`, `init`, `runs`, `peak`, `memory`, `halt`).
 
 ## Agreement with the server
 

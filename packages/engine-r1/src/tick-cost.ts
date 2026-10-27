@@ -12,10 +12,13 @@
  * Build (so it is valid under any Ruleset) and a fixed Program that only
  * drives in a circle and never fires. The same Program, Build, Ticks and seed
  * always give the same report.
+ *
+ * The server's tick cost endpoints and the CLI's `aumohta tick-cost` both run
+ * this, so the two report the same numbers.
  */
 
-import { createGame, playTick } from "@aumohta/engine-r1";
 import type { Build, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
+import { createGame, playTick } from "./game.js";
 
 /** Ticks run when a check names none: two simulated seconds in r1. */
 export const TICK_COST_DEFAULT_TICKS = 20;
@@ -112,10 +115,10 @@ const costed = (r: { outcome: CostedRun["outcome"]; operations: number; memoryCe
 
 /**
  * Checks the tick cost of a Program under an engine-r1 Ruleset. The Build
- * must have passed `validateBuild` and the Program `check` (as `checkDesign`
- * ensures).
+ * must have passed `validateBuild` and the Program `check` (as the server's
+ * `checkDesign` and the CLI's `loadTickCostCheck` ensure).
  */
-export function checkTickCostR1(ruleset: Ruleset, build: Build, program: string, options: TickCostOptions): TickCost {
+export function tickCostCheck(ruleset: Ruleset, build: Build, program: string, options: TickCostOptions): TickCost {
   const map = sampleMap(ruleset);
   const game = createGame({
     ruleset,

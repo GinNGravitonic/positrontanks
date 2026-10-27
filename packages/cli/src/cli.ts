@@ -5,13 +5,19 @@
  * locally with no account, server or database, prints its result and each
  * Program's per-Tick budget peaks, and writes the Game Record, Replay and
  * Program logs.
+ *
+ * `aumohta tick-cost --entry FILE [--ticks N] [--seed N] [--json]` runs the
+ * tick cost check offline: each of the Entry file's Bots in the sample world,
+ * reporting what the server's tick cost endpoints report.
  */
 
 import { randomInt } from "node:crypto";
 import { parseArgs } from "node:util";
+import { TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@aumohta/engine-r1";
 import { InputError } from "./entry-file.js";
 import { budgetPeaks, formatBudgetPeaks, formatResult } from "./report.js";
 import { loadGame, playLocalGame, SEED_LIMIT, startGame, writeOutputs, type PlayOptions } from "./run.js";
+import { formatTickCosts, loadTickCostCheck, runTickCostCheck } from "./tick-cost.js";
 
 /** Where the CLI writes; tests capture it. */
 export interface Io {
@@ -29,6 +35,7 @@ export const DEFAULT_RULESET = "r1";
 export const DEFAULT_TIME_LIMIT_SECONDS = 120;
 
 export const USAGE = `Usage: aumohta run --map FILE --entry FILE [--entry FILE ...] [options]
+       aumohta tick-cost --entry FILE [--ticks N] [--seed N] [--json]
 
 Plays a Game locally, with no account, server or database. Prints the result
 and each Program's per-Tick budget peaks, and writes game-record.json,
@@ -60,7 +67,21 @@ Entry file:
         "programFile": "hunter.aum" }      (relative to the Entry file; or
                                             "program": "<inline source>")
     ]
-  }`;
+  }
+
+aumohta tick-cost runs the tick cost check offline: each Bot of the Entry
+file runs its init phase and then tick() for N Ticks in the sample world, as
+the server's tick cost endpoints do, and the report gives the operations each
+run used, the peak and persistent memory.
+
+Options:
+  --entry FILE          An Entry file (JSON), as for run; its ruleset defaults
+                        to ${DEFAULT_RULESET}
+  --ticks N             Ticks to run, 1 to ${String(TICK_COST_MAX_TICKS)} (default: ${String(TICK_COST_DEFAULT_TICKS)})
+  --seed N              The sample Game's seed, a whole number in [0, 2^32)
+                        (default: ${String(TICK_COST_DEFAULT_SEED)})
+  --json                Print each Bot's report as JSON, as the server does
+  -h, --help            Show this help`;
 
 class UsageError extends Error {}
 
@@ -79,6 +100,7 @@ export async function main(argv: readonly string[], io: Io = processIo, play: Pa
       io.out(USAGE);
       return command === undefined ? 2 : 0;
     }
+    if (command === "tick-cost") return await tickCost(rest, io);
     if (command !== "run") throw new UsageError(`unknown command "${command}"`);
     return await run(rest, io, play);
   } catch (e) {
@@ -178,5 +200,47 @@ async function run(argv: readonly string[], io: Io, play: Partial<PlayOptions>):
       ),
     );
   }
+  return 0;
+}
+
+async function tickCost(argv: readonly string[], io: Io): Promise<number> {
+  let values;
+  try {
+    ({ values } = parseArgs({
+      args: [...argv],
+      strict: true,
+      allowPositionals: false,
+      options: {
+        entry: { type: "string" },
+        ticks: { type: "string" },
+        seed: { type: "string" },
+        json: { type: "boolean", default: false },
+        help: { type: "boolean", short: "h", default: false },
+      },
+    }));
+  } catch (e) {
+    throw new UsageError((e as Error).message);
+  }
+  if (values.help) {
+    io.out(USAGE);
+    return 0;
+  }
+  if (values.entry === undefined) throw new UsageError("--entry is required");
+
+  const loaded = await loadTickCostCheck({
+    entryPath: values.entry,
+    defaultRuleset: DEFAULT_RULESET,
+    ticks: parseNumber("--ticks", values.ticks) ?? TICK_COST_DEFAULT_TICKS,
+    seed: parseNumber("--seed", values.seed) ?? TICK_COST_DEFAULT_SEED,
+  });
+  const costs = runTickCostCheck(loaded);
+  if (values.json) {
+    io.out(JSON.stringify({ player: loaded.player, bots: costs }, null, 2));
+    return 0;
+  }
+  const { ticks, seed } = loaded.options;
+  io.out(`Ruleset ${loaded.ruleset.version}, Entry ${values.entry} (${loaded.player}), seed ${String(seed)}, ${String(ticks)} Ticks in the sample world`);
+  io.out("");
+  for (const line of formatTickCosts(costs)) io.out(line);
   return 0;
 }
