@@ -1,7 +1,8 @@
 /**
  * The tick cost check (ADR-0002; spec section 9, Garage): runs a Program's
  * `tick()` in a sample world and reports the operations it used per Tick,
- * the peak, and persistent memory (garage/tick-cost.ts).
+ * the peak, and persistent memory (`tickCostCheck` in engine-r1, which
+ * `aumohta tick-cost` also runs offline).
  *
  * A Program can be checked inline, before it is saved, or as a Revision of
  * one of the Player's own Bot Designs. Either way the Build and Program are
@@ -16,8 +17,6 @@
  * `GET /server` tells clients which it is before they call.
  */
 
-import { authenticate } from "../accounts/auth.js";
-import { checkDesign } from "../garage/design-check.js";
 import {
   SAMPLE_BOT_NAME,
   SAMPLE_FOE_NAME,
@@ -26,7 +25,9 @@ import {
   TICK_COST_MAX_TICKS,
   type TickCost,
   type TickCostOptions,
-} from "../garage/tick-cost.js";
+} from "@aumohta/engine-r1";
+import { authenticate } from "../accounts/auth.js";
+import { checkDesign } from "../garage/design-check.js";
 import { ApiError, notFound, validationFailed, type ErrorDetail } from "../http/errors.js";
 import type { ApiModule, Json, Reply, RequestContext } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
@@ -161,7 +162,8 @@ function requireEnabled(context: RequestContext): void {
     410,
     "feature_disabled",
     "The tick cost check is a local-server feature and is off on this server; run a local server with " +
-      "AUMOHTA_TICK_COST_CHECK=on (see docs/docker.md) to check tick costs",
+      "AUMOHTA_TICK_COST_CHECK=on (see docs/docker.md), or check offline with 'aumohta tick-cost' " +
+      "(see docs/spec/cli-runner.md)",
     undefined,
     { "cache-control": "no-store" },
   );

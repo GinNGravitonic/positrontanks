@@ -227,6 +227,9 @@ importers:
         specifier: 3.1147.0
         version: 3.1147.0
     devDependencies:
+      '@aumohta/cli':
+        specifier: workspace:*
+        version: link:../cli
       aws-sdk-client-mock:
         specifier: 4.1.0
         version: 4.1.0

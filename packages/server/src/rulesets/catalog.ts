@@ -12,7 +12,7 @@
  * an entry to `hostVersion` below wired to its engine.
  */
 
-import { deriveBotSpec, programSlots } from "@aumohta/engine-r1";
+import { deriveBotSpec, programSlots, tickCostCheck, type TickCost, type TickCostOptions } from "@aumohta/engine-r1";
 import { R1_LANGUAGE, type LanguageDefinition, type ProgramSlots } from "@aumohta/language";
 import type { Build, Ruleset } from "@aumohta/ruleset-data";
 import { r1Engine, type GameEngine } from "../games/engine.js";
@@ -23,7 +23,6 @@ import {
   type RulesetDocs,
   type RulesetVersion,
 } from "@aumohta/ruleset-data/rulesets";
-import { checkTickCostR1, type TickCost, type TickCostOptions } from "../garage/tick-cost.js";
 
 export interface HostedRuleset {
   readonly ruleset: Ruleset;
@@ -32,7 +31,7 @@ export interface HostedRuleset {
   readonly docs: RulesetDocs;
   /** The Slot ids a Program may name in `fire`, `fireAbs` and `rangefind`, for a Build validated under `ruleset`. */
   programSlots(build: Build): ProgramSlots;
-  /** Runs a checked Program in that version's sample world and reports its operation cost (garage/tick-cost.ts). */
+  /** Runs a checked Program in that version's sample world and reports its operation cost (the engine's tick cost check). */
   checkTickCost(build: Build, program: string, options: TickCostOptions): TickCost;
   /** Plays Games under `ruleset`. */
   readonly engine: GameEngine;
@@ -71,7 +70,7 @@ export function engineR1Ruleset(ruleset: Ruleset, docs: RulesetDocs = loadRulese
     language: R1_LANGUAGE,
     docs,
     programSlots: (build) => programSlots(deriveBotSpec(ruleset, build)),
-    checkTickCost: (build, program, options) => checkTickCostR1(ruleset, build, program, options),
+    checkTickCost: (build, program, options) => tickCostCheck(ruleset, build, program, options),
     engine: r1Engine(ruleset),
   };
 }

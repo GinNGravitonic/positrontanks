@@ -50,17 +50,6 @@ export { gameRecordKey, GameRunner, programLogsKey, replayKey, UNTHROTTLED_SLICE
 export type { GameFeedEvent, GameWatcher, Pacing, RunnerOptions } from "./games/runner.js";
 export { checkDesign } from "./garage/design-check.js";
 export type { DesignCheck } from "./garage/design-check.js";
-export {
-  checkTickCostR1,
-  SAMPLE_BOT_NAME,
-  SAMPLE_FOE_NAME,
-  SAMPLE_FOE_PROGRAM,
-  sampleMap,
-  TICK_COST_DEFAULT_SEED,
-  TICK_COST_DEFAULT_TICKS,
-  TICK_COST_MAX_TICKS,
-} from "./garage/tick-cost.js";
-export type { CostedRun, RunStop, TickCost, TickCostOptions } from "./garage/tick-cost.js";
 export type { OpenOptions } from "./db/database.js";
 export { migrate, MigrationError, migrations } from "./db/migrations.js";
 export type { Migration } from "./db/migrations.js";
