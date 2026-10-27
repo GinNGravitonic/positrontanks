@@ -287,6 +287,18 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE maps ADD COLUMN description TEXT NOT NULL DEFAULT '' CHECK (length(description) <= 2000);
     `,
   },
+  {
+    version: 9,
+    name: "revision_notes",
+    // Commit-message-like notes on each Bot Design and Map Revision: what
+    // changed. Set only when the Revision is inserted; the immutability
+    // triggers still refuse any later update. Existing Revisions get empty
+    // notes.
+    sql: `
+      ALTER TABLE bot_design_revisions ADD COLUMN notes TEXT NOT NULL DEFAULT '' CHECK (length(notes) <= 500);
+      ALTER TABLE map_revisions ADD COLUMN notes TEXT NOT NULL DEFAULT '' CHECK (length(notes) <= 500);
+    `,
+  },
 ];
 
 export class MigrationError extends Error {

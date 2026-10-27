@@ -6,6 +6,11 @@
  * DESCRIPTION_MAX_LENGTH characters, and empty when there is none. A
  * description belongs to the design or Map, not to a Revision, so it can be
  * changed at any time without adding one.
+ *
+ * Revision notes are the commit-message-like counterpart on a Revision: what
+ * changed in it (Build, Program or Map content). Plain text, trimmed, at most
+ * NOTES_MAX_LENGTH characters, empty when there are none. They are given
+ * only when the Revision is created and, like the Revision, never change.
  */
 
 import { validationFailed, type ErrorDetail } from "../http/errors.js";
@@ -31,6 +36,37 @@ export function readDescription(value: unknown, details: ErrorDetail[]): string 
     return undefined;
   }
   return description;
+}
+
+export const NOTES_MAX_LENGTH = 500;
+
+/**
+ * The schema for Revision notes, its description starting with `lead` (if
+ * any) and ending with `visibility`.
+ */
+export function notesSchema(visibility: string, lead = ""): { readonly [key: string]: Json } {
+  return {
+    type: "string",
+    maxLength: NOTES_MAX_LENGTH,
+    description:
+      `${lead}What changed in this Revision. Plain text, trimmed, at most ${String(NOTES_MAX_LENGTH)} ` +
+      `characters; empty if none. Set when the Revision is created and never changed. ${visibility}`,
+  };
+}
+
+/** Trimmed Revision notes (empty when left out), or undefined after recording a problem. */
+export function readNotes(value: unknown, details: ErrorDetail[]): string | undefined {
+  if (value === undefined) return "";
+  if (typeof value !== "string") {
+    details.push({ path: "notes", message: "must be a string" });
+    return undefined;
+  }
+  const notes = value.trim();
+  if (notes.length > NOTES_MAX_LENGTH) {
+    details.push({ path: "notes", message: `must be at most ${String(NOTES_MAX_LENGTH)} characters` });
+    return undefined;
+  }
+  return notes;
 }
 
 /** A name and/or description to change; fields left out are kept. */

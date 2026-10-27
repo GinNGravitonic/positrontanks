@@ -203,6 +203,52 @@ describe("the descriptions migration", () => {
   });
 });
 
+describe("the revision_notes migration", () => {
+  it("gives existing Revisions empty notes, at most 500 characters, which can never be changed", () => {
+    const version = migrations.findIndex((m) => m.name === "revision_notes") + 1;
+    expect(version).toBeGreaterThan(1);
+    const raw = new DatabaseSync(path);
+    migrate(raw, migrations.slice(0, version - 1));
+    const at = "2026-01-01T00:00:00.000Z";
+    raw.exec(`
+      INSERT INTO players (id, username, username_key, created_at) VALUES ('p1', 'Ada', 'ada', '${at}');
+      INSERT INTO maps (id, player_id, name, latest_revision, created_at, updated_at)
+        VALUES ('m1', 'p1', 'Field', 1, '${at}', '${at}');
+      INSERT INTO map_revisions (map_id, number, content, format, width, height, spawn_zones, created_at)
+        VALUES ('m1', 1, '{}', 1, 10, 10, 2, '${at}');
+      INSERT INTO bot_designs (id, player_id, name, ruleset_version, latest_revision, created_at, updated_at)
+        VALUES ('d1', 'p1', 'Scout', 'r1', 1, '${at}', '${at}');
+      INSERT INTO bot_design_revisions (design_id, number, build, program, cost, created_at)
+        VALUES ('d1', 1, '{}', '', 1, '${at}');
+    `);
+    raw.close();
+
+    const db = Database.open(path);
+    expect(db.schemaVersion()).toBe(migrations.length);
+    db.close();
+    const after = new DatabaseSync(path);
+    expect(after.prepare("SELECT notes FROM map_revisions").all()).toEqual([{ notes: "" }]);
+    expect(after.prepare("SELECT notes FROM bot_design_revisions").all()).toEqual([{ notes: "" }]);
+    expect(() => after.prepare("UPDATE map_revisions SET notes = 'later'").run()).toThrow(/immutable/);
+    expect(() => after.prepare("UPDATE bot_design_revisions SET notes = 'later'").run()).toThrow(/immutable/);
+    after
+      .prepare(
+        `INSERT INTO map_revisions (map_id, number, content, format, width, height, spawn_zones, notes, created_at)
+         VALUES ('m1', 2, '{}', 1, 10, 10, 2, ?, '${at}')`,
+      )
+      .run("n".repeat(500));
+    expect(() =>
+      after
+        .prepare(
+          `INSERT INTO bot_design_revisions (design_id, number, build, program, cost, notes, created_at)
+           VALUES ('d1', 2, '{}', '', 1, ?, '${at}')`,
+        )
+        .run("n".repeat(501)),
+    ).toThrow(/CHECK/);
+    after.close();
+  });
+});
+
 describe("Database", () => {
   it("records when it was created", () => {
     const db = Database.open(":memory:");
