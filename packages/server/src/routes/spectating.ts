@@ -335,8 +335,11 @@ export const spectatingModule: ApiModule = {
           "as the event id; then, once the Game is Finished, an `end` (a GameEnded) and the stream closes. A " +
           "Finished Game gives its last snapshot and `end` at once. If the stream closes without `end` (the " +
           "server is restarting, or you read too slowly and fell too far behind), reconnect: you get a fresh " +
-          "snapshot (`Last-Event-ID` is not used). Comment " +
-          "lines keep idle streams open. Open and Cancelled Games answer 409 as for the snapshot.",
+          "snapshot. Comment lines keep idle streams open. Open and Cancelled Games answer 409 as for the " +
+          "snapshot. Browsers must read the stream with `fetch` (a ReadableStream body, sending the bearer " +
+          "`Authorization` header), since the native EventSource cannot send it; on reconnect, send the last " +
+          "event id as `Last-Event-ID`, as EventSource would (the server answers with a fresh snapshot " +
+          "regardless).",
         tags: [TAG],
         security: bearer,
         parameters: [gameIdParameter],
