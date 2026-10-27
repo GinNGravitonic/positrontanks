@@ -14,6 +14,7 @@
 import { randomInt } from "node:crypto";
 import { parseArgs } from "node:util";
 import { TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@aumohta/engine-r1";
+import { RULESET_VERSIONS, type RulesetVersion } from "@aumohta/ruleset-data/rulesets";
 import { InputError } from "./entry-file.js";
 import { budgetPeaks, formatBudgetPeaks, formatResult } from "./report.js";
 import { loadGame, playLocalGame, SEED_LIMIT, startGame, writeOutputs, type PlayOptions } from "./run.js";
@@ -30,7 +31,8 @@ const processIo: Io = {
   err: (line) => process.stderr.write(`${line}\n`),
 };
 
-export const DEFAULT_RULESET = "r1";
+/** The latest Ruleset this CLI supports (docs/spec/cli-runner.md). */
+export const DEFAULT_RULESET: RulesetVersion = RULESET_VERSIONS[RULESET_VERSIONS.length - 1] ?? RULESET_VERSIONS[0];
 /** Must stay at or below the server's default maximum time limit (checked in packages/server/src/config.test.ts; docs/spec/cli-runner.md). */
 export const DEFAULT_TIME_LIMIT_SECONDS = 120;
 
@@ -48,9 +50,10 @@ Options:
                         simulated second per real second)
   --seed N              The Game seed, a whole number in [0, 2^32)
                         (default: random; printed so the Game can be repeated)
-  --time-limit SECONDS  The time limit in simulated seconds (default: ${String(DEFAULT_TIME_LIMIT_SECONDS)})
+  --time-limit SECONDS  The time limit in simulated seconds, a whole number
+                        of at least 1, as on the server (default: ${String(DEFAULT_TIME_LIMIT_SECONDS)})
   --point-budget N      The Point Budget (default: the Ruleset's maximum)
-  --ruleset VERSION     The Ruleset version (default: ${DEFAULT_RULESET})
+  --ruleset VERSION     The Ruleset version (default: ${DEFAULT_RULESET}, the latest)
   --out DIR             Where to write the output files (default: .)
   --json                Print a JSON summary instead of text
   -h, --help            Show this help
@@ -90,6 +93,13 @@ function parseNumber(flag: string, text: string | undefined): number | undefined
   const v = Number(text);
   if (text.trim() === "" || !Number.isFinite(v)) throw new UsageError(`${flag} needs a number, got "${text}"`);
   return v;
+}
+
+/** The server takes the time limit as a whole number of seconds, at least 1; so does the CLI, so any local Game can be repeated there. */
+function parseTimeLimit(text: string | undefined): number {
+  const seconds = parseNumber("--time-limit", text) ?? DEFAULT_TIME_LIMIT_SECONDS;
+  if (!Number.isInteger(seconds) || seconds < 1) throw new InputError(`--time-limit must be a whole number of seconds, at least 1, got ${String(seconds)}`);
+  return seconds;
 }
 
 /** Runs the CLI with `argv` (without the node and script paths) and returns the exit code. */
@@ -152,7 +162,7 @@ async function run(argv: readonly string[], io: Io, play: Partial<PlayOptions>):
     entryPaths,
     ruleset: values.ruleset,
     seed,
-    timeLimitSeconds: parseNumber("--time-limit", values["time-limit"]) ?? DEFAULT_TIME_LIMIT_SECONDS,
+    timeLimitSeconds: parseTimeLimit(values["time-limit"]),
     ...(pointBudget === undefined ? {} : { pointBudget }),
   });
   const { setup } = loaded;

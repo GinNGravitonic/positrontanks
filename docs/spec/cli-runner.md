@@ -22,14 +22,14 @@ aumohta run --map FILE --entry FILE [--entry FILE ...] [options]
 | `--entry FILE` | An Entry file. Required; give one per Entry, in Entry order. At most one per Spawn Zone. | |
 | `--unthrottled` | Unthrottled Pace (as fast as possible). | Real-time Pace: one simulated second per real second |
 | `--seed N` | The Game's random seed, a whole number in [0, 2^32). | A random seed, printed so the Game can be repeated with `--seed` |
-| `--time-limit SECONDS` | The time limit in simulated seconds; must be a positive whole number of Ticks. | `120` |
+| `--time-limit SECONDS` | The time limit in simulated seconds; a whole number, at least 1, as the server takes it. | `120` |
 | `--point-budget N` | The Point Budget; must be within the Ruleset's range. | The Ruleset's maximum Point Budget |
-| `--ruleset VERSION` | The Ruleset version. | `r1`, the latest Ruleset |
+| `--ruleset VERSION` | The Ruleset version. | The latest Ruleset (currently `r1`) |
 | `--out DIR` | Where the output files are written; created if missing. | `.` (the current directory) |
 | `--json` | Print a JSON summary instead of text. | Text |
 | `-h`, `--help` | Show usage. | |
 
-The `--ruleset` default is the latest Ruleset this CLI supports; it is currently `r1`, the only one. When a later Ruleset is added, the default should move to it.
+The `--ruleset` default is the latest Ruleset this CLI supports: the last entry of `RULESET_VERSIONS` (`packages/ruleset-data/src/rulesets.ts`), currently `r1`, the only one. When a later Ruleset is added there, the default moves to it, for `run` and `tick-cost` alike.
 
 Before playing, the runner checks its inputs as the server checks a submission: the Map against the Ruleset (Map Format and Terrains), each Build and Program, each Entry's cost against the Point Budget, each Entry's Bot count against the Map's Spawn Zones, and Bot Names unique within the Game. It reports every problem it finds at once, with `file:line:column` positions for Program errors. Exit codes: 0 on a played Game, 1 on bad input, 2 on bad usage.
 
@@ -95,7 +95,7 @@ Runs the tick cost check ([ADR-0002](../adr/0002-counted-operation-budget.md)) o
 
 | Option | Meaning | Default |
 | --- | --- | --- |
-| `--entry FILE` | An [Entry file](#entry-file). Required. Its `ruleset`, if any, chooses the Ruleset. | Ruleset `r1` |
+| `--entry FILE` | An [Entry file](#entry-file). Required. Its `ruleset`, if any, chooses the Ruleset. | The latest Ruleset, as for `run` |
 | `--ticks N` | Ticks to run `tick()` for, 1 to 100. | `20` |
 | `--seed N` | The sample Game's seed, a whole number in [0, 2^32). It drives `random()` and which side the Bot starts on. | `1` |
 | `--json` | Print JSON instead of text. | Text |
@@ -109,6 +109,6 @@ The text output is a table of each Bot's init phase, Tick peak, Ticks out of bud
 
 A local Game should be repeatable as a server Game with the same Ruleset, Map, Entries, Point Budget and time limit (the server chooses its own seed, so the outcome may differ). Hence:
 
-- **Time limit.** The CLI's 120 s default must stay at or below the server's maximum time limit. The server's default maximum is 600 s (`maxTimeLimitSeconds` in `packages/server/src/config.ts`); `packages/server/src/config.test.ts` checks it is at least the CLI default. An operator can lower it with `AUMOHTA_MAX_TIME_LIMIT_SECONDS`, so on such a server a 120 s local Game cannot be repeated as is. The server also takes the time limit as a whole number of seconds, while the CLI accepts any whole number of Ticks (for example `--time-limit 0.5` at 10 Ticks per second); only whole-second local time limits carry over.
+- **Time limit.** The CLI's 120 s default must stay at or below the server's maximum time limit. The server's default maximum is 600 s (`maxTimeLimitSeconds` in `packages/server/src/config.ts`); `packages/server/src/config.test.ts` checks it is at least the CLI default. An operator can lower it with `AUMOHTA_MAX_TIME_LIMIT_SECONDS`, so on such a server a 120 s local Game cannot be repeated as is. Like the server, the CLI takes the time limit as a whole number of seconds, at least 1, so a fractional limit such as `--time-limit 0.5` is rejected even when it is a whole number of Ticks. The CLI does not apply a maximum, since the server's is configurable.
 - **Point Budget.** Both default and range come from the Ruleset, so any Point Budget the CLI accepts is one the server accepts.
 - **Map.** The CLI reads a Map file directly; the server's Map Revisions also pass the server's Map size limits, which the CLI does not apply.
