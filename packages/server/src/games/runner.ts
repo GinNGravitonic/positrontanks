@@ -17,7 +17,7 @@
  * Progress is saved as the last Tick played (after every Tick in realtime,
  * after every slice unthrottled). When a Game ends, the final Game Record,
  * the Replay and each Player's Program logs are stored, then the Game is
- * Finished with its result.
+ * Finished with its result. Program logs are stored gzip-compressed.
  *
  * Spectating: while a Game is being played its Replay so far and Program
  * logs can be read from here, and watchers (the SSE stream) hear of it
@@ -44,6 +44,8 @@
  */
 
 import { randomInt } from "node:crypto";
+import { promisify } from "node:util";
+import { gzip } from "node:zlib";
 import type { Logger } from "../app.js";
 import type { GameRecord } from "../db/games.js";
 import type { Services } from "../http/router.js";
@@ -55,8 +57,12 @@ export const gameRecordKey = (gameId: string): string => `games/${gameId}/record
 /** Where a Finished Game's Replay is stored. */
 export const replayKey = (gameId: string): string => `games/${gameId}/replay.json`;
 
-/** Where a Finished Game's Program logs for one Player's Bots are stored. */
-export const programLogsKey = (gameId: string, playerId: string): string => `games/${gameId}/program-logs/${playerId}.json`;
+/**
+ * Where a Finished Game's Program logs for one Player's Bots are stored, as
+ * gzip-compressed JSON: they can run to tens of MB per Bot, and compress well.
+ */
+export const programLogsKey = (gameId: string, playerId: string): string =>
+  `games/${gameId}/program-logs/${playerId}.json.gz`;
 
 /** What a watcher of a Running Game hears, in this order. */
 export type GameFeedEvent =
@@ -109,6 +115,8 @@ const describeError = (error: unknown): string =>
   error instanceof Error ? (error.stack ?? error.message) : String(error);
 
 const encode = (value: unknown): Uint8Array => new TextEncoder().encode(JSON.stringify(value));
+
+const compress = promisify(gzip);
 
 export class GameRunner {
   readonly #services: Omit<Services, "runner">;
@@ -409,7 +417,7 @@ export class GameRunner {
     await objects.put(gameRecordKey(id), encode(played.record()));
     await objects.put(replayKey(id), encode(played.replay()));
     for (const player of new Set(db.games.listEntries(id).map((entry) => entry.player.id))) {
-      await objects.put(programLogsKey(id, player), encode(played.programLogs(player)));
+      await objects.put(programLogsKey(id, player), await compress(encode(played.programLogs(player))));
     }
     db.games.finishGame(
       id,

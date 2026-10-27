@@ -25,6 +25,8 @@
  * has no snapshot yet; the stream simply waits for it.
  */
 
+import { promisify } from "node:util";
+import { gunzip } from "node:zlib";
 import { authenticate } from "../accounts/auth.js";
 import type { GameRecord } from "../db/games.js";
 import type { ProgramLogData, ReplayData } from "../games/engine.js";
@@ -254,6 +256,19 @@ async function storedJson(context: RequestContext, key: string): Promise<unknown
   return JSON.parse(new TextDecoder().decode(data)) as unknown;
 }
 
+const decompress = promisify(gunzip);
+
+/**
+ * A Finished Game's stored Program logs for one Player's Bots. Games
+ * Finished before Program logs were stored have none: 404, as they are not
+ * regenerated.
+ */
+async function storedProgramLogs(context: RequestContext, game: GameRecord, playerId: string): Promise<ProgramLogData[]> {
+  const data = await context.services.objects.get(programLogsKey(game.id, playerId));
+  if (data === undefined) throw notFound(`Game ${game.id} has no stored Program logs; it was Finished before they were kept`);
+  return JSON.parse(new TextDecoder().decode(await decompress(data))) as ProgramLogData[];
+}
+
 /** A Finished Game's stored Replay. */
 const storedReplay = async (context: RequestContext, game: GameRecord): Promise<ReplayData> =>
   (await storedJson(context, replayKey(game.id))) as ReplayData;
@@ -438,8 +453,8 @@ export const spectatingModule: ApiModule = {
         description:
           "Runtime errors, halts, operations used and `log()` output of each of your Bots' Program runs, so far " +
           "while the Game is Running. Only your own Bots are ever included; if you have none in the Game the " +
-          "answer is 404. Narrow it with `fromTick` and `toTick` (inclusive) to page through a long Game or poll " +
-          "a live one. Open and Cancelled Games answer 409 as for the snapshot.",
+          "answer is 404, as it is for a Game Finished before Program logs were kept. Narrow it with `fromTick` " +
+          "and `toTick` (inclusive) to page through a long Game or poll a live one. Open and Cancelled Games answer 409 as for the snapshot.",
         tags: [TAG],
         security: bearer,
         parameters: [
@@ -467,7 +482,7 @@ export const spectatingModule: ApiModule = {
         if (game.state === "open" || game.state === "cancelled") throw notStarted(game);
         let logs: readonly ProgramLogData[];
         if (game.state === "finished") {
-          logs = (await storedJson(context, programLogsKey(game.id, player.id))) as ProgramLogData[];
+          logs = await storedProgramLogs(context, game, player.id);
         } else {
           const live = context.services.runner.programLogs(game.id, player.id);
           if (live === undefined) throw waiting(game);

@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gunzipSync } from "node:zlib";
 import type { Replay, ReplayTick } from "@aumohta/engine-r1";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
@@ -437,17 +438,35 @@ describe("Program logs", () => {
     expect(after.status).toBe(200);
     const game = (await call(server, "GET", `/games/${id}`, { token: p.alice })).body as Game;
     expect(logsOf(after).bots.map((b) => [b.name, b.runs.at(-1)?.tick])).toEqual([["Ada", game.result?.tick]]);
-    // Stored per Player, so a Player's file holds only their own Bots.
+    // Stored gzip-compressed per Player, so a Player's file holds only their own Bots.
     const [aliceId, bobId] = game.entries.map((e) => e.player.id);
     for (const [playerId, name] of [
       [aliceId, "Ada"],
       [bobId, "Bix"],
     ] as const) {
-      const stored = await objects.get(programLogsKey(id, playerId ?? ""));
-      const logs = JSON.parse(new TextDecoder().decode(stored)) as { name: string }[];
+      const key = programLogsKey(id, playerId ?? "");
+      expect(key).toMatch(/\.json\.gz$/);
+      const stored = await objects.get(key);
+      const logs = JSON.parse(gunzipSync(stored ?? new Uint8Array()).toString("utf8")) as { name: string; runs: unknown[] }[];
       expect(logs.map((l) => l.name)).toEqual([name]);
+      if (playerId === aliceId) expect(logs.map((l) => l.runs)).toEqual(logsOf(after).bots.map((b) => b.runs));
     }
     for (const response of [alice, bob, after]) expect(response.text).not.toContain(SECRET);
+  });
+
+  it("answers 404 for a Finished Game with no stored Program logs", async () => {
+    const server = await boot();
+    const p = await setUp(server);
+    const id = await playGame(server, p, "unthrottled", 2);
+    await server.services.runner.idle();
+    // As for a Game Finished before Program logs were stored.
+    const game = (await call(server, "GET", `/games/${id}`, { token: p.alice })).body as Game;
+    await objects.delete(programLogsKey(id, game.entries[0]?.player.id ?? ""));
+
+    const response = await call(server, "GET", `/games/${id}/program-logs`, { token: p.alice });
+    expect(response.status).toBe(404);
+    expect(response.text).toContain("no stored Program logs");
+    expect((await call(server, "GET", `/games/${id}/program-logs`, { token: p.bob })).status).toBe(200);
   });
 
   it("has nothing before a Game starts", async () => {
