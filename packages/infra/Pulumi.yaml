@@ -1,0 +1,11 @@
+name: aumohta
+description: Aumohta server on AWS (ECS Fargate, ALB, S3, Litestream). See docs/deployment.md.
+runtime:
+  name: nodejs
+  options:
+    packagemanager: pnpm
+    typescript: false
+main: dist/index.js
+config:
+  aws:region:
+    value: us-east-1

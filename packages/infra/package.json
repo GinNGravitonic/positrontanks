@@ -11,5 +11,10 @@
   },
   "scripts": {
     "build": "tsc -b"
+  },
+  "dependencies": {
+    "@pulumi/aws": "7.51.1",
+    "@pulumi/docker-build": "0.0.22",
+    "@pulumi/pulumi": "3.272.0"
   }
 }

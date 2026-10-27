@@ -1,2 +1,8 @@
 packages:
   - packages/*
+
+# Install scripts we deliberately skip: docker-build's only downloads its
+# Pulumi plugin (the Pulumi CLI does that itself), protobufjs's is a no-op notice.
+allowBuilds:
+  "@pulumi/docker-build": false
+  protobufjs: false

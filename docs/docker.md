@@ -55,7 +55,7 @@ The tick cost check (`POST /tick-cost-checks`,
 Ticks synchronously on the server, so it is a local-server feature: a Player
 runs their own server with `AUMOHTA_TICK_COST_CHECK=on` (as above) and their
 checks load only their own machine. Shared deployments, including the Pulumi
-deployment (`packages/infra`), leave it unset, and the endpoints answer
+deployment (`packages/infra`, [docs/deployment.md](deployment.md)), leave it unset, and the endpoints answer
 `410 feature_disabled`. `GET /server` reports `features.tickCostCheck` so
 clients can tell before calling.
 

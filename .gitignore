@@ -10,3 +10,6 @@
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Pulumi stack config (per deployer: AWS profile, encrypted secrets)
+Pulumi.*.yaml
