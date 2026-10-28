@@ -1,6 +1,8 @@
 # Specifications
 
 - [v1.md](v1.md): the v1 specification.
+- [cli-runner.md](cli-runner.md): the CLI runner, `aumohta run` and `aumohta tick-cost`.
+- [cli-api.md](cli-api.md): the API CLI, the `aumohta` commands that talk to a server.
 
 The per-Ruleset prose documents are published with each Ruleset version and live with its data in `packages/ruleset-data/spec/<version>/`, their single source. The server serves them as Markdown at `GET /rulesets/{version}/docs/{engine|language|catalog}`. For r1:
 
