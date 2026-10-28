@@ -8,7 +8,8 @@
  *
  * `aumohta tick-cost --entry FILE [--ticks N] [--seed N] [--json]` runs the
  * tick cost check offline: each of the Entry file's Bots in the sample world,
- * reporting what the server's tick cost endpoints report.
+ * reporting what the server's tick cost endpoints report. With `--remote` it
+ * runs on a server instead (api/tick-cost-remote.ts).
  *
  * `aumohta <group> <command> ...` and `aumohta api METHOD PATH` talk to an
  * Aumohta server over its HTTP API (docs/spec/cli-api.md; api/main.ts).
@@ -19,7 +20,7 @@ import { parseArgs } from "node:util";
 import { TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@aumohta/engine-r1";
 import { RULESET_VERSIONS, type RulesetVersion } from "@aumohta/ruleset-data/rulesets";
 import { inputError } from "./api/client.js";
-import { SERVER_COMMANDS, serverMain, serverUsage } from "./api/main.js";
+import { remoteTickCost, SERVER_COMMANDS, serverMain, serverUsage } from "./api/main.js";
 import { InputError } from "./entry-file.js";
 import { budgetPeaks, formatBudgetPeaks, formatResult } from "./report.js";
 import { loadGame, playLocalGame, SEED_LIMIT, startGame, writeOutputs, type PlayOptions } from "./run.js";
@@ -135,6 +136,9 @@ Options:
   --seed N              The sample Game's seed, a whole number in [0, 2^32)
                         (default: ${String(TICK_COST_DEFAULT_SEED)})
   --json                Print each Bot's report as JSON, as the server does
+  --remote              Run the check on the server (POST /tick-cost-checks),
+                        which needs AUMOHTA_TICK_COST_CHECK=on there; takes the
+                        server commands' global options below
   -h, --help            Show this help
 
 ${serverUsage()}`;
@@ -268,6 +272,8 @@ async function run(argv: readonly string[], io: Io, play: Partial<PlayOptions>):
 }
 
 async function tickCost(argv: readonly string[], io: Io): Promise<number> {
+  // With --remote the check runs on the server, as a server command (api/tick-cost-remote.ts).
+  if (argv.includes("--remote")) return remoteTickCost(argv, io);
   let values;
   try {
     ({ values } = parseArgs({

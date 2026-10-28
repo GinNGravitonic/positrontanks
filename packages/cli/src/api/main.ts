@@ -13,12 +13,19 @@ import { authCommands, keysCommands } from "./accounts.js";
 import { CliError, EXIT, inputError, usageError } from "./client.js";
 import { configPath, readConfig, resolveSettings } from "./config.js";
 import { createContext, flag, stdinReader, str, type Command, type Group, type OptionSpec } from "./context.js";
+import { designsCommands } from "./designs.js";
+import { mapsCommands } from "./maps.js";
+import { rulesetsCommands } from "./rulesets.js";
 import { apiCommand, configCommands, serverCommands } from "./system.js";
+import { remoteTickCostCommand } from "./tick-cost-remote.js";
 
 const GROUPS: Readonly<Record<string, Group>> = {
   server: serverCommands,
   auth: authCommands,
   keys: keysCommands,
+  rulesets: rulesetsCommands,
+  designs: designsCommands,
+  maps: mapsCommands,
   config: configCommands,
 };
 
@@ -55,43 +62,52 @@ function commandLines(prefix: string, commands: Readonly<Record<string, Command>
 export function serverUsage(group?: string): string {
   const groups = group === undefined ? Object.keys(GROUPS) : [group];
   const lines = groups.flatMap((g) => (g === "api" ? commandLines("", { api: apiCommand }) : commandLines(`${g} `, GROUPS[g] ?? {})));
-  if (group === undefined) lines.push(...commandLines("", { api: apiCommand }));
+  if (group === undefined) lines.push(...commandLines("", { api: apiCommand, "tick-cost": remoteTickCostCommand }));
   return `Server commands (talk to an Aumohta server over its HTTP API):\n${lines.join("\n")}\n\n${GLOBAL_HELP}`;
 }
 
 /** Runs `aumohta <group> ...`, where `group` is one of SERVER_COMMANDS, and returns the exit code. */
 export async function serverMain(group: string, argv: readonly string[], io: Io): Promise<number> {
+  if (group === "api") return runCommand(apiCommand, "api", argv, io, group);
+  const [verb, ...rest] = argv;
+  const commands = GROUPS[group] ?? {};
+  if (verb === "-h" || verb === "--help") {
+    io.out(serverUsage(group));
+    return EXIT.ok;
+  }
+  const command = verb === undefined ? undefined : commands[verb];
+  const problem =
+    verb === undefined
+      ? `'aumohta ${group}' needs a command: ${Object.keys(commands).join(", ")}`
+      : `unknown command "${group} ${verb}"; one of: ${Object.keys(commands).join(", ")}`;
+  return runCommand(command ?? problem, `${group} ${verb ?? ""}`, rest, io, group);
+}
+
+/** Runs `aumohta tick-cost --remote ...`, the tick cost check on the server, and returns the exit code. */
+export function remoteTickCost(argv: readonly string[], io: Io): Promise<number> {
+  return runCommand(remoteTickCostCommand, "tick-cost", argv, io, "tick-cost");
+}
+
+/** Runs one command (or reports `command`, a usage problem found before it) and returns the exit code. */
+async function runCommand(command: Command | string, name: string, argv: readonly string[], io: Io, group: string): Promise<number> {
   const env = io.env ?? process.env;
   // Known before parsing, so even a usage error is printed in JSON.
   let json = argv.includes("--json") || env.AUMOHTA_OUTPUT === "json";
   try {
-    let command: Command;
-    let rest: readonly string[];
-    let name: string;
-    if (group === "api") {
-      [command, rest, name] = [apiCommand, argv, "api"];
-    } else {
-      const [verb, ...more] = argv;
-      if (verb === undefined) throw usageError(`'aumohta ${group}' needs a command: ${Object.keys(GROUPS[group] ?? {}).join(", ")}`);
-      if (verb === "-h" || verb === "--help") {
-        io.out(serverUsage(group));
-        return EXIT.ok;
-      }
-      const found = GROUPS[group]?.[verb];
-      if (found === undefined) throw usageError(`unknown command "${group} ${verb}"; one of: ${Object.keys(GROUPS[group] ?? {}).join(", ")}`);
-      [command, rest, name] = [found, more, `${group} ${verb}`];
-    }
-
+    if (typeof command === "string") throw usageError(command);
     let parsed;
     try {
-      parsed = parseArgs({ args: [...rest], strict: true, allowPositionals: true, options: { ...GLOBAL_OPTIONS, ...command.options } });
+      parsed = parseArgs({ args: [...argv], strict: true, allowPositionals: true, options: { ...GLOBAL_OPTIONS, ...command.options } });
     } catch (e) {
       throw usageError((e as Error).message);
     }
     const values = parsed.values as Readonly<Record<string, string | boolean | (string | boolean)[] | undefined>>;
     json ||= flag(values, "json");
     if (flag(values, "help")) {
-      io.out(`Usage: aumohta ${name}${command.synopsis === "" ? "" : ` ${command.synopsis}`}\n  ${command.summary}\n\n${GLOBAL_HELP}`);
+      io.out(`Usage: aumohta ${name}${command.synopsis === "" ? "" : ` ${command.synopsis}`}
+  ${command.summary}
+
+${GLOBAL_HELP}`);
       return EXIT.ok;
     }
     const names = command.args ?? [];

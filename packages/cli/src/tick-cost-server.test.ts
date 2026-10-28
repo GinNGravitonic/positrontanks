@@ -46,4 +46,35 @@ describe("aumohta tick-cost and the server's tick cost check", () => {
     const program = "let seen = []; function tick() { if (random() < 0.5) { seen.push(scan().length); } while (random() < 0.9) {} }";
     expect(await cliReport(program, "--ticks", "37", "--seed", "4242")).toEqual(await serverReport(program, { ticks: 37, seed: 4242 }));
   });
+
+  it("run on the server with --remote, with the offline command's input and output", async () => {
+    const entry = join(server.configFile, "..", "ada.entry.json");
+    await writeFile(join(entry, "..", "steady.aum"), STEADY);
+    await writeFile(entry, JSON.stringify({ bots: [{ name: "Probe", build: BUILD, programFile: "steady.aum" }, { name: "Other", build: BUILD, program: STEADY }] }));
+    const offline = await server.cli(["tick-cost", "--entry", entry, "--ticks", "5", "--json"]);
+    const remote = await server.cli(["tick-cost", "--entry", entry, "--ticks", "5", "--remote", "--json"]);
+    expect(remote).toMatchObject({ code: 0, err: "" });
+    expect(JSON.parse(remote.out)).toEqual(JSON.parse(offline.out));
+
+    const human = await server.cli(["tick-cost", "--entry", entry, "--remote"]);
+    expect(human.code).toBe(0);
+    expect(human.out).toContain(`Ruleset r1, Entry ${entry} (ada), seed 1, 20 Ticks in the sample world on ${server.url}`);
+    expect(human.out).toMatch(/^ +Probe +\d+\/\d+/m);
+
+    await writeFile(join(entry, "..", "steady.aum"), "function tick() {\n  fly();\n}");
+    const broken = await server.cli(["tick-cost", "--entry", entry, "--remote"]);
+    expect(broken.code).toBe(1);
+    expect(broken.err).toContain('Bot "Probe": ');
+    expect(broken.err).toContain(`${join(entry, "..", "steady.aum")}:2:3: `);
+  });
+
+  it("check a Bot Design's Revision with designs tick-cost", async () => {
+    const design = await client.request<{ id: string }>("POST", "/bot-designs", { auth: true, body: { name: "Steady", rulesetVersion: "r1", build: BUILD, program: STEADY } });
+    const run = await server.cli(["designs", "tick-cost", design.id, "--ticks", "7", "--seed", "0", "--json"]);
+    expect(run).toMatchObject({ code: 0, err: "" });
+    expect(JSON.parse(run.out)).toEqual(await serverReport(STEADY, { ticks: 7, seed: 0 }));
+    const human = await server.cli(["designs", "tick-cost", design.id, "--revision", "1"]);
+    expect(human.out).toContain(`Bot Design ${design.id} (Revision 1), seed 1, 20 Ticks`);
+    expect(human.out).toContain("Tick cost (operations per Tick):");
+  });
 });

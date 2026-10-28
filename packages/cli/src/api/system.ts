@@ -4,10 +4,9 @@
  * any endpoint.
  */
 
-import { writeFile } from "node:fs/promises";
-import { CliError, EXIT, inputError, parseJson, usageError, type Schema } from "./client.js";
+import { CliError, EXIT, parseJson, usageError, type Schema } from "./client.js";
 import { checkProfileName, checkServerUrl, currentProfileName, DEFAULT_PROFILE, DEFAULT_SERVER, maskKey, withProfile, type Profile } from "./config.js";
-import { emit, readInput, str, strs, type Command, type Group } from "./context.js";
+import { emit, readJsonInput, str, strs, writeOutput, type Command, type Group } from "./context.js";
 import { table } from "../report.js";
 
 export const serverCommands: Group = {
@@ -45,11 +44,7 @@ export const serverCommands: Group = {
         context.io.out(text);
         return;
       }
-      try {
-        await writeFile(out, `${text}\n`);
-      } catch (e) {
-        throw inputError(`cannot write ${out}: ${(e as Error).message}`);
-      }
+      await writeOutput(out, `${text}\n`);
       emit(context, {}, () => [`Wrote the OpenAPI document of ${context.settings.server} to ${out}.`]);
     },
   },
@@ -177,15 +172,7 @@ export const apiCommand: Command = {
       return [pair.slice(0, at), pair.slice(at + 1)];
     });
     const bodyFile = str(values, "body");
-    let body: unknown;
-    if (bodyFile !== undefined) {
-      const text = await readInput(context, bodyFile, "--body");
-      try {
-        body = JSON.parse(text);
-      } catch (e) {
-        throw inputError(`${bodyFile === "-" ? "stdin" : bodyFile} is not valid JSON: ${(e as Error).message}`);
-      }
-    }
+    const body = bodyFile === undefined ? undefined : await readJsonInput(context, bodyFile, "--body");
     const response = await context.client.send(method, path, { query, ...(body === undefined ? {} : { body }) });
     if (response.text === "") context.io.out("{}");
     else if (response.contentType.startsWith("application/json")) context.io.out(JSON.stringify(parseJson(response.text, `${method} ${path}`), null, 2));
