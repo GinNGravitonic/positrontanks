@@ -13,11 +13,16 @@
     }
   },
   "scripts": {
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "gen:api": "node scripts/gen-api.js"
   },
   "dependencies": {
     "@aumohta/engine-r1": "workspace:*",
     "@aumohta/language": "workspace:*",
     "@aumohta/ruleset-data": "workspace:*"
+  },
+  "devDependencies": {
+    "@aumohta/server": "workspace:*",
+    "openapi-typescript": "7.13.0"
   }
 }

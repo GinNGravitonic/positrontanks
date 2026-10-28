@@ -5,5 +5,5 @@
     "outDir": "dist"
   },
   "include": ["src"],
-  "references": [{ "path": "../cli" }, { "path": "../engine-r1" }, { "path": "../language" }, { "path": "../ruleset-data" }]
+  "references": [{ "path": "../engine-r1" }, { "path": "../language" }, { "path": "../ruleset-data" }]
 }
