@@ -36,6 +36,8 @@ export interface Io {
   readonly readStdin?: () => Promise<string>;
   /** Asks for a secret on the terminal without echo; left out when there is no terminal. */
   readonly askSecret?: (prompt: string) => Promise<string>;
+  /** Waits `ms` milliseconds (`games watch`'s backoff and polling); a timer when left out. */
+  readonly sleep?: (ms: number) => Promise<void>;
 }
 
 const processIo: Io = {

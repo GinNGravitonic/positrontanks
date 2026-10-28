@@ -14,6 +14,7 @@ import { CliError, EXIT, inputError, usageError } from "./client.js";
 import { configPath, readConfig, resolveSettings } from "./config.js";
 import { createContext, flag, stdinReader, str, type Command, type Group, type OptionSpec } from "./context.js";
 import { designsCommands } from "./designs.js";
+import { gamesCommands } from "./games.js";
 import { mapsCommands } from "./maps.js";
 import { rulesetsCommands } from "./rulesets.js";
 import { apiCommand, configCommands, serverCommands } from "./system.js";
@@ -26,6 +27,7 @@ const GROUPS: Readonly<Record<string, Group>> = {
   rulesets: rulesetsCommands,
   designs: designsCommands,
   maps: mapsCommands,
+  games: gamesCommands,
   config: configCommands,
 };
 

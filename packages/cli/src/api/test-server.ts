@@ -8,7 +8,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defaultConfig, startServer, type RunningServer } from "@aumohta/server";
+import { defaultConfig, startServer, type Pacing, type RunningServer } from "@aumohta/server";
 import { main, type Io } from "../cli.js";
 import { configPath, type Config } from "./config.js";
 
@@ -25,6 +25,10 @@ export interface CliOptions {
   readonly answers?: readonly string[];
   /** Added to the environment. */
   readonly env?: Readonly<Record<string, string>>;
+  /** Replaces the CLI's waits (`games watch`'s backoff and polling). */
+  readonly sleep?: (ms: number) => Promise<void>;
+  /** Called with each stdout line as it is printed. */
+  readonly onOut?: (line: string) => void;
 }
 
 export interface TestServer {
@@ -40,7 +44,7 @@ export interface TestServer {
   close(): Promise<void>;
 }
 
-export async function startTestServer(options: { readonly tickCostCheck?: boolean } = {}): Promise<TestServer> {
+export async function startTestServer(options: { readonly tickCostCheck?: boolean; readonly pacing?: Pacing } = {}): Promise<TestServer> {
   const dir = await mkdtemp(join(tmpdir(), "aumohta-cli-server-"));
   const quiet = { info: () => undefined, error: () => undefined };
   const running = await startServer(
@@ -52,7 +56,7 @@ export async function startTestServer(options: { readonly tickCostCheck?: boolea
       storage: { kind: "local", directory: join(dir, "objects") },
       features: { ...defaultConfig.features, tickCostCheck: options.tickCostCheck ?? false },
     },
-    { logger: quiet },
+    { logger: quiet, ...(options.pacing === undefined ? {} : { pacing: options.pacing }) },
   );
   const configDir = join(dir, "config");
   const env = { APPDATA: configDir, XDG_CONFIG_HOME: configDir, AUMOHTA_SERVER: running.url };
@@ -67,11 +71,15 @@ export async function startTestServer(options: { readonly tickCostCheck?: boolea
       const err: string[] = [];
       const answers = [...(cliOptions.answers ?? [])];
       const io: Io = {
-        out: (line) => out.push(line),
+        out: (line) => {
+          out.push(line);
+          cliOptions.onOut?.(line);
+        },
         err: (line) => err.push(line),
         env: { ...env, ...cliOptions.env },
         readStdin: () => Promise.resolve(cliOptions.stdin ?? ""),
         ...(cliOptions.answers === undefined ? {} : { askSecret: () => Promise.resolve(answers.shift() ?? "") }),
+        ...(cliOptions.sleep === undefined ? {} : { sleep: cliOptions.sleep }),
       };
       const code = await main(argv, io);
       return { code, out: out.join("\n"), err: err.join("\n") };

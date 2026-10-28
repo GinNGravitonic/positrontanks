@@ -108,12 +108,37 @@ export class ApiClient {
       if (e instanceof Error && e.name === "TimeoutError") {
         throw new CliError(EXIT.server, "network", `${method} ${url.href} timed out after ${String(this.timeoutMs / 1000)} s`);
       }
-      const cause = e instanceof Error && e.cause instanceof Error ? e.cause.message : String(e);
-      throw new CliError(EXIT.server, "network", `cannot reach ${this.server}: ${cause}`);
+      throw this.unreachable(e);
     }
     const contentType = response.headers.get("content-type") ?? "";
     if (response.ok) return { status: response.status, contentType, text };
     throw responseError(response.status, text, `${method} ${url.pathname}`);
+  }
+
+  /**
+   * Opens a Server-Sent Events stream (`GET path`, always with the API key)
+   * and returns its body, with no timeout; `lastEventId` is sent as
+   * `Last-Event-ID`, as EventSource would on a reconnect.
+   */
+  async openStream(path: string, lastEventId?: string): Promise<ReadableStream<Uint8Array>> {
+    if (this.apiKey === undefined) throw new CliError(EXIT.notAuthenticated, "not_authenticated", NOT_AUTHENTICATED_MESSAGE);
+    const url = this.url(path);
+    const headers: Record<string, string> = { accept: "text/event-stream", authorization: `Bearer ${this.apiKey}` };
+    if (lastEventId !== undefined) headers["last-event-id"] = lastEventId;
+    let response: Response;
+    try {
+      response = await fetch(url, { headers });
+    } catch (e) {
+      throw this.unreachable(e);
+    }
+    if (!response.ok) throw responseError(response.status, await response.text(), `GET ${url.pathname}`);
+    if (response.body === null) throw new CliError(EXIT.server, "bad_response", `GET ${url.pathname} answered without a body`);
+    return response.body;
+  }
+
+  private unreachable(e: unknown): CliError {
+    const cause = e instanceof Error && e.cause instanceof Error ? e.cause.message : String(e);
+    return new CliError(EXIT.server, "network", `cannot reach ${this.server}: ${cause}`);
   }
 
   /** Sends one request and returns its JSON body; a 204 is `{}`. */
