@@ -9,27 +9,78 @@
  * `aumohta tick-cost --entry FILE [--ticks N] [--seed N] [--json]` runs the
  * tick cost check offline: each of the Entry file's Bots in the sample world,
  * reporting what the server's tick cost endpoints report.
+ *
+ * `aumohta <group> <command> ...` and `aumohta api METHOD PATH` talk to an
+ * Aumohta server over its HTTP API (docs/spec/cli-api.md; api/main.ts).
  */
 
 import { randomInt } from "node:crypto";
 import { parseArgs } from "node:util";
 import { TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@aumohta/engine-r1";
 import { RULESET_VERSIONS, type RulesetVersion } from "@aumohta/ruleset-data/rulesets";
+import { inputError } from "./api/client.js";
+import { SERVER_COMMANDS, serverMain, serverUsage } from "./api/main.js";
 import { InputError } from "./entry-file.js";
 import { budgetPeaks, formatBudgetPeaks, formatResult } from "./report.js";
 import { loadGame, playLocalGame, SEED_LIMIT, startGame, writeOutputs, type PlayOptions } from "./run.js";
 import { formatTickCosts, loadTickCostCheck, runTickCostCheck } from "./tick-cost.js";
 
-/** Where the CLI writes; tests capture it. */
+/** Where the CLI writes, and what the server commands read besides their arguments; tests replace them. */
 export interface Io {
   readonly out: (line: string) => void;
   readonly err: (line: string) => void;
+  /** The environment; process.env when left out. */
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  /** Reads all of stdin. */
+  readonly readStdin?: () => Promise<string>;
+  /** Asks for a secret on the terminal without echo; left out when there is no terminal. */
+  readonly askSecret?: (prompt: string) => Promise<string>;
 }
 
 const processIo: Io = {
   out: (line) => process.stdout.write(`${line}\n`),
   err: (line) => process.stderr.write(`${line}\n`),
+  readStdin: async () => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+    return Buffer.concat(chunks).toString("utf8");
+  },
+  ...(process.stdin.isTTY ? { askSecret } : {}),
 };
+
+/** Reads one line from the terminal in raw mode, echoing nothing. */
+function askSecret(prompt: string): Promise<string> {
+  const { stdin, stderr } = process;
+  stderr.write(prompt);
+  stdin.setRawMode(true);
+  stdin.setEncoding("utf8");
+  stdin.resume();
+  return new Promise((resolve, reject) => {
+    let secret = "";
+    const finish = (error?: Error) => {
+      stdin.off("data", onData);
+      stdin.setRawMode(false);
+      stdin.pause();
+      stderr.write("\n");
+      if (error === undefined) resolve(secret);
+      else reject(error);
+    };
+    const onData = (chunk: string) => {
+      for (const ch of chunk) {
+        if (ch === "\r" || ch === "\n") {
+          finish();
+          return;
+        }
+        if (ch === "\u0003" || ch === "\u0004") {
+          finish(inputError("cancelled"));
+          return;
+        }
+        secret = ch === "\u007f" || ch === "\b" ? secret.slice(0, -1) : secret + ch;
+      }
+    };
+    stdin.on("data", onData);
+  });
+}
 
 /** The latest Ruleset this CLI supports (docs/spec/cli-runner.md). */
 export const DEFAULT_RULESET: RulesetVersion = RULESET_VERSIONS[RULESET_VERSIONS.length - 1] ?? RULESET_VERSIONS[0];
@@ -84,7 +135,9 @@ Options:
   --seed N              The sample Game's seed, a whole number in [0, 2^32)
                         (default: ${String(TICK_COST_DEFAULT_SEED)})
   --json                Print each Bot's report as JSON, as the server does
-  -h, --help            Show this help`;
+  -h, --help            Show this help
+
+${serverUsage()}`;
 
 class UsageError extends Error {}
 
@@ -111,6 +164,7 @@ export async function main(argv: readonly string[], io: Io = processIo, play: Pa
       return command === undefined ? 2 : 0;
     }
     if (command === "tick-cost") return await tickCost(rest, io);
+    if (SERVER_COMMANDS.includes(command)) return await serverMain(command, rest, io);
     if (command !== "run") throw new UsageError(`unknown command "${command}"`);
     return await run(rest, io, play);
   } catch (e) {

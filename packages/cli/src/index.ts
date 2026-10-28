@@ -8,3 +8,8 @@ export { SEED_LIMIT, loadGame, outputFiles, playLocalGame, startGame, writeOutpu
 export type { GameOptions, LoadedGame, OutputFiles, PlayOptions } from "./run.js";
 export { formatTickCosts, loadTickCostCheck, runTickCostCheck } from "./tick-cost.js";
 export type { BotTickCost, LoadedTickCostCheck, TickCostCheckOptions } from "./tick-cost.js";
+export { ApiClient, CliError, EXIT, fetchList, REQUEST_TIMEOUT_MS } from "./api/client.js";
+export type { ErrorBody, ErrorDetail, Page, PageOptions, Query, RawResponse, RequestOptions, Schema } from "./api/client.js";
+export { configPath, DEFAULT_PROFILE, DEFAULT_SERVER, readConfig, resolveSettings, writeConfig } from "./api/config.js";
+export type { Config, Env, Profile, Settings, Source } from "./api/config.js";
+export { SERVER_COMMANDS, serverMain, serverUsage } from "./api/main.js";

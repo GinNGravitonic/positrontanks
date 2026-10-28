@@ -1,0 +1,5922 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Aumohta API",
+    "version": "0.0.0",
+    "description": "Programmable robot combat. Errors use one format everywhere: `{\"error\": {\"code\", \"message\", \"details\"?}}`; branch on `code`. Lists are paged: pass `limit` (1-200, default 50) and, for later pages, the previous response's `nextCursor` as `cursor`, repeating any filters; `nextCursor` is null on the last page."
+  },
+  "tags": [
+    {
+      "name": "System",
+      "description": "The server itself."
+    },
+    {
+      "name": "Accounts",
+      "description": "Signing up, logging in, and API keys."
+    },
+    {
+      "name": "Garage",
+      "description": "Your private Bot Designs and their immutable Revisions. Programs are visible only to their owner; other Players' designs are indistinguishable from missing ones."
+    },
+    {
+      "name": "Maps",
+      "description": "Maps and their immutable Revisions. Anyone may read Maps; only a Map's creator may add Revisions, rename or describe it, or archive it."
+    },
+    {
+      "name": "Rulesets",
+      "description": "The Ruleset versions this server hosts, side by side: each version's rules, language spec, Parts Catalog and Terrain table as data, and the prose documents that explain them as Markdown. Public and frozen per version."
+    },
+    {
+      "name": "Games",
+      "description": "Creating Games, browsing Open ones, and submitting or withdrawing Entries. A Game starts by itself the moment it is full and is cancelled by itself if not full by its fill deadline. Builds stay hidden while a Game is Open; Programs are never shown."
+    },
+    {
+      "name": "Spectating",
+      "description": "Watching Games: the latest Tick, a live stream of every Tick, and the Replay once a Game is Finished. Any authenticated Player may watch any Game from Running onward. Programs are never shown; a Bot's Program log goes only to its owner."
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Check that the server and its database are up",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "Healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/server": {
+      "get": {
+        "operationId": "getServerInfo",
+        "summary": "Get which optional features this server enables",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "This server's features.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Server"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "summary": "Get this OpenAPI document",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI 3.1 document describing this server.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/players": {
+      "post": {
+        "operationId": "signUp",
+        "summary": "Sign up: create a Player with a username and password",
+        "description": "Does not log in; call `logIn` afterwards for a session token.",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new Player.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Player"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/players/me": {
+      "get": {
+        "operationId": "getCurrentPlayer",
+        "summary": "Get the Player the request is authenticated as",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The authenticated Player.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Player"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/sessions": {
+      "post": {
+        "operationId": "logIn",
+        "summary": "Log in: exchange a username and password for a session token",
+        "description": "The token expires after 24 hours. Use an API key for long-lived access.",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A new session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Session"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/sessions/current": {
+      "delete": {
+        "operationId": "logOut",
+        "summary": "Log out: end the session whose token authenticates this request",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The session token no longer works."
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api-keys": {
+      "post": {
+        "operationId": "createApiKey",
+        "summary": "Create a long-lived API key",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewApiKey"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new key, shown only this once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiKey"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listApiKeys",
+        "summary": "List the authenticated Player's API keys that are not revoked",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The keys, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/api-keys/{apiKeyId}": {
+      "delete": {
+        "operationId": "revokeApiKey",
+        "summary": "Revoke an API key",
+        "description": "The key stops working immediately. Revoking the key that authenticates the request is allowed.",
+        "tags": [
+          "Accounts"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "apiKeyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/bot-designs": {
+      "post": {
+        "operationId": "createBotDesign",
+        "summary": "Create a Bot Design with its first Revision",
+        "description": "Validates the Build (parts exist, Components fit their Slots, cost within the Ruleset's largest Point Budget) and checks the Program; on any problem nothing is saved and every problem is listed in `details`. Program problems have path `program` plus `line` and `column`. The optional `description` and Revision 1's optional `notes` are private to you.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewBotDesign"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new design, at Revision 1.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotDesign"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listBotDesigns",
+        "summary": "List your Bot Designs",
+        "description": "Archived designs are left out unless `includeArchived` is true. Programs are not included.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "rulesetVersion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only designs authored against this Ruleset version."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "description": "At most this many items."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The `nextCursor` of the previous page; the first page if left out."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Your designs, most recently changed first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotDesignList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/bot-designs/{designId}": {
+      "get": {
+        "operationId": "getBotDesign",
+        "summary": "Get one of your Bot Designs with its latest Revision",
+        "description": "Archived designs can still be read.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The design.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotDesign"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateBotDesign",
+        "summary": "Rename or describe one of your Bot Designs",
+        "description": "Changes the name and/or description; fields left out are kept. They belong to the design, not a Revision, so this adds no Revision, and archived designs can be changed too. The description stays private to you.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BotDesignUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated design.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotDesign"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "archiveBotDesign",
+        "summary": "Archive one of your Bot Designs",
+        "description": "Deleting a design archives it: it is left out of listings, accepts no new Revisions, and cannot be used in new Entries. It and its Revisions remain readable, since Games may reference them. Archiving an archived design does nothing.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Archived."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/bot-designs/{designId}/revisions": {
+      "post": {
+        "operationId": "createBotDesignRevision",
+        "summary": "Save an edit to one of your Bot Designs as a new Revision",
+        "description": "Validated exactly as when creating a design, under the design's Ruleset version. Earlier Revisions are unchanged. The optional `notes` say what changed (Build and/or Program); like the rest of the Revision they can never be changed, and they are private to you.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewBotDesignRevision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new Revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotDesignRevision"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listBotDesignRevisions",
+        "summary": "List the Revisions of one of your Bot Designs",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "description": "At most this many items."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The `nextCursor` of the previous page; the first page if left out."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Revisions, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotDesignRevisionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/bot-designs/{designId}/revisions/{revision}": {
+      "get": {
+        "operationId": "getBotDesignRevision",
+        "summary": "Get one Revision of one of your Bot Designs, with its Build and Program",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "The Revision number."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotDesignRevision"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteBotDesignRevision",
+        "summary": "Delete a Revision of one of your Bot Designs that no Game uses",
+        "description": "Truly deletes the Revision; its number is not reused. Refused with 409 `revision_in_use` if any Game uses it (an Entry in any state, withdrawn Entries aside), and with 409 `latest_revision` for the design's latest Revision, which is its current state (archive the design instead). Revisions of archived designs can be deleted too.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "The Revision number."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/bot-designs/{designId}/copies": {
+      "post": {
+        "operationId": "copyBotDesignToRuleset",
+        "summary": "Copy one of your Bot Designs to another Ruleset version",
+        "description": "Re-validates a Revision (the latest by default) under the target Ruleset. If it is valid there, it is saved as a new design in that version, at Revision 1, and the source is untouched. Otherwise nothing is saved and the response is 422 `copy_has_problems` listing every problem (removed Components, a cost over the largest Point Budget, unknown built-ins, ...). With `dryRun` the report is returned with 200 and nothing is saved either way. Archived designs can be copied. The copy keeps the source's description; its Revision 1 takes `notes` from the request (empty if left out), not the source's.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyToRuleset"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The dry-run report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyReport"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "The copy and its (clean) report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopiedBotDesign"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/tick-cost-checks": {
+      "post": {
+        "operationId": "checkTickCost",
+        "summary": "Check the tick cost of a Program in a sample world",
+        "description": "Validates the Build and Program exactly as `createBotDesign` does (problems answer 422 with every problem in `details`), then runs the Program's init phase and `tick()` for `ticks` Ticks in the sample world and reports the operations each run used, the peak, and persistent memory. Nothing is saved. A local-server feature: servers that do not enable it answer 410 `feature_disabled` (see `getServerInfo`).",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TickCostCheck"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TickCostReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/bot-designs/{designId}/tick-cost-checks": {
+      "post": {
+        "operationId": "checkBotDesignTickCost",
+        "summary": "Check the tick cost of a Revision of one of your Bot Designs",
+        "description": "As `checkTickCost`, for a saved Revision (the latest by default) under the design's Ruleset version. Archived designs can be checked. Another Player's design answers 404.",
+        "tags": [
+          "Garage"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BotDesignTickCostCheck"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The report.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TickCostReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/maps": {
+      "post": {
+        "operationId": "createMap",
+        "summary": "Create a Map with its first Revision",
+        "description": "Validates the content as Map Format 1 under this server's Map size limits; on any problem nothing is saved and every problem is listed in `details`, with paths such as `map.obstacles[2].hitPoints`. Terrain names are checked against a Ruleset only when a Game uses the Map. The optional `notes` go on Revision 1.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewMap"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new Map, at Revision 1.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Map"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listMaps",
+        "summary": "List Maps",
+        "description": "Anyone may list Maps; no credential is needed. Archived Maps are left out unless `includeArchived` is true. Map content is not included.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "creator",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Only Maps created by the Player with this username."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "description": "At most this many items."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The `nextCursor` of the previous page; the first page if left out."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Maps, most recently changed first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/maps/{mapId}": {
+      "get": {
+        "operationId": "getMap",
+        "summary": "Get a Map with its latest Revision",
+        "description": "Anyone may read any Map, archived or not; no credential is needed.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Map.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Map"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "archiveMap",
+        "summary": "Archive a Map you created",
+        "description": "Deleting a Map archives it: it is left out of listings, accepts no new Revisions, and cannot be chosen for new Games. It and its Revisions remain readable by everyone, since Games may reference them. Archiving an archived Map does nothing. Only the Map's creator may archive it.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Archived."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMap",
+        "summary": "Rename or describe a Map you created",
+        "description": "Changes the name and/or description; fields left out are kept. They belong to the Map, not a Revision, so this adds no Revision, and archived Maps can be changed too. Both are public, like the rest of the Map. Only the Map's creator may change them.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MapUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated Map.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Map"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/maps/{mapId}/revisions": {
+      "post": {
+        "operationId": "createMapRevision",
+        "summary": "Save an edit to a Map you created as a new Revision",
+        "description": "Validated exactly as when creating a Map. Earlier Revisions are unchanged, and Games that use them are unaffected. Only the Map's creator may add Revisions. The optional `notes` say what changed; like the rest of the Revision they are public and can never be changed.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewMapRevision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new Revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapRevision"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listMapRevisions",
+        "summary": "List the Revisions of a Map",
+        "description": "Anyone may list them; no credential is needed.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "description": "At most this many items."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The `nextCursor` of the previous page; the first page if left out."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Revisions, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapRevisionList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/maps/{mapId}/revisions/{revision}": {
+      "get": {
+        "operationId": "getMapRevision",
+        "summary": "Get one Revision of a Map, with its content",
+        "description": "Anyone may read it; no credential is needed. Revisions never change once saved.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "The Revision number."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Revision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapRevision"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMapRevision",
+        "summary": "Delete a Revision of a Map you created that no Game uses",
+        "description": "Truly deletes the Revision; its number is not reused. Refused with 409 `revision_in_use` if any Game, in any state, uses it, and with 409 `latest_revision` for the Map's latest Revision, which is its current state (archive the Map instead). Only the Map's creator may delete Revisions; those of archived Maps can be deleted too.",
+        "tags": [
+          "Maps"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "mapId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "The Revision number."
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rulesets": {
+      "get": {
+        "operationId": "listRulesets",
+        "summary": "List the hosted Ruleset versions",
+        "description": "Anyone may list them; no credential is needed.",
+        "tags": [
+          "Rulesets"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The hosted versions, oldest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetList"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rulesets/{version}": {
+      "get": {
+        "operationId": "getRuleset",
+        "summary": "Get a hosted Ruleset version's summary",
+        "description": "Its Tick rate, Point Budget range and supported Map Formats. Anyone may read it; no credential is needed. A hosted version never changes.",
+        "tags": [
+          "Rulesets"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A hosted Ruleset version, such as `r1`.",
+            "examples": {
+              "r1": {
+                "value": "r1"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The summary.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rulesets/{version}/rules": {
+      "get": {
+        "operationId": "getRulesetRules",
+        "summary": "Get a Ruleset version's rules",
+        "description": "Its global values: Tick rate, Point Budget range, Map Formats, Slot types and language limits. Anyone may read it; no credential is needed. A hosted version never changes.",
+        "tags": [
+          "Rulesets"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A hosted Ruleset version, such as `r1`.",
+            "examples": {
+              "r1": {
+                "value": "r1"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The rules.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetRules"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rulesets/{version}/language": {
+      "get": {
+        "operationId": "getRulesetLanguage",
+        "summary": "Get a Ruleset version's language spec",
+        "description": "The built-in functions (with argument counts and operation costs), the built-in values a Program may read (`self.*`, `game.*`, `map.*`), list and string methods, and the language limits. Anyone may read it; no credential is needed. A hosted version never changes.",
+        "tags": [
+          "Rulesets"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A hosted Ruleset version, such as `r1`.",
+            "examples": {
+              "r1": {
+                "value": "r1"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The language spec.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetLanguage"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rulesets/{version}/parts": {
+      "get": {
+        "operationId": "getPartsCatalog",
+        "summary": "Get a Ruleset version's Parts Catalog",
+        "description": "Every Chassis and Component with its description, cost, Slots and stats, and the stat definitions. Anyone may read it; no credential is needed. A hosted version never changes.",
+        "tags": [
+          "Rulesets"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A hosted Ruleset version, such as `r1`.",
+            "examples": {
+              "r1": {
+                "value": "r1"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Parts Catalog.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartsCatalog"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rulesets/{version}/terrains": {
+      "get": {
+        "operationId": "getTerrainTable",
+        "summary": "Get a Ruleset version's Terrain table",
+        "description": "Every Terrain with its description and its speed and acceleration multipliers. Anyone may read it; no credential is needed. A hosted version never changes.",
+        "tags": [
+          "Rulesets"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A hosted Ruleset version, such as `r1`.",
+            "examples": {
+              "r1": {
+                "value": "r1"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Terrain table.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainTable"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rulesets/{version}/docs": {
+      "get": {
+        "operationId": "listRulesetDocs",
+        "summary": "List a Ruleset version's prose documents",
+        "description": "The documents that explain the version in prose, with where each is served: the simulation rules (`engine`), the language specification (`language`) and the Parts Catalog with its balance numbers (`catalog`). The machine-readable endpoints give the same values as data. Anyone may read it; no credential is needed. A hosted version never changes.",
+        "tags": [
+          "Rulesets"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A hosted Ruleset version, such as `r1`.",
+            "examples": {
+              "r1": {
+                "value": "r1"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The documents, in a fixed order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RulesetDocList"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/rulesets/{version}/docs/{doc}": {
+      "get": {
+        "operationId": "getRulesetDoc",
+        "summary": "Get one of a Ruleset version's prose documents",
+        "description": "The document as Markdown. Links between a version's documents use the paths they are served at (`/rulesets/{version}/docs/{doc}`, with a heading anchor). Anyone may read it; no credential is needed. A hosted version never changes. An unknown version or document is 404 `not_found`.",
+        "tags": [
+          "Rulesets"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "A hosted Ruleset version, such as `r1`.",
+            "examples": {
+              "r1": {
+                "value": "r1"
+              }
+            }
+          },
+          {
+            "name": "doc",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "engine",
+                "language",
+                "catalog"
+              ]
+            },
+            "description": "`engine`: the simulation rules (movement, collisions, ramming, weapons, sensors, Programs). `language`: the language specification (grammar, built-ins, operation costs, limits). `catalog`: the Parts Catalog and balance numbers, with the reasoning behind them."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The document.",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games": {
+      "post": {
+        "operationId": "createGame",
+        "summary": "Create an Open Game",
+        "description": "You become its Initiator; you need not enter it. The Map must not be archived, its Revision must be in a Map Format the Ruleset supports and use only Terrains the Ruleset defines, and `playerCount` may not exceed its Spawn Zones. `pointBudget` must be within the Ruleset's range, and `timeLimitSeconds` and `fillTimeoutSeconds` within the server's maxima. Every problem is listed in `details`.",
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewGame"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new Game, Open with no Entries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Game"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "listOpenGames",
+        "summary": "Browse Open Games",
+        "description": "Only Open Games are listed, newest first, filtered by every parameter given.",
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "rulesetVersion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "playerCount",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "minPointBudget",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Only Games whose Point Budget is at least this."
+          },
+          {
+            "name": "maxPointBudget",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Only Games whose Point Budget is at most this."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "description": "At most this many items."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The `nextCursor` of the previous page; the first page if left out."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Open Games.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/players/me/games": {
+      "get": {
+        "operationId": "listMyGames",
+        "summary": "List the Games you initiated or entered",
+        "description": "Newest first, in any state unless `state` is given.",
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated states to include, from open, running, finished, cancelled.",
+            "examples": {
+              "live": {
+                "value": "open,running"
+              }
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            },
+            "description": "At most this many items."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The `nextCursor` of the previous page; the first page if left out."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Your Games.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games/{gameId}": {
+      "get": {
+        "operationId": "getGame",
+        "summary": "Get a Game with its Entries",
+        "description": "Any Player may read any Game. Other Players' Builds and costs are hidden while the Game is Open (and if it was Cancelled); Programs are never shown.",
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Game.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Game"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games/{gameId}/cancel": {
+      "post": {
+        "operationId": "cancelGame",
+        "summary": "Cancel an Open Game you initiated",
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Cancelled Game.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Game"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games/{gameId}/entries": {
+      "post": {
+        "operationId": "submitGameEntry",
+        "summary": "Submit an Entry to an Open Game",
+        "description": "Each Bot is one of your unarchived Bot Designs (at a given Revision, the latest by default) authored for the Game's Ruleset, with a Bot Name unique within the Game ignoring case. Together they must cost at most the Point Budget and be few enough for at least one of the Map's Spawn Zones. You may submit several Entries to one Game. The Entry that fills the Game starts it: it is Running in the response. If the Game is no longer Open (it filled, was cancelled or timed out) the answer is 409 `game_not_open`.",
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewGameEntry"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The new Entry and the Game.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmittedGameEntry"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games/{gameId}/entries/{entryId}": {
+      "delete": {
+        "operationId": "withdrawGameEntry",
+        "summary": "Withdraw one of your Entries from an Open Game",
+        "description": "The Entry is removed and its slot freed. Once a Game has started, Entries cannot be withdrawn.",
+        "tags": [
+          "Games"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Withdrawn."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games/{gameId}/snapshot": {
+      "get": {
+        "operationId": "getGameSnapshot",
+        "summary": "Get the latest Tick of a Running or Finished Game",
+        "description": "The Game, and its Replay header with only the latest Tick played in `replay.ticks` (the last Tick, once Finished). Open Games answer 409 `game_not_started`, as do Running Games the server has not started playing yet; Cancelled Games answer 409 `game_cancelled`.",
+        "tags": [
+          "Spectating"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The snapshot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games/{gameId}/stream": {
+      "get": {
+        "operationId": "streamGame",
+        "summary": "Watch a Game live, one event per Tick (Server-Sent Events)",
+        "description": "A `text/event-stream` of JSON events. First a `snapshot` (a GameSnapshot), sent as soon as the Game is being played; then a `tick` (a ReplayTick) for every Tick played after it, in order, with the Tick as the event id; then, once the Game is Finished, an `end` (a GameEnded) and the stream closes. A Finished Game gives its last snapshot and `end` at once. If the stream closes without `end` (the server is restarting, or you read too slowly and fell too far behind), reconnect: you get a fresh snapshot. Comment lines keep idle streams open. Open and Cancelled Games answer 409 as for the snapshot. Browsers must read the stream with `fetch` (a ReadableStream body, sending the bearer `Authorization` header), since the native EventSource cannot send it; on reconnect, send the last event id as `Last-Event-ID`, as EventSource would (the server answers with a fresh snapshot regardless).",
+        "tags": [
+          "Spectating"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The event stream. Its `data` lines are GameSnapshot (`snapshot`), ReplayTick (`tick`) and GameEnded (`end`) JSON.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games/{gameId}/replay": {
+      "get": {
+        "operationId": "getGameReplay",
+        "summary": "Get the Replay of a Finished Game",
+        "description": "Every Tick's events and positions, and every participating Build; never a Program. Games not yet Finished answer 409 `game_not_finished`; Cancelled Games, which have no Replay, 409 `game_cancelled`.",
+        "tags": [
+          "Spectating"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Game and its Replay.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GameReplay"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/games/{gameId}/program-logs": {
+      "get": {
+        "operationId": "getMyProgramLogs",
+        "summary": "Get your own Bots' Program logs in a Game",
+        "description": "Runtime errors, halts, operations used and `log()` output of each of your Bots' Program runs, so far while the Game is Running. Only your own Bots are ever included; if you have none in the Game the answer is 404, as it is for a Game Finished before Program logs were kept. Narrow it with `fromTick` and `toTick` (inclusive) to page through a long Game or poll a live one. Open and Cancelled Games answer 409 as for the snapshot.",
+        "tags": [
+          "Spectating"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "gameId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fromTick",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "toTick",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Your Bots' Program logs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramLogs"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Stable snake_case identifier.",
+                "examples": [
+                  "not_found"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "Human-readable explanation."
+              },
+              "details": {
+                "type": "array",
+                "description": "One entry per problem with a specific part of the request.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "path",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "For a problem in a Program: its line."
+                    },
+                    "column": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "description": "For a problem in a Program: its column."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "ok"
+          }
+        }
+      },
+      "Server": {
+        "type": "object",
+        "required": [
+          "features"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "features": {
+            "type": "object",
+            "description": "Optional features, and whether this server enables each. Disabled features answer 410 `feature_disabled`.",
+            "required": [
+              "tickCostCheck"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "tickCostCheck": {
+                "type": "boolean",
+                "description": "The tick cost check (`checkTickCost`, `checkBotDesignTickCost`), a local-server feature: on only where the server sets AUMOHTA_TICK_COST_CHECK=on."
+              }
+            }
+          }
+        }
+      },
+      "Player": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "createdAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Credentials": {
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{3,32}$",
+            "description": "3–32 letters, digits, `-` and `_`. Unique ignoring case; the case given at signup is kept for display.",
+            "examples": [
+              "ada_bot"
+            ]
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 256
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "required": [
+          "token",
+          "expiresAt",
+          "player"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Send as `Authorization: Bearer <token>`."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "player": {
+            "$ref": "#/components/schemas/Player"
+          }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "prefix",
+          "createdAt",
+          "lastUsedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string",
+            "description": "The start of the key, to tell keys apart."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "NewApiKey": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        }
+      },
+      "CreatedApiKey": {
+        "type": "object",
+        "required": [
+          "key",
+          "apiKey"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The API key itself. Shown only now; store it safely."
+          },
+          "apiKey": {
+            "$ref": "#/components/schemas/ApiKey"
+          }
+        }
+      },
+      "ApiKeyList": {
+        "type": "object",
+        "required": [
+          "apiKeys"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "apiKeys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiKey"
+            }
+          }
+        }
+      },
+      "Build": {
+        "type": "object",
+        "description": "The physical half of a Bot Design: one Chassis, Components installed by Slot id, and Armor per side. Ids refer to the design's Ruleset's Parts Catalog.",
+        "required": [
+          "chassis",
+          "components",
+          "armor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "chassis": {
+            "type": "string",
+            "examples": [
+              "scout"
+            ]
+          },
+          "components": {
+            "type": "object",
+            "description": "Slot id to Component id; empty Slots are omitted.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "examples": [
+              {
+                "gun": "pelletGun",
+                "eye": "radar",
+                "drive": "wheels"
+              }
+            ]
+          },
+          "armor": {
+            "type": "object",
+            "description": "An Armor Component id per side, or null for none.",
+            "required": [
+              "front",
+              "left",
+              "right",
+              "rear"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "front": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "left": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "right": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "rear": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "BotDesignRevision": {
+        "type": "object",
+        "description": "An immutable snapshot of a Bot Design. The Program and notes are visible only to the design's owner.",
+        "required": [
+          "designId",
+          "number",
+          "build",
+          "program",
+          "cost",
+          "notes",
+          "createdAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "designId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "build": {
+            "$ref": "#/components/schemas/Build"
+          },
+          "program": {
+            "type": "string",
+            "description": "Source code in the design's Ruleset's language."
+          },
+          "cost": {
+            "type": "integer",
+            "description": "The Build's point cost."
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Private to the owner; never shown in Games."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BotDesignRevisionSummary": {
+        "type": "object",
+        "required": [
+          "number",
+          "cost",
+          "notes",
+          "createdAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "cost": {
+            "type": "integer"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Private to the owner; never shown in Games."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CopiedFrom": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "The design and Revision this design was copied from, if it was made by Copy to Ruleset.",
+        "required": [
+          "designId",
+          "revision"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "designId": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "BotDesignSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "rulesetVersion",
+          "latestRevision",
+          "copiedFrom",
+          "createdAt",
+          "updatedAt",
+          "archivedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Private to the owner; never shown in Games. Empty if none."
+          },
+          "rulesetVersion": {
+            "type": "string"
+          },
+          "latestRevision": {
+            "$ref": "#/components/schemas/BotDesignRevisionSummary"
+          },
+          "copiedFrom": {
+            "$ref": "#/components/schemas/CopiedFrom"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Set once the design is archived."
+          }
+        }
+      },
+      "BotDesign": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "rulesetVersion",
+          "latestRevision",
+          "copiedFrom",
+          "createdAt",
+          "updatedAt",
+          "archivedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Private to the owner; never shown in Games. Empty if none."
+          },
+          "rulesetVersion": {
+            "type": "string"
+          },
+          "latestRevision": {
+            "$ref": "#/components/schemas/BotDesignRevision"
+          },
+          "copiedFrom": {
+            "$ref": "#/components/schemas/CopiedFrom"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Set once the design is archived."
+          }
+        }
+      },
+      "BotDesignList": {
+        "type": "object",
+        "required": [
+          "botDesigns",
+          "nextCursor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "botDesigns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BotDesignSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pass as `cursor` for the next page; null on the last page."
+          }
+        }
+      },
+      "BotDesignRevisionList": {
+        "type": "object",
+        "required": [
+          "revisions",
+          "nextCursor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BotDesignRevisionSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pass as `cursor` for the next page; null on the last page."
+          }
+        }
+      },
+      "NewBotDesign": {
+        "type": "object",
+        "required": [
+          "name",
+          "rulesetVersion",
+          "build",
+          "program"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Plain text, trimmed, at most 2000 characters; empty if none.",
+            "default": ""
+          },
+          "rulesetVersion": {
+            "type": "string",
+            "examples": [
+              "r1"
+            ]
+          },
+          "build": {
+            "$ref": "#/components/schemas/Build"
+          },
+          "program": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Notes for Revision 1. What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Private to the owner; never shown in Games.",
+            "default": ""
+          }
+        }
+      },
+      "NewBotDesignRevision": {
+        "type": "object",
+        "required": [
+          "build",
+          "program"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "build": {
+            "$ref": "#/components/schemas/Build"
+          },
+          "program": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Private to the owner; never shown in Games.",
+            "default": ""
+          }
+        }
+      },
+      "BotDesignUpdate": {
+        "type": "object",
+        "description": "The fields to change; at least one. Fields left out are kept.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Plain text, trimmed, at most 2000 characters; empty if none."
+          }
+        }
+      },
+      "CopyToRuleset": {
+        "type": "object",
+        "required": [
+          "rulesetVersion"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rulesetVersion": {
+            "type": "string",
+            "description": "The hosted Ruleset version to copy into."
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The Revision to copy; defaults to the latest."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The new design's name; defaults to the source design's."
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Notes for the copy's Revision 1 (the source's are not copied). What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Private to the owner; never shown in Games.",
+            "default": ""
+          },
+          "dryRun": {
+            "type": "boolean",
+            "default": false,
+            "description": "Report problems without saving anything."
+          }
+        }
+      },
+      "CopyReport": {
+        "type": "object",
+        "description": "How a Revision fares under another Ruleset version.",
+        "required": [
+          "rulesetVersion",
+          "sourceRevision",
+          "ok",
+          "cost",
+          "problems"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rulesetVersion": {
+            "type": "string"
+          },
+          "sourceRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "ok": {
+            "type": "boolean",
+            "description": "True when the copy is valid under the target Ruleset."
+          },
+          "cost": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The Build's cost under the target Ruleset, if the Build is valid there."
+          },
+          "problems": {
+            "type": "array",
+            "description": "Everything that makes the copy invalid: Components or Chassis the target Ruleset lacks, a cost over its largest Point Budget, and Program errors such as unknown built-ins. Same entries as error `details`.",
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "message"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "For a problem in a Program: its line."
+                },
+                "column": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "For a problem in a Program: its column."
+                }
+              }
+            }
+          }
+        }
+      },
+      "CopiedBotDesign": {
+        "type": "object",
+        "required": [
+          "botDesign",
+          "report"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "botDesign": {
+            "$ref": "#/components/schemas/BotDesign"
+          },
+          "report": {
+            "$ref": "#/components/schemas/CopyReport"
+          }
+        }
+      },
+      "TickCostCheck": {
+        "type": "object",
+        "description": "A Build and Program to check, as when creating a Bot Design.",
+        "required": [
+          "rulesetVersion",
+          "build",
+          "program"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rulesetVersion": {
+            "type": "string",
+            "examples": [
+              "r1"
+            ]
+          },
+          "build": {
+            "$ref": "#/components/schemas/Build"
+          },
+          "program": {
+            "type": "string"
+          },
+          "ticks": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "How many Ticks to run `tick()` for."
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "default": 1,
+            "description": "The sample Game's seed, which drives `random()` and which side the Bot starts on."
+          }
+        }
+      },
+      "BotDesignTickCostCheck": {
+        "type": "object",
+        "required": [],
+        "additionalProperties": false,
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The Revision to check; defaults to the latest."
+          },
+          "ticks": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20,
+            "description": "How many Ticks to run `tick()` for."
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295,
+            "default": 1,
+            "description": "The sample Game's seed, which drives `random()` and which side the Bot starts on."
+          }
+        }
+      },
+      "TickCostReport": {
+        "type": "object",
+        "description": "How a Program used its Operation Budget in the sample world: a fixed Map, the checked Bot (\"you\") and one sample Foe (\"sampleFoe\") 20 m ahead, facing it, with the same Build and a Program that only drives in a circle. Only the checked Bot's runs are reported. The same request always gives the same report.",
+        "required": [
+          "rulesetVersion",
+          "operationBudget",
+          "seed",
+          "ticks",
+          "init",
+          "runs",
+          "peak",
+          "memory",
+          "halt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rulesetVersion": {
+            "type": "string"
+          },
+          "operationBudget": {
+            "type": "integer",
+            "description": "Operations per Tick, set by the Build's Processor."
+          },
+          "seed": {
+            "type": "integer"
+          },
+          "ticks": {
+            "type": "integer",
+            "description": "The Ticks asked for."
+          },
+          "init": {
+            "type": "object",
+            "description": "The init phase, with its own budget.",
+            "required": [
+              "outcome",
+              "operations",
+              "memoryCells",
+              "error",
+              "budget"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "outOfBudget",
+                  "error"
+                ]
+              },
+              "operations": {
+                "type": "integer",
+                "description": "Operations charged during the run."
+              },
+              "memoryCells": {
+                "type": "integer",
+                "description": "Persistent state at the end of the run, in cells."
+              },
+              "error": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "Where and why the run stopped early, or null if it completed.",
+                "required": [
+                  "line",
+                  "column",
+                  "message"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "line": {
+                    "type": "integer"
+                  },
+                  "column": {
+                    "type": "integer"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              },
+              "budget": {
+                "type": "integer"
+              }
+            }
+          },
+          "runs": {
+            "type": "array",
+            "description": "One per Tick `tick()` ran, from Tick 1. Fewer than `ticks` if the Program halted or the sample Game ended early (one Bot Disabled the other).",
+            "items": {
+              "type": "object",
+              "required": [
+                "tick",
+                "outcome",
+                "operations",
+                "memoryCells",
+                "error"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "tick": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "completed",
+                    "outOfBudget",
+                    "error"
+                  ]
+                },
+                "operations": {
+                  "type": "integer",
+                  "description": "Operations charged during the run."
+                },
+                "memoryCells": {
+                  "type": "integer",
+                  "description": "Persistent state at the end of the run, in cells."
+                },
+                "error": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "description": "Where and why the run stopped early, or null if it completed.",
+                  "required": [
+                    "line",
+                    "column",
+                    "message"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "line": {
+                      "type": "integer"
+                    },
+                    "column": {
+                      "type": "integer"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "peak": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The most operations one `tick()` used, and the first Tick it did; null if `tick()` never ran.",
+            "required": [
+              "operations",
+              "tick"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "operations": {
+                "type": "integer"
+              },
+              "tick": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "memory": {
+            "type": "object",
+            "description": "The largest persistent state over every run, and the Ruleset's cap, in cells.",
+            "required": [
+              "peak",
+              "cap"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "peak": {
+                "type": "integer"
+              },
+              "cap": {
+                "type": "integer"
+              }
+            }
+          },
+          "halt": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "When (0 for the init phase) and why the Program halted, or null.",
+            "required": [
+              "tick",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "tick": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "MapFormat1": {
+        "type": "object",
+        "description": "A Map in Map Format 1. A rectangle [0, width] x [0, height] in meters, origin top-left, y down. Every feature must lie within the bounds; Spawn Zones may not touch or overlap Obstacles or each other; at least 2 Spawn Zones. Unknown fields are errors. The server's Map size limits also apply.",
+        "required": [
+          "format",
+          "width",
+          "height",
+          "baseTerrain",
+          "terrainRegions",
+          "obstacles",
+          "spawnZones"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "format": {
+            "const": 1
+          },
+          "width": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "height": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "baseTerrain": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The Terrain everywhere no Terrain Region covers."
+          },
+          "terrainRegions": {
+            "type": "array",
+            "description": "Later-listed regions win where they overlap. Either `shape: \"polygon\"` with `points`, or `shape: \"circle\"` with `x`, `y` and `radius`.",
+            "items": {
+              "type": "object",
+              "required": [
+                "terrain",
+                "shape"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "terrain": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "shape": {
+                  "type": "string",
+                  "enum": [
+                    "polygon",
+                    "circle"
+                  ]
+                },
+                "points": {
+                  "type": "array",
+                  "minItems": 3,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "description": "For `shape: \"polygon\"`: a simple, non-degenerate polygon."
+                },
+                "x": {
+                  "type": "number",
+                  "description": "For `shape: \"circle\"`: the centre."
+                },
+                "y": {
+                  "type": "number",
+                  "description": "For `shape: \"circle\"`: the centre."
+                },
+                "radius": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "For `shape: \"circle\"`."
+                }
+              }
+            }
+          },
+          "obstacles": {
+            "type": "array",
+            "description": "Permanent, or destructible with Hit Points. Either `shape: \"polygon\"` with `points`, or `shape: \"circle\"` with `x`, `y` and `radius`.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "destructible",
+                "shape"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                  "description": "Unique within the Map."
+                },
+                "destructible": {
+                  "type": "boolean"
+                },
+                "hitPoints": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "Required on, and only on, destructible Obstacles."
+                },
+                "shape": {
+                  "type": "string",
+                  "enum": [
+                    "polygon",
+                    "circle"
+                  ]
+                },
+                "points": {
+                  "type": "array",
+                  "minItems": 3,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "description": "For `shape: \"polygon\"`: a simple, non-degenerate polygon."
+                },
+                "x": {
+                  "type": "number",
+                  "description": "For `shape: \"circle\"`: the centre."
+                },
+                "y": {
+                  "type": "number",
+                  "description": "For `shape: \"circle\"`: the centre."
+                },
+                "radius": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "For `shape: \"circle\"`."
+                }
+              }
+            }
+          },
+          "spawnZones": {
+            "type": "array",
+            "minItems": 2,
+            "description": "One per supported Player. Either `shape: \"polygon\"` with `points`, or `shape: \"circle\"` with `x`, `y` and `radius`.",
+            "items": {
+              "type": "object",
+              "required": [
+                "heading",
+                "capacity",
+                "shape"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "heading": {
+                  "type": "number",
+                  "minimum": 0,
+                  "exclusiveMaximum": 360,
+                  "description": "Starting Heading, degrees."
+                },
+                "capacity": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The most Bots one Entry may place here."
+                },
+                "shape": {
+                  "type": "string",
+                  "enum": [
+                    "polygon",
+                    "circle"
+                  ]
+                },
+                "points": {
+                  "type": "array",
+                  "minItems": 3,
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "description": "For `shape: \"polygon\"`: a simple, non-degenerate polygon."
+                },
+                "x": {
+                  "type": "number",
+                  "description": "For `shape: \"circle\"`: the centre."
+                },
+                "y": {
+                  "type": "number",
+                  "description": "For `shape: \"circle\"`: the centre."
+                },
+                "radius": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "For `shape: \"circle\"`."
+                }
+              }
+            }
+          }
+        }
+      },
+      "MapRevision": {
+        "type": "object",
+        "description": "An immutable snapshot of a Map.",
+        "required": [
+          "mapId",
+          "number",
+          "map",
+          "notes",
+          "createdAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "mapId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "map": {
+            "$ref": "#/components/schemas/MapFormat1"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Public, like the rest of the Map."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MapRevisionSummary": {
+        "type": "object",
+        "required": [
+          "number",
+          "format",
+          "width",
+          "height",
+          "spawnZones",
+          "notes",
+          "createdAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "format": {
+            "type": "integer",
+            "description": "The Map Format."
+          },
+          "width": {
+            "type": "number"
+          },
+          "height": {
+            "type": "number"
+          },
+          "spawnZones": {
+            "type": "integer",
+            "description": "How many Spawn Zones, and so at most how many Players."
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Public, like the rest of the Map."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "MapCreator": {
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "MapSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "creator",
+          "latestRevision",
+          "createdAt",
+          "updatedAt",
+          "archivedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Plain text, trimmed, at most 2000 characters; empty if none."
+          },
+          "creator": {
+            "$ref": "#/components/schemas/MapCreator"
+          },
+          "latestRevision": {
+            "$ref": "#/components/schemas/MapRevisionSummary"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Set once the Map is archived."
+          }
+        }
+      },
+      "Map": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "creator",
+          "latestRevision",
+          "createdAt",
+          "updatedAt",
+          "archivedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Plain text, trimmed, at most 2000 characters; empty if none."
+          },
+          "creator": {
+            "$ref": "#/components/schemas/MapCreator"
+          },
+          "latestRevision": {
+            "$ref": "#/components/schemas/MapRevision"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archivedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Set once the Map is archived."
+          }
+        }
+      },
+      "MapList": {
+        "type": "object",
+        "required": [
+          "maps",
+          "nextCursor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "maps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MapSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pass as `cursor` for the next page; null on the last page."
+          }
+        }
+      },
+      "MapRevisionList": {
+        "type": "object",
+        "required": [
+          "revisions",
+          "nextCursor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "revisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MapRevisionSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pass as `cursor` for the next page; null on the last page."
+          }
+        }
+      },
+      "NewMap": {
+        "type": "object",
+        "required": [
+          "name",
+          "map"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Plain text, trimmed, at most 2000 characters; empty if none.",
+            "default": ""
+          },
+          "map": {
+            "$ref": "#/components/schemas/MapFormat1"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Notes for Revision 1. What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Public, like the rest of the Map.",
+            "default": ""
+          }
+        }
+      },
+      "MapUpdate": {
+        "type": "object",
+        "description": "The fields to change; at least one. Fields left out are kept.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Plain text, trimmed, at most 2000 characters; empty if none."
+          }
+        }
+      },
+      "NewMapRevision": {
+        "type": "object",
+        "required": [
+          "map"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "map": {
+            "$ref": "#/components/schemas/MapFormat1"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "What changed in this Revision. Plain text, trimmed, at most 500 characters; empty if none. Set when the Revision is created and never changed. Public, like the rest of the Map.",
+            "default": ""
+          }
+        }
+      },
+      "RulesetSummary": {
+        "type": "object",
+        "required": [
+          "version",
+          "tickRate",
+          "pointBudget",
+          "mapFormats"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "The Ruleset version.",
+            "examples": [
+              "r1"
+            ]
+          },
+          "tickRate": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Ticks per simulated second."
+          },
+          "pointBudget": {
+            "type": "object",
+            "description": "The range an Initiator may choose a Game's Point Budget from.",
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "mapFormats": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "The Map Formats this Ruleset supports."
+          }
+        }
+      },
+      "RulesetList": {
+        "type": "object",
+        "required": [
+          "rulesets"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rulesets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RulesetSummary"
+            },
+            "description": "Oldest first."
+          }
+        }
+      },
+      "RulesetLimits": {
+        "type": "object",
+        "description": "Language limits (language spec section 11).",
+        "required": [
+          "initBudgetMultiplier",
+          "memoryCells",
+          "maxCallDepth",
+          "maxCollectionLength",
+          "maxSourceBytes",
+          "logLinesPerTick",
+          "logLineLength"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "initBudgetMultiplier": {
+            "type": "number",
+            "description": "The init phase's Operation Budget, as a multiple of the per-Tick one."
+          },
+          "memoryCells": {
+            "type": "integer",
+            "description": "The memory cap on persistent state, in cells."
+          },
+          "maxCallDepth": {
+            "type": "integer"
+          },
+          "maxCollectionLength": {
+            "type": "integer"
+          },
+          "maxSourceBytes": {
+            "type": "integer",
+            "description": "The largest Program source, in UTF-8 bytes."
+          },
+          "logLinesPerTick": {
+            "type": "integer"
+          },
+          "logLineLength": {
+            "type": "integer"
+          }
+        }
+      },
+      "RulesetRules": {
+        "type": "object",
+        "description": "The Ruleset's global rules.",
+        "required": [
+          "version",
+          "tickRate",
+          "pointBudget",
+          "mapFormats",
+          "slotTypes",
+          "limits"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "The Ruleset version.",
+            "examples": [
+              "r1"
+            ]
+          },
+          "tickRate": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Ticks per simulated second."
+          },
+          "pointBudget": {
+            "type": "object",
+            "description": "The range an Initiator may choose a Game's Point Budget from.",
+            "required": [
+              "min",
+              "max"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "mapFormats": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "The Map Formats this Ruleset supports."
+          },
+          "slotTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The Slot types Chassis may have."
+          },
+          "limits": {
+            "$ref": "#/components/schemas/RulesetLimits"
+          }
+        }
+      },
+      "ValueType": {
+        "description": "The static shape of a built-in value: `number`, `string`, `boolean` or `any`; a record with known fields; a list; or a map keyed by data (such as Terrain names) whose fields share one type.",
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "number",
+              "string",
+              "boolean",
+              "any"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "record"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "record": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/ValueType"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "list"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "list": {
+                "$ref": "#/components/schemas/ValueType"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "map"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "map": {
+                "$ref": "#/components/schemas/ValueType"
+              }
+            }
+          }
+        ]
+      },
+      "BuiltinFunction": {
+        "type": "object",
+        "required": [
+          "minArgs",
+          "maxArgs",
+          "cost",
+          "initPhase"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "minArgs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxArgs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cost": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Operations charged for a call."
+          },
+          "initPhase": {
+            "type": "boolean",
+            "description": "False for commands and sensors, which `init()` may not call."
+          },
+          "slotArgument": {
+            "type": "string",
+            "enum": [
+              "weapon",
+              "rangefinder"
+            ],
+            "description": "The first argument names a Slot holding this kind of Component."
+          },
+          "mutatesFirstArgument": {
+            "type": "boolean",
+            "description": "Mutates its first argument, so it may not be read-only."
+          }
+        }
+      },
+      "BuiltinMethod": {
+        "type": "object",
+        "required": [
+          "minArgs",
+          "maxArgs",
+          "cost"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "minArgs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "maxArgs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "cost": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Operations charged for a call."
+          },
+          "mutates": {
+            "type": "boolean",
+            "description": "Mutates the receiver, so it may not be called on a read-only value."
+          }
+        }
+      },
+      "RulesetLanguage": {
+        "type": "object",
+        "description": "What the Ruleset's language gives Programs: built-in functions with their costs, the read-only built-in values (`self`, `game`, `map`), list and string methods, and the language limits. A Program naming anything not listed here fails validation when its Revision is saved.",
+        "required": [
+          "version",
+          "functions",
+          "values",
+          "listMethods",
+          "stringMethods",
+          "lengthCost",
+          "limits"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "The Ruleset version.",
+            "examples": [
+              "r1"
+            ]
+          },
+          "functions": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BuiltinFunction"
+            }
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ValueType"
+            }
+          },
+          "listMethods": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BuiltinMethod"
+            }
+          },
+          "stringMethods": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BuiltinMethod"
+            }
+          },
+          "lengthCost": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Operations charged for reading `.length`."
+          },
+          "limits": {
+            "$ref": "#/components/schemas/RulesetLimits"
+          }
+        }
+      },
+      "StatDefinition": {
+        "description": "The type and bounds of one stat. Each Ruleset defines its own open-ended set of stats.",
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "number"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "integer": {
+                "type": "boolean"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type",
+              "values"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "enum"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "type"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "terrainModifiers"
+              }
+            }
+          }
+        ]
+      },
+      "ComponentKind": {
+        "type": "object",
+        "required": [
+          "mount",
+          "stats"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "mount": {
+            "type": "string",
+            "enum": [
+              "slot",
+              "side"
+            ],
+            "description": "`slot`: installed in a compatible Slot. `side`: bought per side of the Bot, as Armor."
+          },
+          "stats": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StatDefinition"
+            }
+          }
+        }
+      },
+      "Chassis": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "cost",
+          "shape",
+          "slots",
+          "stats"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Short prose describing the Chassis, for Players and clients: plain text on one line, with no leading or trailing whitespace. Not a stat; no engine reads it."
+          },
+          "cost": {
+            "type": "number"
+          },
+          "shape": {
+            "description": "The outline in the Bot frame (meters, x right, y toward the rear); a circle is centred on the Bot.",
+            "oneOf": [
+              {
+                "type": "object",
+                "required": [
+                  "shape",
+                  "radius"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "shape": {
+                    "const": "circle"
+                  },
+                  "radius": {
+                    "type": "number"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": [
+                  "shape",
+                  "points"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "shape": {
+                    "const": "polygon"
+                  },
+                  "points": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "x",
+                        "y"
+                      ],
+                      "additionalProperties": false,
+                      "properties": {
+                        "x": {
+                          "type": "number"
+                        },
+                        "y": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "type",
+                "x",
+                "y",
+                "direction"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "The Slot name, which Programs use as a weapon or sensor id."
+                },
+                "type": {
+                  "type": "string"
+                },
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "direction": {
+                  "type": "number",
+                  "description": "Facing relative to the Heading, degrees in (-180, 180]."
+                }
+              }
+            }
+          },
+          "stats": {
+            "type": "object",
+            "additionalProperties": {
+              "description": "A number, an enum value, or (for `terrainModifiers` stats) per-Terrain multipliers keyed by Terrain name.",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "required": [
+                      "speed",
+                      "accel"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "speed": {
+                        "type": "number",
+                        "description": "Multiplies maximum speed."
+                      },
+                      "accel": {
+                        "type": "number",
+                        "description": "Multiplies acceleration."
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "artwork": {
+            "type": "string",
+            "description": "Top-down SVG reference; absent means a placeholder."
+          }
+        }
+      },
+      "Component": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "kind",
+          "cost",
+          "slotTypes",
+          "stats"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "Short prose describing the Component, for Players and clients: plain text on one line, with no leading or trailing whitespace. Not a stat; no engine reads it."
+          },
+          "kind": {
+            "type": "string",
+            "description": "A key of the catalog's `componentKinds`."
+          },
+          "cost": {
+            "type": "number"
+          },
+          "slotTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The Slot types it fits; empty for side-mounted kinds."
+          },
+          "stats": {
+            "type": "object",
+            "additionalProperties": {
+              "description": "A number, an enum value, or (for `terrainModifiers` stats) per-Terrain multipliers keyed by Terrain name.",
+              "oneOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object",
+                    "required": [
+                      "speed",
+                      "accel"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "speed": {
+                        "type": "number",
+                        "description": "Multiplies maximum speed."
+                      },
+                      "accel": {
+                        "type": "number",
+                        "description": "Multiplies acceleration."
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "artwork": {
+            "type": "string",
+            "description": "Top-down SVG reference; absent means a placeholder. Drawn in meters, origin at the Slot, pointing along the Slot direction."
+          },
+          "visualSize": {
+            "type": "object",
+            "description": "How big clients draw a Slot-mounted Component, in meters, origin at the Slot: `length` along the Slot direction, `width` across it. Each is at most the largest Chassis dimension. Purely visual: no engine reads it, and drawn Components may overlap.",
+            "required": [
+              "length",
+              "width"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "length": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "width": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          }
+        }
+      },
+      "PartsCatalog": {
+        "type": "object",
+        "description": "Every Chassis and Component a Build may use, with the stat definitions that give their stats types and bounds.",
+        "required": [
+          "version",
+          "slotTypes",
+          "chassisStats",
+          "componentKinds",
+          "chassis",
+          "components"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "The Ruleset version.",
+            "examples": [
+              "r1"
+            ]
+          },
+          "slotTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "chassisStats": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StatDefinition"
+            }
+          },
+          "componentKinds": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ComponentKind"
+            }
+          },
+          "chassis": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Chassis"
+            }
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Component"
+            }
+          }
+        }
+      },
+      "RulesetDocList": {
+        "type": "object",
+        "description": "The prose documents a Ruleset version publishes.",
+        "required": [
+          "version",
+          "docs"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "The Ruleset version.",
+            "examples": [
+              "r1"
+            ]
+          },
+          "docs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "title",
+                "path"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "enum": [
+                    "engine",
+                    "language",
+                    "catalog"
+                  ],
+                  "description": "`engine`: the simulation rules (movement, collisions, ramming, weapons, sensors, Programs). `language`: the language specification (grammar, built-ins, operation costs, limits). `catalog`: the Parts Catalog and balance numbers, with the reasoning behind them."
+                },
+                "title": {
+                  "type": "string",
+                  "description": "The document's title, its first heading."
+                },
+                "path": {
+                  "type": "string",
+                  "description": "Where the server serves it as Markdown, such as `/rulesets/r1/docs/engine`.",
+                  "examples": [
+                    "/rulesets/r1/docs/engine"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "TerrainTable": {
+        "type": "object",
+        "required": [
+          "version",
+          "terrains"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "type": "string",
+            "description": "The Ruleset version.",
+            "examples": [
+              "r1"
+            ]
+          },
+          "terrains": {
+            "type": "array",
+            "description": "In declared order, which is the order `terrainTable()` reports.",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "description",
+                "speed",
+                "accel"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500,
+                  "description": "Short prose describing the Terrain, for Players and clients: plain text on one line, with no leading or trailing whitespace. Not a stat; no engine reads it."
+                },
+                "speed": {
+                  "type": "number",
+                  "description": "Multiplies maximum speed."
+                },
+                "accel": {
+                  "type": "number",
+                  "description": "Multiplies acceleration."
+                }
+              }
+            }
+          }
+        }
+      },
+      "GamePlayer": {
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "GameMap": {
+        "type": "object",
+        "description": "The Map Revision the Game is played on.",
+        "required": [
+          "id",
+          "name",
+          "revision"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "GameResult": {
+        "type": "object",
+        "description": "How a Finished Game ended, and who won it.",
+        "required": [
+          "tick",
+          "end",
+          "winner",
+          "decidedBy"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The Tick the Game ended in; 0 if it ended before the first."
+          },
+          "end": {
+            "type": "string",
+            "enum": [
+              "last_standing",
+              "none_standing",
+              "time_limit"
+            ],
+            "description": "last_standing: one Player had a Bot not Disabled, and no other Player did; none_standing: the last Players' Bots were all Disabled in the same Tick; time_limit: the time limit was reached."
+          },
+          "winner": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GamePlayer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null for a Draw."
+          },
+          "decidedBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "survival",
+              "foe_damage",
+              "hit_points",
+              null
+            ],
+            "description": "What picked the Winner: survival, or a tiebreak (damage dealt to Foes, then remaining Hit Points). Null for a Draw."
+          }
+        }
+      },
+      "GameSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "state",
+          "initiator",
+          "rulesetVersion",
+          "map",
+          "playerCount",
+          "pointBudget",
+          "timeLimitSeconds",
+          "pace",
+          "fillTimeoutSeconds",
+          "createdAt",
+          "fillDeadline",
+          "startedAt",
+          "endedAt",
+          "cancelReason",
+          "entryCount",
+          "result"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "running",
+              "finished",
+              "cancelled"
+            ],
+            "description": "open: accepting Entries; running: being simulated; finished: ended with a result; cancelled: ended unplayed."
+          },
+          "initiator": {
+            "$ref": "#/components/schemas/GamePlayer"
+          },
+          "rulesetVersion": {
+            "type": "string"
+          },
+          "map": {
+            "$ref": "#/components/schemas/GameMap"
+          },
+          "playerCount": {
+            "type": "integer",
+            "minimum": 2,
+            "description": "How many Entries fill the Game."
+          },
+          "pointBudget": {
+            "type": "integer",
+            "description": "The most points a single Entry may cost."
+          },
+          "timeLimitSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Simulated seconds."
+          },
+          "pace": {
+            "type": "string",
+            "enum": [
+              "realtime",
+              "unthrottled"
+            ]
+          },
+          "fillTimeoutSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Real seconds from creation to the fill deadline."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fillDeadline": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the Game is cancelled if it is not full by then."
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the Game filled and became Running."
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the Game was Finished or Cancelled."
+          },
+          "cancelReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "initiator",
+              "fill_timeout",
+              "server_error",
+              null
+            ],
+            "description": "Why a Cancelled Game was cancelled: initiator: its Initiator cancelled it while Open; fill_timeout: it was not full by its fill deadline; server_error: it became Running but the server failed to play it, even after retrying, so it was cancelled unplayed (no result and no Replay)."
+          },
+          "entryCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set once the Game is Finished."
+          }
+        }
+      },
+      "Game": {
+        "type": "object",
+        "required": [
+          "id",
+          "state",
+          "initiator",
+          "rulesetVersion",
+          "map",
+          "playerCount",
+          "pointBudget",
+          "timeLimitSeconds",
+          "pace",
+          "fillTimeoutSeconds",
+          "createdAt",
+          "fillDeadline",
+          "startedAt",
+          "endedAt",
+          "cancelReason",
+          "entryCount",
+          "result",
+          "entries"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "running",
+              "finished",
+              "cancelled"
+            ],
+            "description": "open: accepting Entries; running: being simulated; finished: ended with a result; cancelled: ended unplayed."
+          },
+          "initiator": {
+            "$ref": "#/components/schemas/GamePlayer"
+          },
+          "rulesetVersion": {
+            "type": "string"
+          },
+          "map": {
+            "$ref": "#/components/schemas/GameMap"
+          },
+          "playerCount": {
+            "type": "integer",
+            "minimum": 2,
+            "description": "How many Entries fill the Game."
+          },
+          "pointBudget": {
+            "type": "integer",
+            "description": "The most points a single Entry may cost."
+          },
+          "timeLimitSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Simulated seconds."
+          },
+          "pace": {
+            "type": "string",
+            "enum": [
+              "realtime",
+              "unthrottled"
+            ]
+          },
+          "fillTimeoutSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Real seconds from creation to the fill deadline."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fillDeadline": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the Game is cancelled if it is not full by then."
+          },
+          "startedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the Game filled and became Running."
+          },
+          "endedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the Game was Finished or Cancelled."
+          },
+          "cancelReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "initiator",
+              "fill_timeout",
+              "server_error",
+              null
+            ],
+            "description": "Why a Cancelled Game was cancelled: initiator: its Initiator cancelled it while Open; fill_timeout: it was not full by its fill deadline; server_error: it became Running but the server failed to play it, even after retrying, so it was cancelled unplayed (no result and no Replay)."
+          },
+          "entryCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/GameResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set once the Game is Finished."
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameEntry"
+            }
+          }
+        }
+      },
+      "GameList": {
+        "type": "object",
+        "required": [
+          "games",
+          "nextCursor"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "games": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameSummary"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Pass as `cursor` for the next page; null on the last page."
+          }
+        }
+      },
+      "GameEntryBot": {
+        "type": "object",
+        "description": "One Bot of an Entry. `cost` and `build` are present for your own Entries and, for everyone, once the Game is Running or Finished; `design` only for your own Entries. Programs are never included.",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The Bot Name, unique within the Game."
+          },
+          "design": {
+            "type": "object",
+            "required": [
+              "designId",
+              "revision"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "designId": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "cost": {
+            "type": "integer"
+          },
+          "build": {
+            "$ref": "#/components/schemas/Build"
+          }
+        }
+      },
+      "GameEntry": {
+        "type": "object",
+        "description": "`cost` is present for your own Entries and, for everyone, once the Game is Running or Finished.",
+        "required": [
+          "id",
+          "player",
+          "createdAt",
+          "bots"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "player": {
+            "$ref": "#/components/schemas/GamePlayer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cost": {
+            "type": "integer",
+            "description": "The combined cost of the Entry's Bots."
+          },
+          "bots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GameEntryBot"
+            }
+          }
+        }
+      },
+      "NewGame": {
+        "type": "object",
+        "required": [
+          "rulesetVersion",
+          "mapId",
+          "playerCount",
+          "pointBudget",
+          "timeLimitSeconds",
+          "pace",
+          "fillTimeoutSeconds"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rulesetVersion": {
+            "type": "string",
+            "examples": [
+              "r1"
+            ]
+          },
+          "mapId": {
+            "type": "string",
+            "description": "An unarchived Map."
+          },
+          "mapRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The Map Revision to play on; defaults to the latest."
+          },
+          "playerCount": {
+            "type": "integer",
+            "minimum": 2,
+            "description": "At most the Map Revision's number of Spawn Zones."
+          },
+          "pointBudget": {
+            "type": "integer",
+            "description": "Within the Ruleset's Point Budget range."
+          },
+          "timeLimitSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Simulated seconds, at most the server's maximum."
+          },
+          "pace": {
+            "type": "string",
+            "enum": [
+              "realtime",
+              "unthrottled"
+            ]
+          },
+          "fillTimeoutSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Real seconds, at most the server's maximum."
+          }
+        }
+      },
+      "NewGameEntryBot": {
+        "type": "object",
+        "required": [
+          "designId",
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "designId": {
+            "type": "string",
+            "description": "One of your unarchived Bot Designs, in the Game's Ruleset."
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The Revision to enter; defaults to the latest."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "description": "Unique within the Game, ignoring case."
+          }
+        }
+      },
+      "NewGameEntry": {
+        "type": "object",
+        "required": [
+          "bots"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bots": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Entering one design twice yields two Bots; each needs its own name.",
+            "items": {
+              "$ref": "#/components/schemas/NewGameEntryBot"
+            }
+          }
+        }
+      },
+      "SubmittedGameEntry": {
+        "type": "object",
+        "required": [
+          "entry",
+          "game"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/GameEntry"
+          },
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          }
+        }
+      },
+      "ReplayTick": {
+        "type": "object",
+        "description": "One Tick of a Replay: what happened in it, and where everything was at its end.",
+        "required": [
+          "tick",
+          "events",
+          "bots",
+          "projectiles"
+        ],
+        "properties": {
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "0 for the init phase, whose frame shows the starting positions."
+          },
+          "events": {
+            "type": "array",
+            "description": "In the order they happened. Each has a `type` (collision, fired, impact, damage, disabled, obstacleDestroyed) and that type's fields, as the Ruleset version's engine spec describes.",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "tick"
+              ],
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "tick": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          },
+          "bots": {
+            "type": "array",
+            "description": "Every Bot, in Bot id order.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "x",
+                "y",
+                "heading",
+                "speed",
+                "hitPoints",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                },
+                "heading": {
+                  "type": "number",
+                  "description": "Degrees."
+                },
+                "speed": {
+                  "type": "number",
+                  "description": "m/s."
+                },
+                "hitPoints": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "stopped",
+                    "disabled"
+                  ]
+                }
+              }
+            }
+          },
+          "projectiles": {
+            "type": "array",
+            "description": "Projectiles in flight, in id order.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "x",
+                "y"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "x": {
+                  "type": "number"
+                },
+                "y": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Replay": {
+        "type": "object",
+        "description": "A Game's full history of events plus every participating Build, never a Program. The shape is the Ruleset version's; this describes r1.",
+        "required": [
+          "ruleset",
+          "tickRate",
+          "map",
+          "timeLimitTicks",
+          "entries",
+          "ticks",
+          "result"
+        ],
+        "properties": {
+          "ruleset": {
+            "type": "string",
+            "description": "The Ruleset version."
+          },
+          "tickRate": {
+            "type": "integer",
+            "description": "Ticks per simulated second."
+          },
+          "map": {
+            "$ref": "#/components/schemas/MapFormat1"
+          },
+          "timeLimitTicks": {
+            "type": "integer"
+          },
+          "entries": {
+            "type": "array",
+            "description": "In Entry order.",
+            "items": {
+              "type": "object",
+              "required": [
+                "player",
+                "bots"
+              ],
+              "properties": {
+                "player": {
+                  "type": "string",
+                  "description": "The Player's id."
+                },
+                "bots": {
+                  "type": "array",
+                  "description": "In Bot id order; Bot ids are numbered from 1 across all Entries.",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "id",
+                      "name",
+                      "build"
+                    ],
+                    "properties": {
+                      "id": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "build": {
+                        "$ref": "#/components/schemas/Build"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "ticks": {
+            "type": "array",
+            "description": "Every Tick, from the init phase (Tick 0).",
+            "items": {
+              "$ref": "#/components/schemas/ReplayTick"
+            }
+          },
+          "result": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "How the Game ended, with Players by id; null while it is Running.",
+            "required": [
+              "tick",
+              "end",
+              "winner",
+              "decidedBy",
+              "standings"
+            ],
+            "properties": {
+              "tick": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "end": {
+                "type": "string",
+                "enum": [
+                  "lastStanding",
+                  "noneStanding",
+                  "timeLimit"
+                ]
+              },
+              "winner": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "description": "The winning Player's id; null for a Draw."
+              },
+              "decidedBy": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "survival",
+                  "foeDamage",
+                  "hitPoints",
+                  null
+                ]
+              },
+              "standings": {
+                "type": "array",
+                "description": "One per Player, in order of their first Entry.",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "player",
+                    "foeDamage",
+                    "hitPoints",
+                    "remaining"
+                  ],
+                  "properties": {
+                    "player": {
+                      "type": "string"
+                    },
+                    "foeDamage": {
+                      "type": "number"
+                    },
+                    "hitPoints": {
+                      "type": "number"
+                    },
+                    "remaining": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "GameSnapshot": {
+        "type": "object",
+        "description": "A Game and its Replay so far, with only the latest Tick in `replay.ticks`.",
+        "required": [
+          "game",
+          "replay"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "replay": {
+            "$ref": "#/components/schemas/Replay"
+          }
+        }
+      },
+      "GameReplay": {
+        "type": "object",
+        "required": [
+          "game",
+          "replay"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          },
+          "replay": {
+            "$ref": "#/components/schemas/Replay"
+          }
+        }
+      },
+      "GameEnded": {
+        "type": "object",
+        "description": "The `end` event's data: the Game, now Finished, with its result.",
+        "required": [
+          "game"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "game": {
+            "$ref": "#/components/schemas/Game"
+          }
+        }
+      },
+      "ProgramLogs": {
+        "type": "object",
+        "required": [
+          "bots"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "bots": {
+            "type": "array",
+            "description": "Your Bots in the Game, in Bot id order.",
+            "items": {
+              "type": "object",
+              "required": [
+                "bot",
+                "name",
+                "runs"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "bot": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "The Bot's id in the Replay."
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The Bot Name."
+                },
+                "runs": {
+                  "type": "array",
+                  "description": "Every run of the Program in the Ticks asked for, in Tick order; Tick 0 is the init phase.",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "tick",
+                      "result"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "tick": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "result": {
+                        "type": "object",
+                        "required": [
+                          "outcome",
+                          "error",
+                          "operations",
+                          "memoryCells",
+                          "halt",
+                          "log",
+                          "logTruncated"
+                        ],
+                        "properties": {
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "completed",
+                              "outOfBudget",
+                              "error"
+                            ]
+                          },
+                          "error": {
+                            "type": [
+                              "object",
+                              "null"
+                            ],
+                            "description": "Where and why the run stopped early, or null.",
+                            "required": [
+                              "line",
+                              "column",
+                              "message"
+                            ],
+                            "properties": {
+                              "line": {
+                                "type": "integer"
+                              },
+                              "column": {
+                                "type": "integer"
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "operations": {
+                            "type": "integer",
+                            "description": "Operations charged during the run."
+                          },
+                          "memoryCells": {
+                            "type": "integer",
+                            "description": "Persistent state at the end of the run, in cells."
+                          },
+                          "halt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "description": "Why the Program halted after this run, or null."
+                          },
+                          "log": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "`log()` output, capped by the Ruleset."
+                          },
+                          "logTruncated": {
+                            "type": "boolean",
+                            "description": "Whether `log()` output was dropped for this run."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "An error, in the shared error format.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A session token (from `logIn`) or an API key (from `createApiKey`)."
+      }
+    }
+  }
+}
