@@ -1,0 +1,14 @@
+{
+  "player": "smoke",
+  "bots": [
+    {
+      "name": "Idler",
+      "build": {
+        "chassis": "scout",
+        "components": { "gun": "pelletGun", "eye": "shortRadar", "drive": "wheels" },
+        "armor": { "front": null, "left": null, "right": null, "rear": null }
+      },
+      "program": "function tick() {}"
+    }
+  ]
+}
