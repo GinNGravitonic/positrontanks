@@ -19,7 +19,7 @@ import type {
   StatDefinition,
   Stats,
   TerrainMultipliers,
-} from "@aumohta/ruleset-data";
+} from "@positrontanks/ruleset-data";
 import { shapeReach, type LocalShape } from "./geometry.js";
 
 export const ARMOR_SIDES: readonly ArmorSide[] = ["front", "left", "right", "rear"];

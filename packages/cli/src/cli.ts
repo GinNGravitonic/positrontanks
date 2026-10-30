@@ -1,24 +1,24 @@
 /**
- * The `aumohta` command line (v1.md section 10).
+ * The `positrontanks` command line (v1.md section 10).
  *
- * `aumohta run --map FILE --entry FILE ... [--unthrottled]` plays a Game
+ * `positrontanks run --map FILE --entry FILE ... [--unthrottled]` plays a Game
  * locally with no account, server or database, prints its result and each
  * Program's per-Tick budget peaks, and writes the Game Record, Replay and
  * Program logs.
  *
- * `aumohta tick-cost --entry FILE [--ticks N] [--seed N] [--json]` runs the
+ * `positrontanks tick-cost --entry FILE [--ticks N] [--seed N] [--json]` runs the
  * tick cost check offline: each of the Entry file's Bots in the sample world,
  * reporting what the server's tick cost endpoints report. With `--remote` it
  * runs on a server instead (api/tick-cost-remote.ts).
  *
- * `aumohta <group> <command> ...` and `aumohta api METHOD PATH` talk to an
- * Aumohta server over its HTTP API (docs/spec/cli-api.md; api/main.ts).
+ * `positrontanks <group> <command> ...` and `positrontanks api METHOD PATH` talk to an
+ * Positron Tanks server over its HTTP API (docs/spec/cli-api.md; api/main.ts).
  */
 
 import { randomInt } from "node:crypto";
 import { parseArgs } from "node:util";
-import { TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@aumohta/engine-r1";
-import { RULESET_VERSIONS, type RulesetVersion } from "@aumohta/ruleset-data/rulesets";
+import { TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@positrontanks/engine-r1";
+import { RULESET_VERSIONS, type RulesetVersion } from "@positrontanks/ruleset-data/rulesets";
 import { inputError } from "./api/client.js";
 import { remoteTickCost, SERVER_COMMANDS, serverMain, serverUsage } from "./api/main.js";
 import { InputError } from "./entry-file.js";
@@ -90,8 +90,10 @@ export const DEFAULT_RULESET: RulesetVersion = RULESET_VERSIONS[RULESET_VERSIONS
 /** Must stay at or below the server's default maximum time limit (checked in packages/server/src/config.test.ts; docs/spec/cli-runner.md). */
 export const DEFAULT_TIME_LIMIT_SECONDS = 120;
 
-export const USAGE = `Usage: aumohta run --map FILE --entry FILE [--entry FILE ...] [options]
-       aumohta tick-cost --entry FILE [--ticks N] [--seed N] [--json]
+export const USAGE = `Usage: positrontanks run --map FILE --entry FILE [--entry FILE ...] [options]
+       positrontanks tick-cost --entry FILE [--ticks N] [--seed N] [--json]
+
+ptanks is a short alias for positrontanks.
 
 Plays a Game locally, with no account, server or database. Prints the result
 and each Program's per-Tick budget peaks, and writes game-record.json,
@@ -121,12 +123,12 @@ Entry file:
       { "name": "Pecker",                  (the Bot Name, unique in the Game)
         "build": { "chassis": "scout", "components": { "gun": "pelletGun" },
                    "armor": { "front": null, "left": null, "right": null, "rear": null } },
-        "programFile": "hunter.aum" }      (relative to the Entry file; or
+        "programFile": "hunter.ptk" }      (relative to the Entry file; or
                                             "program": "<inline source>")
     ]
   }
 
-aumohta tick-cost runs the tick cost check offline: each Bot of the Entry
+positrontanks tick-cost runs the tick cost check offline: each Bot of the Entry
 file runs its init phase and then tick() for N Ticks in the sample world, as
 the server's tick cost endpoints do, and the report gives the operations each
 run used, the peak and persistent memory.
@@ -139,7 +141,7 @@ Options:
                         (default: ${String(TICK_COST_DEFAULT_SEED)})
   --json                Print each Bot's report as JSON, as the server does
   --remote              Run the check on the server (POST /tick-cost-checks),
-                        which needs AUMOHTA_TICK_COST_CHECK=on there; takes the
+                        which needs POSITRONTANKS_TICK_COST_CHECK=on there; takes the
                         server commands' global options below
   -h, --help            Show this help
 
@@ -175,11 +177,11 @@ export async function main(argv: readonly string[], io: Io = processIo, play: Pa
     return await run(rest, io, play);
   } catch (e) {
     if (e instanceof UsageError) {
-      io.err(`aumohta: ${e.message}`);
-      io.err("Run 'aumohta --help' for usage.");
+      io.err(`positrontanks: ${e.message}`);
+      io.err("Run 'positrontanks --help' for usage.");
       return 2;
     }
-    io.err(`aumohta: ${e instanceof InputError ? "" : "error: "}${e instanceof Error ? e.message : String(e)}`);
+    io.err(`positrontanks: ${e instanceof InputError ? "" : "error: "}${e instanceof Error ? e.message : String(e)}`);
     return 1;
   }
 }

@@ -3,7 +3,7 @@
  * condition accounting are built from these.
  */
 
-import type { ArmorSide } from "@aumohta/ruleset-data";
+import type { ArmorSide } from "@positrontanks/ruleset-data";
 import type { WeaponCategory } from "./bot-spec.js";
 import type { Point } from "./geometry.js";
 import type { DisabledCause } from "./world.js";

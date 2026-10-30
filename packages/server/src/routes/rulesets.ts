@@ -13,8 +13,8 @@
  * An unknown version is answered 404 `not_found`, naming the hosted versions.
  */
 
-import { DESCRIPTION_MAX_LENGTH, type Ruleset } from "@aumohta/ruleset-data";
-import { isRulesetDoc, RULESET_DOCS } from "@aumohta/ruleset-data/rulesets";
+import { DESCRIPTION_MAX_LENGTH, type Ruleset } from "@positrontanks/ruleset-data";
+import { isRulesetDoc, RULESET_DOCS } from "@positrontanks/ruleset-data/rulesets";
 import { notFound } from "../http/errors.js";
 import type { ApiModule, Json, RequestContext, Route } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";

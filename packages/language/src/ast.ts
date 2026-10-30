@@ -1,5 +1,5 @@
 /**
- * The syntax tree of an Aumohta Program (language-r1 section 3).
+ * The syntax tree of a Positron Tanks Program (language-r1 section 3).
  *
  * Every node carries a `loc`. For operator-shaped nodes (binary, unary,
  * conditional, member access, indexing, calls, assignments and updates) it is

@@ -43,9 +43,9 @@ beforeEach(async () => {
       },
     },
   });
-  dir = await mkdtemp(join(tmpdir(), "aumohta-cli-games-"));
+  dir = await mkdtemp(join(tmpdir(), "positrontanks-cli-games-"));
   await writeFile(at("build.json"), JSON.stringify(BUILD));
-  await writeFile(at("hunter.aum"), PROGRAM);
+  await writeFile(at("hunter.ptk"), PROGRAM);
   await copyFile(duelMap, at("duel.json"));
   for (const player of ["ada", "bob"]) {
     expect((await server.cli(["auth", "signup", player, "--password-stdin"], pw)).code).toBe(0);
@@ -54,7 +54,7 @@ beforeEach(async () => {
   client = new ApiClient(server.url, (await server.config())?.profiles.ada?.apiKey);
   mapId = json("Map", await ada("maps", "create", "--name", "Duel", "--map", at("duel.json"), "--json")).id;
   const design = async (as: typeof ada) =>
-    json("BotDesign", await as("designs", "create", "--name", "Hunter", "--build", at("build.json"), "--program", at("hunter.aum"), "--json")).id;
+    json("BotDesign", await as("designs", "create", "--name", "Hunter", "--build", at("build.json"), "--program", at("hunter.ptk"), "--json")).id;
   adaDesign = await design(ada);
   bobDesign = await design(bob);
 });
@@ -94,7 +94,7 @@ async function playGame(): Promise<string> {
 }
 
 describe("games create, browse, show and cancel", () => {
-  it("creates a Game with the defaults of 'aumohta run'", async () => {
+  it("creates a Game with the defaults of 'positrontanks run'", async () => {
     const human = await ada("games", "create", "--map", mapId);
     expect(human.code).toBe(0);
     expect(human.out).toMatch(/^Created Game \S+ on Duel \(Revision 1\): 2 Players, Point Budget \d+, 120 s, real time; fills by .+\.$/m);
@@ -332,7 +332,7 @@ describe("games watch reconnecting", () => {
     const out: string[] = [];
     const err: string[] = [];
     const delays: number[] = [];
-    const env = { APPDATA: join(dir, "none"), XDG_CONFIG_HOME: join(dir, "none"), AUMOHTA_SERVER: url, AUMOHTA_API_KEY: "test-key" };
+    const env = { APPDATA: join(dir, "none"), XDG_CONFIG_HOME: join(dir, "none"), POSITRONTANKS_SERVER: url, POSITRONTANKS_API_KEY: "test-key" };
     const io = {
       out: (line: string) => out.push(line),
       err: (line: string) => err.push(line),

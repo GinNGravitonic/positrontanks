@@ -1,5 +1,5 @@
 /**
- * `aumohta designs` (docs/spec/cli-api.md): the Garage, a Player's Bot
+ * `positrontanks designs` (docs/spec/cli-api.md): the Garage, a Player's Bot
  * Designs and their Revisions, Copy to Ruleset and the tick cost check.
  *
  * `--build FILE` is a Build as JSON and `--program FILE` Program source;
@@ -111,7 +111,7 @@ export async function tickCostRequest(context: Context, path: string, body: unkn
     throw new CliError(
       e.exitCode,
       e.code,
-      `${context.settings.server} has the tick cost check off (it is a local-server feature); run it offline with 'aumohta tick-cost --entry FILE'`,
+      `${context.settings.server} has the tick cost check off (it is a local-server feature); run it offline with 'positrontanks tick-cost --entry FILE'`,
     );
   }
 }

@@ -2,8 +2,8 @@
  * Loading the Ruleset data files that ship with this package (Node only).
  *
  * Each released Ruleset lives at `rulesets/<version>.json` in the package
- * and is also reachable as the JSON subpath `@aumohta/ruleset-data/rulesets/<version>.json`.
- * This module, imported as `@aumohta/ruleset-data/rulesets`, finds and
+ * and is also reachable as the JSON subpath `@positrontanks/ruleset-data/rulesets/<version>.json`.
+ * This module, imported as `@positrontanks/ruleset-data/rulesets`, finds and
  * validates them so consumers (engine tests, golden Games, the CLI, the
  * server) need not know the package layout. It is kept out of the main entry
  * point so that entry stays free of `node:fs`.

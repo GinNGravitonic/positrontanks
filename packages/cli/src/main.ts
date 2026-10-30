@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** The `aumohta` executable. */
+/** The `positrontanks` executable. */
 
 import { main } from "./cli.js";
 

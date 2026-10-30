@@ -11,7 +11,7 @@
  */
 
 import type { DatabaseSync } from "node:sqlite";
-import type { MapFormat1 } from "@aumohta/ruleset-data";
+import type { MapFormat1 } from "@positrontanks/ruleset-data";
 import { usernameKey } from "./accounts.js";
 import { FIRST_PAGE, queryPage, type Page, type PageRequest } from "./paging.js";
 

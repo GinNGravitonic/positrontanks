@@ -10,7 +10,7 @@ let dir: string;
 let path: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "aumohta-db-"));
+  dir = mkdtempSync(join(tmpdir(), "positrontanks-db-"));
   path = join(dir, "test.db");
 });
 

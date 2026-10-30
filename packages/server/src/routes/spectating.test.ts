@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
-import type { Replay, ReplayTick } from "@aumohta/engine-r1";
+import type { Replay, ReplayTick } from "@positrontanks/engine-r1";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";
@@ -27,7 +27,7 @@ let objects: LocalObjectStore;
 const servers: RunningServer[] = [];
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), "aumohta-spectating-"));
+  dir = mkdtempSync(join(tmpdir(), "positrontanks-spectating-"));
   objects = new LocalObjectStore(join(dir, "objects"));
 });
 
@@ -40,7 +40,7 @@ async function boot(options: { pacing?: Pacing; maxUnthrottled?: number; objects
   const config: ServerConfig = {
     ...defaultConfig,
     port: 0,
-    databasePath: join(dir, "aumohta.db"),
+    databasePath: join(dir, "positrontanks.db"),
     storage: { kind: "local", directory: join(dir, "objects") },
     limits: { ...defaultConfig.limits, maxConcurrentUnthrottledGames: options.maxUnthrottled ?? 2 },
   };

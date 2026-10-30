@@ -9,7 +9,7 @@
  * the Bot's owner.
  */
 
-import type { Build, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
+import type { Build, MapFormat1, Ruleset } from "@positrontanks/ruleset-data";
 import { createGame, playTick, type Game, type ProgramLog } from "./game.js";
 import type { GameResult } from "./outcome.js";
 import type { Replay } from "./replay.js";

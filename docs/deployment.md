@@ -11,8 +11,8 @@ image ([docs/docker.md](docker.md)) to AWS with no manual console steps:
   100 %), so a deploy means a short outage,
 - an Application Load Balancer, with a 120 s idle timeout so SSE Game streams
   (15 s heartbeat) stay open, and HTTPS when a domain is configured,
-- S3 buckets for object storage (`AUMOHTA_STORAGE=s3`) and for the Litestream
-  replica (`AUMOHTA_LITESTREAM_REPLICA_URL`); each new task restores the
+- S3 buckets for object storage (`POSITRONTANKS_STORAGE=s3`) and for the Litestream
+  replica (`POSITRONTANKS_LITESTREAM_REPLICA_URL`); each new task restores the
   database from the replica before the server starts,
 - a container stop timeout of 40 s, so Litestream's final sync on `SIGTERM`
   (up to 30 s) completes,
@@ -60,7 +60,7 @@ the compiled `dist/index.js`.
 
 ## Configuration
 
-All keys are in the `aumohta` namespace (`pulumi config set aumohta:cpu 1024`).
+All keys are in the `positrontanks` namespace (`pulumi config set positrontanks:cpu 1024`).
 
 | Key                 | Default | Meaning                                                              |
 | ------------------- | ------- | -------------------------------------------------------------------- |
@@ -68,12 +68,12 @@ All keys are in the `aumohta` namespace (`pulumi config set aumohta:cpu 1024`).
 | `memoryMiB`         | `1024`  | Fargate memory; must be valid for `cpu`                              |
 | `domainName`        | unset   | Serve HTTPS on this name (with `hostedZoneId`); HTTP redirects to it |
 | `hostedZoneId`      | unset   | Route 53 zone for `domainName`'s certificate validation and alias    |
-| `environment`       | `{}`    | Extra plain variables, e.g. `AUMOHTA_MAX_*` limits                   |
+| `environment`       | `{}`    | Extra plain variables, e.g. `POSITRONTANKS_MAX_*` limits                   |
 | `secretEnvironment` | `{}`    | Variables stored in Secrets Manager and injected by ECS              |
 | `logRetentionDays`  | `30`    | CloudWatch log retention                                             |
 
 Object-valued keys are set with `--path`, for example
-`pulumi config set --path 'environment.AUMOHTA_MAX_UNTHROTTLED_GAMES' 4` or
+`pulumi config set --path 'environment.POSITRONTANKS_MAX_UNTHROTTLED_GAMES' 4` or
 `pulumi config set --secret --path 'secretEnvironment.SOME_TOKEN' ...`.
 
 Without `domainName` the server is plain HTTP on the load balancer's DNS name.

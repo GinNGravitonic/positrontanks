@@ -13,11 +13,11 @@
  * drives in a circle and never fires. The same Program, Build, Ticks and seed
  * always give the same report.
  *
- * The server's tick cost endpoints and the CLI's `aumohta tick-cost` both run
+ * The server's tick cost endpoints and the CLI's `positrontanks tick-cost` both run
  * this, so the two report the same numbers.
  */
 
-import type { Build, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
+import type { Build, MapFormat1, Ruleset } from "@positrontanks/ruleset-data";
 import { createGame, playTick } from "./game.js";
 
 /** Ticks run when a check names none: two simulated seconds in r1. */

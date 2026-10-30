@@ -1,4 +1,4 @@
-import type { Build } from "@aumohta/ruleset-data";
+import type { Build } from "@positrontanks/ruleset-data";
 import { describe, expect, it } from "vitest";
 import type { TickEvent } from "./events.js";
 import { createGame, playGame, playTick, type Game, type GameSetup } from "./game.js";

@@ -1,5 +1,5 @@
 /**
- * `aumohta tick-cost --entry FILE --remote` (docs/spec/cli-api.md): the
+ * `positrontanks tick-cost --entry FILE --remote` (docs/spec/cli-api.md): the
  * offline tick cost check's input and output, run on the server with
  * `POST /tick-cost-checks`, one request per Bot of the Entry file. The
  * Entry file's Ruleset defaults to the latest the server hosts.

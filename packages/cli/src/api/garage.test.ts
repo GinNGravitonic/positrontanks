@@ -19,9 +19,9 @@ let client: ApiClient;
 
 beforeEach(async () => {
   server = await startTestServer();
-  dir = await mkdtemp(join(tmpdir(), "aumohta-cli-garage-"));
+  dir = await mkdtemp(join(tmpdir(), "positrontanks-cli-garage-"));
   await writeFile(at("build.json"), JSON.stringify(BUILD));
-  await writeFile(at("hunter.aum"), PROGRAM);
+  await writeFile(at("hunter.ptk"), PROGRAM);
   await copyFile(duelMap, at("duel.json"));
   expect((await server.cli(["auth", "signup", "ada", "--password-stdin"], pw)).code).toBe(0);
   expect((await server.cli(["auth", "login", "ada", "--password-stdin"], pw)).code).toBe(0);
@@ -87,11 +87,11 @@ describe("rulesets", () => {
 
 describe("designs", () => {
   async function create(...extra: string[]): Promise<Schema<"BotDesign">> {
-    return json("BotDesign", await cli("designs", "create", "--name", "Hunter", "--build", at("build.json"), "--program", at("hunter.aum"), "--json", ...extra));
+    return json("BotDesign", await cli("designs", "create", "--name", "Hunter", "--build", at("build.json"), "--program", at("hunter.ptk"), "--json", ...extra));
   }
 
   it("creates a design under the latest hosted Ruleset, and shows it with its Program saved to a file", async () => {
-    const human = await cli("designs", "create", "--name", "Hunter", "--build", at("build.json"), "--program", at("hunter.aum"), "--notes", "first");
+    const human = await cli("designs", "create", "--name", "Hunter", "--build", at("build.json"), "--program", at("hunter.ptk"), "--notes", "first");
     expect(human.code).toBe(0);
     expect(human.out).toMatch(/^Created Bot Design \S+ \("Hunter"\) under Ruleset r1, 84 points\.$/);
     const design = await create("--description", "circles");
@@ -103,16 +103,16 @@ describe("designs", () => {
     expect(show.out).toContain(`Program:      3 lines, ${String(PROGRAM.length)} characters (save it with --program-out FILE)`);
     expect(show.out).not.toContain("throttle");
 
-    const pulled = await cli("designs", "show", design.id, "--program-out", at("pulled.aum"), "--json");
+    const pulled = await cli("designs", "show", design.id, "--program-out", at("pulled.ptk"), "--json");
     expect(body(pulled)).toEqual(await client.request("GET", `/bot-designs/${design.id}`));
-    expect(await readFile(at("pulled.aum"), "utf8")).toBe(PROGRAM);
+    expect(await readFile(at("pulled.ptk"), "utf8")).toBe(PROGRAM);
   });
 
   it("revises one half, keeping the latest Revision's other half", async () => {
     const design = await create();
     const program = "function tick() { turn(1); }";
-    await writeFile(at("turner.aum"), program);
-    const revised = await cli("designs", "revise", design.id, "--program", at("turner.aum"), "--notes", "turn instead");
+    await writeFile(at("turner.ptk"), program);
+    const revised = await cli("designs", "revise", design.id, "--program", at("turner.ptk"), "--notes", "turn instead");
     expect(revised.out).toBe(`Added Revision 2 to Bot Design ${design.id}, 84 points.`);
     const heavier = { ...BUILD, armor: { ...noArmor, front: "lightPlate" } };
     const fromStdin = await server.cli(["designs", "revise", design.id, "--build", "-", "--json"], { stdin: JSON.stringify(heavier) });
@@ -126,16 +126,16 @@ describe("designs", () => {
 
   it("lists, pages, renames, copies, deletes Revisions and archives", async () => {
     const design = await create();
-    await cli("designs", "revise", design.id, "--program", at("hunter.aum"), "--notes", "again");
+    await cli("designs", "revise", design.id, "--program", at("hunter.ptk"), "--notes", "again");
     expect((await cli("designs", "list")).out).toMatch(new RegExp(`^${design.id} +Hunter +r1 +2 +84 +just now$`, "m"));
     const revisions = await cli("designs", "revisions", design.id, "--limit", "1");
     expect(revisions.out).toMatch(/^Revision +Cost +Created +Notes\n2 +84 +just now +again$/);
     expect(revisions.err).toMatch(/^More: --cursor \S+ \(or --all\)$/);
     expect(json("BotDesignRevisionList", await cli("designs", "revisions", design.id, "--limit", "1", "--all", "--json")).revisions).toHaveLength(2);
 
-    const one = await cli("designs", "revision", design.id, "1", "--program-out", at("one.aum"));
-    expect(one.out).toContain(`written to ${at("one.aum")}`);
-    expect(await readFile(at("one.aum"), "utf8")).toBe(PROGRAM);
+    const one = await cli("designs", "revision", design.id, "1", "--program-out", at("one.ptk"));
+    expect(one.out).toContain(`written to ${at("one.ptk")}`);
+    expect(await readFile(at("one.ptk"), "utf8")).toBe(PROGRAM);
     expect((await cli("designs", "revision", design.id, "one")).code).toBe(2);
 
     expect((await cli("designs", "update", design.id, "--name", "Stalker")).out).toBe(`Updated Bot Design ${design.id} ("Stalker").`);
@@ -156,18 +156,18 @@ describe("designs", () => {
   });
 
   it("shows a Program's problems at its file in human output, and at program in JSON", async () => {
-    await writeFile(at("broken.aum"), "function tick() {\n  fly();\n}\n");
-    const args = ["designs", "create", "--name", "Broken", "--build", at("build.json"), "--program", at("broken.aum")];
+    await writeFile(at("broken.ptk"), "function tick() {\n  fly();\n}\n");
+    const args = ["designs", "create", "--name", "Broken", "--build", at("build.json"), "--program", at("broken.ptk")];
     const human = await cli(...args);
     expect(human).toMatchObject({ code: 1, out: "" });
-    expect(human.err).toMatch(new RegExp(`^  ${at("broken.aum").replace(/[\\.]/g, "\\$&")}:2:3: .+`, "m"));
+    expect(human.err).toMatch(new RegExp(`^  ${at("broken.ptk").replace(/[\\.]/g, "\\$&")}:2:3: .+`, "m"));
     const error = errorOf(await cli(...args, "--json"));
     expect(error.details).toEqual([expect.objectContaining({ path: "program", line: 2, column: 3 })]);
 
     await writeFile(at("bad.json"), "{");
-    const badBuild = await cli("designs", "create", "--name", "X", "--build", at("bad.json"), "--program", at("hunter.aum"));
+    const badBuild = await cli("designs", "create", "--name", "X", "--build", at("bad.json"), "--program", at("hunter.ptk"));
     expect(badBuild.code).toBe(1);
-    expect(badBuild.err).toContain(`aumohta: input: ${at("bad.json")} is not valid JSON`);
+    expect(badBuild.err).toContain(`positrontanks: input: ${at("bad.json")} is not valid JSON`);
     expect((await cli("designs", "create", "--name", "X", "--build", at("build.json"))).code).toBe(2);
   });
 
@@ -179,13 +179,13 @@ describe("designs", () => {
     const design = await create();
     const human = await cli("designs", "tick-cost", design.id);
     expect(human).toMatchObject({ code: 1, out: "" });
-    expect(human.err).toContain("run it offline with 'aumohta tick-cost --entry FILE'");
+    expect(human.err).toContain("run it offline with 'positrontanks tick-cost --entry FILE'");
     expect(errorOf(await cli("designs", "tick-cost", design.id, "--json")).code).toBe("feature_disabled");
   });
 });
 
 describe("maps", () => {
-  it("creates a Map from the file aumohta run reads, and writes it back unchanged", async () => {
+  it("creates a Map from the file positrontanks run reads, and writes it back unchanged", async () => {
     const file = JSON.parse(await readFile(at("duel.json"), "utf8")) as unknown;
     const created = await cli("maps", "create", "--name", "Duel", "--map", at("duel.json"), "--notes", "v1");
     expect(created.out).toMatch(/^Created Map \S+ \("Duel"\), 60 x 40 m, 2 Spawn Zones\.$/);
@@ -231,7 +231,7 @@ describe("maps", () => {
     await writeFile(at("tiny.json"), JSON.stringify({ format: 1 }));
     const bad = await cli("maps", "create", "--name", "Tiny", "--map", at("tiny.json"));
     expect(bad.code).toBe(1);
-    expect(bad.err.split("\n")[0]).toMatch(/^aumohta: validation_failed: /);
+    expect(bad.err.split("\n")[0]).toMatch(/^positrontanks: validation_failed: /);
     expect(bad.err.split("\n").length).toBeGreaterThan(1);
 
     const map = json("Map", await cli("maps", "create", "--name", "Duel", "--map", at("duel.json"), "--json"));
@@ -243,10 +243,10 @@ describe("maps", () => {
 
 describe("tick-cost --remote", () => {
   it("answers feature_disabled where the server has the check off, pointing to the offline check", async () => {
-    await writeFile(at("ada.entry.json"), JSON.stringify({ bots: [{ name: "Probe", build: BUILD, programFile: "hunter.aum" }] }));
+    await writeFile(at("ada.entry.json"), JSON.stringify({ bots: [{ name: "Probe", build: BUILD, programFile: "hunter.ptk" }] }));
     const human = await cli("tick-cost", "--entry", at("ada.entry.json"), "--remote");
     expect(human).toMatchObject({ code: 1, out: "" });
-    expect(human.err).toContain("'aumohta tick-cost --entry FILE'");
+    expect(human.err).toContain("'positrontanks tick-cost --entry FILE'");
     expect(errorOf(await cli("tick-cost", "--entry", at("ada.entry.json"), "--remote", "--json")).code).toBe("feature_disabled");
     expect(await anonymous("tick-cost", "--entry", at("ada.entry.json"), "--remote")).toMatchObject({ code: 3 });
   });

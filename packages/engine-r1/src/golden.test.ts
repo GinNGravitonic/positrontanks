@@ -15,7 +15,7 @@
  *
  *     pnpm golden:update
  *
- * (or set `AUMOHTA_UPDATE_GOLDENS=1` for a test run), review the
+ * (or set `POSITRONTANKS_UPDATE_GOLDENS=1` for a test run), review the
  * diff of `packages/engine-r1/golden/`, and commit it with the change.
  * Adding, editing or removing a golden Game is done the same way, in
  * golden-games.ts.
@@ -23,8 +23,8 @@
 
 import { createHash } from "node:crypto";
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { validateBuild, type Component, type Ruleset } from "@aumohta/ruleset-data";
-import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
+import { validateBuild, type Component, type Ruleset } from "@positrontanks/ruleset-data";
+import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { describe, expect, it } from "vitest";
 import { createGame, playTick, type Game } from "./game.js";
 import { GOLDEN_GAMES, type GoldenGame } from "./golden-games.js";
@@ -33,7 +33,7 @@ import { gameRecord, replayGame, replayOf, type GameRecord } from "./record.js";
 
 const r1 = loadRuleset("r1");
 // `pnpm golden:update` runs Vitest with `--mode update-goldens`, which Vitest exposes as MODE.
-const UPDATE = process.env["MODE"] === "update-goldens" || process.env["AUMOHTA_UPDATE_GOLDENS"] === "1";
+const UPDATE = process.env["MODE"] === "update-goldens" || process.env["POSITRONTANKS_UPDATE_GOLDENS"] === "1";
 const goldenDir = new URL("../golden/", import.meta.url);
 
 /** World hashes are kept for Tick 0, every `HASH_EVERY` Ticks, and the last Tick. */

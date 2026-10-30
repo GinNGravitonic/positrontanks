@@ -82,7 +82,7 @@ const backends: readonly Backend[] = [
   {
     name: "LocalObjectStore",
     open: async () => {
-      const root = await mkdtemp(join(tmpdir(), "aumohta-objects-"));
+      const root = await mkdtemp(join(tmpdir(), "positrontanks-objects-"));
       return { store: new LocalObjectStore(root), close: () => rm(root, { recursive: true, force: true }) };
     },
   },
@@ -208,7 +208,7 @@ describe.each(backends)("ObjectStore contract: $name", (backend) => {
 describe("LocalObjectStore", () => {
   let root: string;
   beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), "aumohta-objects-"));
+    root = await mkdtemp(join(tmpdir(), "positrontanks-objects-"));
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
@@ -282,7 +282,7 @@ describe("S3ObjectStore", () => {
 describe("createObjectStore", () => {
   it("builds the backend the configuration selects", () => {
     expect(createObjectStore(loadConfig({}).storage)).toBeInstanceOf(LocalObjectStore);
-    const s3 = loadConfig({ AUMOHTA_STORAGE: "s3", AUMOHTA_S3_BUCKET: "b", AUMOHTA_S3_REGION: "eu-west-1" }).storage;
+    const s3 = loadConfig({ POSITRONTANKS_STORAGE: "s3", POSITRONTANKS_S3_BUCKET: "b", POSITRONTANKS_S3_REGION: "eu-west-1" }).storage;
     expect(createObjectStore(s3)).toBeInstanceOf(S3ObjectStore);
   });
 });

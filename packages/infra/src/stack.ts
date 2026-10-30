@@ -1,5 +1,5 @@
 /**
- * The Aumohta AWS deployment (ADR-0003, docs/docker.md): one Fargate task
+ * The Positron Tanks AWS deployment (ADR-0003, docs/docker.md): one Fargate task
  * running the server image behind an ALB, with S3 buckets for object storage
  * and for Litestream's replica of the SQLite database.
  *
@@ -25,7 +25,7 @@ export interface StackArgs {
    * ALB serves plain HTTP on its own DNS name.
    */
   readonly domain?: { readonly name: string; readonly hostedZoneId: string } | undefined;
-  /** Extra plain `AUMOHTA_*` variables, e.g. limits. */
+  /** Extra plain `POSITRONTANKS_*` variables, e.g. limits. */
   readonly environment: Readonly<Record<string, string>>;
   /** Variables stored in Secrets Manager and injected by ECS. */
   readonly secretEnvironment: pulumi.Input<Readonly<Record<string, string>>>;
@@ -97,7 +97,7 @@ export function createStack(name: string, args: StackArgs): StackOutputs {
 
   const albSecurityGroup = new aws.ec2.SecurityGroup(`${name}-alb`, {
     vpcId: vpc.id,
-    description: "Aumohta load balancer",
+    description: "Positron Tanks load balancer",
     ingress: [
       { protocol: "tcp", fromPort: 80, toPort: 80, cidrBlocks: ["0.0.0.0/0"] },
       { protocol: "tcp", fromPort: 443, toPort: 443, cidrBlocks: ["0.0.0.0/0"] },
@@ -106,7 +106,7 @@ export function createStack(name: string, args: StackArgs): StackOutputs {
   });
   const taskSecurityGroup = new aws.ec2.SecurityGroup(`${name}-task`, {
     vpcId: vpc.id,
-    description: "Aumohta server task",
+    description: "Positron Tanks server task",
     ingress: [
       { protocol: "tcp", fromPort: CONTAINER_PORT, toPort: CONTAINER_PORT, securityGroups: [albSecurityGroup.id] },
     ],
@@ -302,10 +302,10 @@ export function createStack(name: string, args: StackArgs): StackOutputs {
             environment: Object.entries({
               ...args.environment,
               AWS_REGION: regionName,
-              AUMOHTA_STORAGE: "s3",
-              AUMOHTA_S3_BUCKET: objects,
-              AUMOHTA_S3_REGION: regionName,
-              AUMOHTA_LITESTREAM_REPLICA_URL: `s3://${litestream}/aumohta`,
+              POSITRONTANKS_STORAGE: "s3",
+              POSITRONTANKS_S3_BUCKET: objects,
+              POSITRONTANKS_S3_REGION: regionName,
+              POSITRONTANKS_LITESTREAM_REPLICA_URL: `s3://${litestream}/positrontanks`,
             }).map(([variable, value]) => ({ name: variable, value })),
             secrets: secretVariables.map((variable) => ({
               name: variable,

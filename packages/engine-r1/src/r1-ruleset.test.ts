@@ -1,5 +1,5 @@
-import { validateBuild, type Build } from "@aumohta/ruleset-data";
-import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
+import { validateBuild, type Build } from "@positrontanks/ruleset-data";
+import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { describe, expect, it } from "vitest";
 import { checkRuleset, deriveBotSpec } from "./bot-spec.js";
 

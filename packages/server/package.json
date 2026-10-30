@@ -1,5 +1,5 @@
 {
-  "name": "@aumohta/server",
+  "name": "@positrontanks/server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,9 +14,9 @@
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@aumohta/engine-r1": "workspace:*",
-    "@aumohta/language": "workspace:*",
-    "@aumohta/ruleset-data": "workspace:*",
+    "@positrontanks/engine-r1": "workspace:*",
+    "@positrontanks/language": "workspace:*",
+    "@positrontanks/ruleset-data": "workspace:*",
     "@aws-sdk/client-s3": "3.1147.0"
   },
   "devDependencies": {

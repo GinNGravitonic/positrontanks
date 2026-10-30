@@ -5,7 +5,7 @@
  * server's error format with the spec's exit code.
  *
  * Request and response types come from `schema.ts`, generated from the
- * committed OpenAPI snapshot (`pnpm --filter @aumohta/cli gen:api`).
+ * committed OpenAPI snapshot (`pnpm --filter @positrontanks/cli gen:api`).
  */
 
 import type { components } from "./schema.js";
@@ -70,7 +70,7 @@ export interface RawResponse {
 }
 
 export const NOT_AUTHENTICATED_MESSAGE =
-  "No API key: log in with 'aumohta auth login USERNAME', store a key with 'aumohta auth use-key', or set AUMOHTA_API_KEY";
+  "No API key: log in with 'positrontanks auth login USERNAME', store a key with 'positrontanks auth use-key', or set POSITRONTANKS_API_KEY";
 
 export class ApiClient {
   constructor(
@@ -159,7 +159,7 @@ export function parseJson(text: string, what: string): unknown {
   try {
     return JSON.parse(text);
   } catch {
-    throw new CliError(EXIT.server, "bad_response", `${what} answered with a body that is not JSON; is the server an Aumohta server?`);
+    throw new CliError(EXIT.server, "bad_response", `${what} answered with a body that is not JSON; is the server a Positron Tanks server?`);
   }
 }
 
@@ -173,7 +173,7 @@ function responseError(status: number, text: string, what: string): CliError {
   }
   const error = (body as { error?: unknown } | undefined)?.error as Partial<ErrorBody["error"]> | undefined;
   if (typeof error?.code !== "string" || typeof error.message !== "string") {
-    return new CliError(EXIT.server, "bad_response", `${what} answered ${String(status)} without an Aumohta error body; is the server an Aumohta server?`);
+    return new CliError(EXIT.server, "bad_response", `${what} answered ${String(status)} without a Positron Tanks error body; is the server a Positron Tanks server?`);
   }
   const exitCode = status === 401 ? EXIT.notAuthenticated : status >= 400 && status < 500 ? EXIT.refused : EXIT.server;
   return new CliError(exitCode, error.code, error.message, error.details);

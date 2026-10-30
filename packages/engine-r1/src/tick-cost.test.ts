@@ -1,5 +1,5 @@
-import { checkMapTerrains, validateBuild, validateMap, type Build } from "@aumohta/ruleset-data";
-import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
+import { checkMapTerrains, validateBuild, validateMap, type Build } from "@positrontanks/ruleset-data";
+import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { describe, expect, it } from "vitest";
 import { sampleMap, tickCostCheck } from "./tick-cost.js";
 

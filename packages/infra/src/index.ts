@@ -13,10 +13,10 @@ const config = new pulumi.Config();
 const domainName = config.get("domainName");
 const hostedZoneId = config.get("hostedZoneId");
 if ((domainName === undefined) !== (hostedZoneId === undefined)) {
-  throw new Error("aumohta:domainName and aumohta:hostedZoneId must be set together");
+  throw new Error("positrontanks:domainName and positrontanks:hostedZoneId must be set together");
 }
 
-const stack = createStack("aumohta", {
+const stack = createStack("positrontanks", {
   buildContext: resolve(dirname(fileURLToPath(import.meta.url)), "../../.."),
   cpu: config.getNumber("cpu") ?? 512,
   memoryMiB: config.getNumber("memoryMiB") ?? 1024,

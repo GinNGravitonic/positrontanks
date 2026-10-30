@@ -187,17 +187,17 @@ importers:
 
   packages/cli:
     dependencies:
-      '@aumohta/engine-r1':
+      '@positrontanks/engine-r1':
         specifier: workspace:*
         version: link:../engine-r1
-      '@aumohta/language':
+      '@positrontanks/language':
         specifier: workspace:*
         version: link:../language
-      '@aumohta/ruleset-data':
+      '@positrontanks/ruleset-data':
         specifier: workspace:*
         version: link:../ruleset-data
     devDependencies:
-      '@aumohta/server':
+      '@positrontanks/server':
         specifier: workspace:*
         version: link:../server
       openapi-typescript:
@@ -206,10 +206,10 @@ importers:
 
   packages/engine-r1:
     dependencies:
-      '@aumohta/language':
+      '@positrontanks/language':
         specifier: workspace:*
         version: link:../language
-      '@aumohta/ruleset-data':
+      '@positrontanks/ruleset-data':
         specifier: workspace:*
         version: link:../ruleset-data
 
@@ -231,18 +231,18 @@ importers:
 
   packages/server:
     dependencies:
-      '@aumohta/engine-r1':
-        specifier: workspace:*
-        version: link:../engine-r1
-      '@aumohta/language':
-        specifier: workspace:*
-        version: link:../language
-      '@aumohta/ruleset-data':
-        specifier: workspace:*
-        version: link:../ruleset-data
       '@aws-sdk/client-s3':
         specifier: 3.1147.0
         version: 3.1147.0
+      '@positrontanks/engine-r1':
+        specifier: workspace:*
+        version: link:../engine-r1
+      '@positrontanks/language':
+        specifier: workspace:*
+        version: link:../language
+      '@positrontanks/ruleset-data':
+        specifier: workspace:*
+        version: link:../ruleset-data
     devDependencies:
       aws-sdk-client-mock:
         specifier: 4.1.0

@@ -10,7 +10,7 @@
  * depend on how Bots are numbered.
  */
 
-import type { MapFormat1 } from "@aumohta/ruleset-data";
+import type { MapFormat1 } from "@positrontanks/ruleset-data";
 import { damageBot, damageObstacle } from "./damage.js";
 import type { Collider, TickEvent } from "./events.js";
 import {

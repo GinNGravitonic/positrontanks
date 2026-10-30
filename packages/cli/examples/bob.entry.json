@@ -9,7 +9,7 @@
         "components": { "prow": "hammer", "eye": "radar", "leftDrive": "wheels", "rightDrive": "wheels" },
         "armor": { "front": "heavyPlate", "left": null, "right": null, "rear": null }
       },
-      "programFile": "rammer.aum"
+      "programFile": "rammer.ptk"
     }
   ]
 }

@@ -14,7 +14,7 @@
  *     {
  *       "name": "Pecker",
  *       "build": { "chassis": "scout", "components": { "gun": "pelletGun" }, "armor": { "front": null, "left": null, "right": null, "rear": null } },
- *       "programFile": "hunter.aum"
+ *       "programFile": "hunter.ptk"
  *     }
  *   ]
  * }
@@ -31,7 +31,7 @@
 
 import { readFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
-import type { Build } from "@aumohta/ruleset-data";
+import type { Build } from "@positrontanks/ruleset-data";
 
 export interface EntryFileBot {
   readonly name: string;

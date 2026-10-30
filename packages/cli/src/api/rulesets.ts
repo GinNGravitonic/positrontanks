@@ -1,5 +1,5 @@
 /**
- * `aumohta rulesets` (docs/spec/cli-api.md): the Rulesets the server hosts,
+ * `positrontanks rulesets` (docs/spec/cli-api.md): the Rulesets the server hosts,
  * their rules, language, Parts Catalog and Terrains, and their documents.
  * `rulesets docs VERSION DOC` prints the Markdown as is in both output
  * modes: it is how an agent reads the rules it plays under.
@@ -112,7 +112,7 @@ export const rulesetsCommands: Group = {
       const list = await context.client.request<Schema<"RulesetDocList">>("GET", `${base(version)}/docs`);
       emit(context, list, () => [
         ...table([["Doc", "Title"], ...list.docs.map((d) => [d.id, d.title])], ""),
-        `Print one with: aumohta rulesets docs ${list.version} DOC`,
+        `Print one with: positrontanks rulesets docs ${list.version} DOC`,
       ]);
     },
   },

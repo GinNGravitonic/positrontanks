@@ -1,5 +1,5 @@
-import { R1_LANGUAGE } from "@aumohta/language";
-import { loadRuleset, loadRulesetDocs } from "@aumohta/ruleset-data/rulesets";
+import { R1_LANGUAGE } from "@positrontanks/language";
+import { loadRuleset, loadRulesetDocs } from "@positrontanks/ruleset-data/rulesets";
 import { afterEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";
@@ -110,7 +110,7 @@ describe("Ruleset endpoints", () => {
         version: "r1",
         docs: [
           { id: "engine", title: "Simulation Rules, Ruleset r1", path: "/rulesets/r1/docs/engine" },
-          { id: "language", title: "Aumohta Language Specification, Ruleset r1", path: "/rulesets/r1/docs/language" },
+          { id: "language", title: "Positron Tanks Language Specification, Ruleset r1", path: "/rulesets/r1/docs/language" },
           { id: "catalog", title: "Parts Catalog and Balance, Ruleset r1", path: "/rulesets/r1/docs/catalog" },
         ],
       },

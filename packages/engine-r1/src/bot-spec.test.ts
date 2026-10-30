@@ -1,4 +1,4 @@
-import type { Ruleset } from "@aumohta/ruleset-data";
+import type { Ruleset } from "@positrontanks/ruleset-data";
 import { describe, expect, it } from "vitest";
 import { checkRuleset, deriveBotSpec } from "./bot-spec.js";
 import { armed, armored, boxBuild, discBuild, ruleset, without } from "./test-fixtures.js";

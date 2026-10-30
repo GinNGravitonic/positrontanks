@@ -5,7 +5,7 @@
  * may see: Program logs are kept apart, per owner (record.ts).
  */
 
-import type { Build, MapFormat1 } from "@aumohta/ruleset-data";
+import type { Build, MapFormat1 } from "@positrontanks/ruleset-data";
 import type { TickEvent } from "./events.js";
 import type { GameResult } from "./outcome.js";
 import type { BotStatus, World } from "./world.js";

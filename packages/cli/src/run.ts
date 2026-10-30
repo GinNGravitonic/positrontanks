@@ -12,7 +12,7 @@
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { check, R1_LANGUAGE } from "@aumohta/language";
+import { check, R1_LANGUAGE } from "@positrontanks/language";
 import {
   createGame,
   deriveBotSpec,
@@ -24,9 +24,9 @@ import {
   type GameResult,
   type GameSetup,
   type TickReport,
-} from "@aumohta/engine-r1";
-import { checkMapTerrains, entryFitsMap, parseMap, terrainNames, validateBuild, type MapFormat1, type Ruleset } from "@aumohta/ruleset-data";
-import { isRulesetVersion, loadRuleset, RULESET_VERSIONS } from "@aumohta/ruleset-data/rulesets";
+} from "@positrontanks/engine-r1";
+import { checkMapTerrains, entryFitsMap, parseMap, terrainNames, validateBuild, type MapFormat1, type Ruleset } from "@positrontanks/ruleset-data";
+import { isRulesetVersion, loadRuleset, RULESET_VERSIONS } from "@positrontanks/ruleset-data/rulesets";
 import { InputError, readEntryFile, readText, type EntryFile, type ValidBot } from "./entry-file.js";
 
 export interface GameOptions {

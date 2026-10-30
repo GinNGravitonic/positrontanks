@@ -1,8 +1,8 @@
-# Litestream configuration for the Aumohta server image. Litestream expands
+# Litestream configuration for the Positron Tanks server image. Litestream expands
 # ${VAR} references from the environment when it loads this file; the
-# entrypoint only uses it when AUMOHTA_LITESTREAM_REPLICA_URL is set.
+# entrypoint only uses it when POSITRONTANKS_LITESTREAM_REPLICA_URL is set.
 # S3 credentials come from the AWS default chain (env vars, ECS task role, ...).
 dbs:
-  - path: ${AUMOHTA_DATABASE_PATH}
+  - path: ${POSITRONTANKS_DATABASE_PATH}
     replica:
-      url: ${AUMOHTA_LITESTREAM_REPLICA_URL}
+      url: ${POSITRONTANKS_LITESTREAM_REPLICA_URL}

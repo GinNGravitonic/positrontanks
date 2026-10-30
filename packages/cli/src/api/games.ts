@@ -1,12 +1,12 @@
 /**
- * `aumohta games` (docs/spec/cli-api.md): Games, Entries and spectating.
+ * `positrontanks games` (docs/spec/cli-api.md): Games, Entries and spectating.
  *
- * `games create` defaults match `aumohta run` where the two overlap.
+ * `games create` defaults match `positrontanks run` where the two overlap.
  * `games watch` follows the event stream until the Game ends, reconnecting
  * when it closes early, and can write the Replay assembled from it.
  */
 
-import type { GameResult as EngineResult } from "@aumohta/engine-r1";
+import type { GameResult as EngineResult } from "@positrontanks/engine-r1";
 import { formatResult, table } from "../report.js";
 import { CliError, EXIT, fetchList, NOT_AUTHENTICATED_MESSAGE, parseJson, usageError, type Schema } from "./client.js";
 import {
@@ -37,7 +37,7 @@ type Replay = Schema<"Replay">;
 type ReplayTick = Schema<"ReplayTick">;
 type GameSnapshot = Schema<"GameSnapshot">;
 
-/** `games create` defaults, as `aumohta run`'s. */
+/** `games create` defaults, as `positrontanks run`'s. */
 const DEFAULT_PLAYERS = 2;
 const DEFAULT_TIME_LIMIT_SECONDS = 120;
 const DEFAULT_FILL_TIMEOUT_SECONDS = 3600;
@@ -140,7 +140,7 @@ function usernames(game: Game): Map<string, string> {
   return new Map([[game.initiator.id, game.initiator.username], ...game.entries.map((e) => [e.player.id, e.player.username] as const)]);
 }
 
-/** The Replay's result, as `aumohta run` prints it, with Players by username. */
+/** The Replay's result, as `positrontanks run` prints it, with Players by username. */
 function replayResultLines(replay: Replay, game: Game): string[] {
   const { result } = replay;
   if (result === null) return game.result === null ? [] : [`Result: ${resultText(game.result)}`];
@@ -159,7 +159,7 @@ function replayResultLines(replay: Replay, game: Game): string[] {
 /** Bot Names by Bot id, from a Replay's header. */
 const botNames = (replay: Replay) => new Map(replay.entries.flatMap((e) => e.bots.map((b) => [b.id, b.name] as const)));
 
-/** `Tick 12: Hunter Disabled (ram)`, as `aumohta run` announces it. */
+/** `Tick 12: Hunter Disabled (ram)`, as `positrontanks run` announces it. */
 function disabledLines(frame: ReplayTick, names: ReadonlyMap<number, string>): string[] {
   return (frame.events as readonly { type: string; tick: number; bot?: number; cause?: string }[]).flatMap((e) =>
     e.type === "disabled" && e.bot !== undefined ? [`Tick ${String(e.tick)}: ${names.get(e.bot) ?? `#${String(e.bot)}`} Disabled (${e.cause ?? ""})`] : [],
@@ -174,7 +174,7 @@ export const gamesCommands: Group = {
   create: {
     synopsis:
       "--map MAP_ID [--map-revision N] [--ruleset VERSION] [--players N] [--point-budget N] [--time-limit SECONDS] [--unthrottled] [--fill-timeout SECONDS]",
-    summary: "Create an Open Game, with defaults as 'aumohta run' (POST /games)",
+    summary: "Create an Open Game, with defaults as 'positrontanks run' (POST /games)",
     options: {
       map: { type: "string" },
       "map-revision": { type: "string" },
@@ -209,7 +209,7 @@ export const gamesCommands: Group = {
       const game = await context.client.request<Game>("POST", "/games", { auth: true, body });
       emit(context, game, () => [
         `Created Game ${game.id} on ${mapText(game)}: ${String(game.playerCount)} Players, Point Budget ${String(game.pointBudget)}, ${String(game.timeLimitSeconds)} s, ${PACE_TEXT[game.pace]}; fills by ${localTime(game.fillDeadline)}.`,
-        `Enter it with 'aumohta games enter ${game.id} --bot NAME=DESIGN_ID'.`,
+        `Enter it with 'positrontanks games enter ${game.id} --bot NAME=DESIGN_ID'.`,
       ]);
     },
   },
@@ -307,7 +307,7 @@ export const gamesCommands: Group = {
         `Entered Game ${game.id} with Entry ${entry.id}: ${entry.bots.map((b) => b.name).join(", ")}${entry.cost === undefined ? "" : `, ${String(entry.cost)} points`}.`,
         game.state === "open"
           ? `Waiting for ${String(game.playerCount - game.entryCount)} more of ${String(game.playerCount)} Entries.`
-          : `The Game is full and ${game.state}; watch it with 'aumohta games watch ${game.id}'.`,
+          : `The Game is full and ${game.state}; watch it with 'positrontanks games watch ${game.id}'.`,
       ]);
     },
   },
@@ -342,7 +342,7 @@ export const gamesCommands: Group = {
 
   replay: {
     synopsis: "GAME_ID [--out FILE]",
-    summary: "Get a Finished Game's Replay (GET /games/{gameId}/replay); --out writes it as 'aumohta run' writes replay.json",
+    summary: "Get a Finished Game's Replay (GET /games/{gameId}/replay); --out writes it as 'positrontanks run' writes replay.json",
     args: ["GAME_ID"],
     options: { out: { type: "string" } },
     run: async (context, [id = ""], values) => {
@@ -357,7 +357,7 @@ export const gamesCommands: Group = {
 
   logs: {
     synopsis: "GAME_ID [--from-tick N] [--to-tick N] [--out FILE]",
-    summary: "Get your Bots' Program logs in a Game (GET /games/{gameId}/program-logs); --out writes them as 'aumohta run' writes program-logs.json",
+    summary: "Get your Bots' Program logs in a Game (GET /games/{gameId}/program-logs); --out writes them as 'positrontanks run' writes program-logs.json",
     args: ["GAME_ID"],
     options: { "from-tick": { type: "string" }, "to-tick": { type: "string" }, out: { type: "string" } },
     run: async (context, [id = ""], values) => {

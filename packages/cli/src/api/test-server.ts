@@ -1,6 +1,6 @@
 /**
  * The in-process server the server commands' tests run against
- * (docs/spec/cli-api.md, Testing): `@aumohta/server` over a temporary SQLite
+ * (docs/spec/cli-api.md, Testing): `@positrontanks/server` over a temporary SQLite
  * database and storage directory on an ephemeral port, and a config
  * directory of its own, so tests never touch the user's profiles.
  */
@@ -8,7 +8,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { defaultConfig, startServer, type Pacing, type RunningServer } from "@aumohta/server";
+import { defaultConfig, startServer, type Pacing, type RunningServer } from "@positrontanks/server";
 import { main, type Io } from "../cli.js";
 import { configPath, type Config } from "./config.js";
 
@@ -34,10 +34,10 @@ export interface CliOptions {
 export interface TestServer {
   readonly url: string;
   readonly running: RunningServer;
-  /** The environment the CLI runs with: its config directory, and the server as AUMOHTA_SERVER. */
+  /** The environment the CLI runs with: its config directory, and the server as POSITRONTANKS_SERVER. */
   readonly env: Readonly<Record<string, string>>;
   readonly configFile: string;
-  /** Runs `aumohta ...argv` against this server. */
+  /** Runs `positrontanks ...argv` against this server. */
   cli(argv: readonly string[], options?: CliOptions): Promise<CliRun>;
   /** The config file's contents; undefined while there is none. */
   config(): Promise<Config | undefined>;
@@ -45,21 +45,21 @@ export interface TestServer {
 }
 
 export async function startTestServer(options: { readonly tickCostCheck?: boolean; readonly pacing?: Pacing } = {}): Promise<TestServer> {
-  const dir = await mkdtemp(join(tmpdir(), "aumohta-cli-server-"));
+  const dir = await mkdtemp(join(tmpdir(), "positrontanks-cli-server-"));
   const quiet = { info: () => undefined, error: () => undefined };
   const running = await startServer(
     {
       ...defaultConfig,
       host: "127.0.0.1",
       port: 0,
-      databasePath: join(dir, "aumohta.db"),
+      databasePath: join(dir, "positrontanks.db"),
       storage: { kind: "local", directory: join(dir, "objects") },
       features: { ...defaultConfig.features, tickCostCheck: options.tickCostCheck ?? false },
     },
     { logger: quiet, ...(options.pacing === undefined ? {} : { pacing: options.pacing }) },
   );
   const configDir = join(dir, "config");
-  const env = { APPDATA: configDir, XDG_CONFIG_HOME: configDir, AUMOHTA_SERVER: running.url };
+  const env = { APPDATA: configDir, XDG_CONFIG_HOME: configDir, POSITRONTANKS_SERVER: running.url };
   const configFile = configPath(env);
   return {
     url: running.url,

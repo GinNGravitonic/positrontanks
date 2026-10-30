@@ -1,7 +1,7 @@
 /**
  * Server configuration (spec section 10).
  *
- * Everything is read from `AUMOHTA_*` environment variables; anything unset
+ * Everything is read from `POSITRONTANKS_*` environment variables; anything unset
  * takes the conservative default below. Invalid values are collected and
  * reported together so a misconfigured deployment fails once, at startup,
  * with every problem listed.
@@ -71,7 +71,7 @@ export interface ServerConfig {
 /** Optional features, each off unless the server enables it. */
 export interface Features {
   /**
-   * The tick cost check (`AUMOHTA_TICK_COST_CHECK=on`). One check runs up to
+   * The tick cost check (`POSITRONTANKS_TICK_COST_CHECK=on`). One check runs up to
    * ~100 Ticks of `tick()` synchronously, so it is meant for local servers,
    * where a Player's checks only load their own machine; shared deployments
    * leave it off.
@@ -80,14 +80,14 @@ export interface Features {
 }
 
 export interface LitestreamConfig {
-  /** Litestream replica URL, e.g. `s3://bucket/path` or `file:///backups/aumohta`. */
+  /** Litestream replica URL, e.g. `s3://bucket/path` or `file:///backups/positrontanks`. */
   readonly replicaUrl: string;
 }
 
 export const defaultConfig: ServerConfig = {
   host: "127.0.0.1",
   port: 8080,
-  databasePath: "data/aumohta.db",
+  databasePath: "data/positrontanks.db",
   storage: { kind: "local", directory: "data/objects" },
   limits: {
     maxRequestBodyBytes: 1024 * 1024,
@@ -150,16 +150,16 @@ export function loadConfig(env: Env): ServerConfig {
   };
 
   const storage = (): StorageConfig => {
-    const kind = env.AUMOHTA_STORAGE ?? d.storage.kind;
+    const kind = env.POSITRONTANKS_STORAGE ?? d.storage.kind;
     if (kind === "s3") {
-      const bucket = optional("AUMOHTA_S3_BUCKET");
-      if (bucket === undefined) problems.push(`AUMOHTA_S3_BUCKET is required when AUMOHTA_STORAGE is "s3"`);
-      const keyPrefix = env.AUMOHTA_S3_KEY_PREFIX ?? "";
+      const bucket = optional("POSITRONTANKS_S3_BUCKET");
+      if (bucket === undefined) problems.push(`POSITRONTANKS_S3_BUCKET is required when POSITRONTANKS_STORAGE is "s3"`);
+      const keyPrefix = env.POSITRONTANKS_S3_KEY_PREFIX ?? "";
       if (keyPrefix !== "" && !keyPrefix.endsWith("/")) {
-        problems.push(`AUMOHTA_S3_KEY_PREFIX must be empty or end with "/", got "${keyPrefix}"`);
+        problems.push(`POSITRONTANKS_S3_KEY_PREFIX must be empty or end with "/", got "${keyPrefix}"`);
       }
-      const region = optional("AUMOHTA_S3_REGION");
-      const endpoint = optional("AUMOHTA_S3_ENDPOINT");
+      const region = optional("POSITRONTANKS_S3_REGION");
+      const endpoint = optional("POSITRONTANKS_S3_ENDPOINT");
       return {
         kind: "s3",
         bucket: bucket ?? "",
@@ -168,52 +168,52 @@ export function loadConfig(env: Env): ServerConfig {
         ...(endpoint === undefined ? {} : { endpoint }),
       };
     }
-    if (kind !== "local") problems.push(`AUMOHTA_STORAGE must be "local" or "s3", got "${kind}"`);
-    return { kind: "local", directory: string("AUMOHTA_STORAGE_DIRECTORY", "data/objects") };
+    if (kind !== "local") problems.push(`POSITRONTANKS_STORAGE must be "local" or "s3", got "${kind}"`);
+    return { kind: "local", directory: string("POSITRONTANKS_STORAGE_DIRECTORY", "data/objects") };
   };
 
   const litestream = (databasePath: string): LitestreamConfig | undefined => {
-    const replicaUrl = optional("AUMOHTA_LITESTREAM_REPLICA_URL");
+    const replicaUrl = optional("POSITRONTANKS_LITESTREAM_REPLICA_URL");
     if (replicaUrl === undefined) return undefined;
     if (!/^[a-z][a-z0-9+.-]*:\/\/\S+$/i.test(replicaUrl) || !URL.canParse(replicaUrl)) {
-      problems.push(`AUMOHTA_LITESTREAM_REPLICA_URL must be a URL such as s3://bucket/path, got "${replicaUrl}"`);
+      problems.push(`POSITRONTANKS_LITESTREAM_REPLICA_URL must be a URL such as s3://bucket/path, got "${replicaUrl}"`);
     }
     if (databasePath === ":memory:") {
-      problems.push(`AUMOHTA_LITESTREAM_REPLICA_URL cannot be used with an in-memory database`);
+      problems.push(`POSITRONTANKS_LITESTREAM_REPLICA_URL cannot be used with an in-memory database`);
     }
     return { replicaUrl };
   };
 
-  const databasePath = string("AUMOHTA_DATABASE_PATH", d.databasePath);
+  const databasePath = string("POSITRONTANKS_DATABASE_PATH", d.databasePath);
   const replication = litestream(databasePath);
   const config: ServerConfig = {
-    host: string("AUMOHTA_HOST", d.host),
-    port: integer("AUMOHTA_PORT", d.port, 0, 65535),
+    host: string("POSITRONTANKS_HOST", d.host),
+    port: integer("POSITRONTANKS_PORT", d.port, 0, 65535),
     databasePath,
     storage: storage(),
     ...(replication === undefined ? {} : { litestream: replication }),
     limits: {
-      maxRequestBodyBytes: integer("AUMOHTA_MAX_REQUEST_BODY_BYTES", l.maxRequestBodyBytes, 1),
+      maxRequestBodyBytes: integer("POSITRONTANKS_MAX_REQUEST_BODY_BYTES", l.maxRequestBodyBytes, 1),
       map: {
-        maxWidth: integer("AUMOHTA_MAX_MAP_WIDTH", l.map.maxWidth, 1),
-        maxHeight: integer("AUMOHTA_MAX_MAP_HEIGHT", l.map.maxHeight, 1),
-        maxPolygonPoints: integer("AUMOHTA_MAX_MAP_POLYGON_POINTS", l.map.maxPolygonPoints, 3),
-        maxFeatures: integer("AUMOHTA_MAX_MAP_FEATURES", l.map.maxFeatures, 1),
+        maxWidth: integer("POSITRONTANKS_MAX_MAP_WIDTH", l.map.maxWidth, 1),
+        maxHeight: integer("POSITRONTANKS_MAX_MAP_HEIGHT", l.map.maxHeight, 1),
+        maxPolygonPoints: integer("POSITRONTANKS_MAX_MAP_POLYGON_POINTS", l.map.maxPolygonPoints, 3),
+        maxFeatures: integer("POSITRONTANKS_MAX_MAP_FEATURES", l.map.maxFeatures, 1),
       },
-      maxTimeLimitSeconds: integer("AUMOHTA_MAX_TIME_LIMIT_SECONDS", l.maxTimeLimitSeconds, 1),
-      maxFillTimeoutSeconds: integer("AUMOHTA_MAX_FILL_TIMEOUT_SECONDS", l.maxFillTimeoutSeconds, 1),
+      maxTimeLimitSeconds: integer("POSITRONTANKS_MAX_TIME_LIMIT_SECONDS", l.maxTimeLimitSeconds, 1),
+      maxFillTimeoutSeconds: integer("POSITRONTANKS_MAX_FILL_TIMEOUT_SECONDS", l.maxFillTimeoutSeconds, 1),
       maxConcurrentUnthrottledGames: integer(
-        "AUMOHTA_MAX_UNTHROTTLED_GAMES",
+        "POSITRONTANKS_MAX_UNTHROTTLED_GAMES",
         l.maxConcurrentUnthrottledGames,
         0,
       ),
       maxEventStreamBufferBytes: integer(
-        "AUMOHTA_MAX_EVENT_STREAM_BUFFER_BYTES",
+        "POSITRONTANKS_MAX_EVENT_STREAM_BUFFER_BYTES",
         l.maxEventStreamBufferBytes,
         1,
       ),
     },
-    features: { tickCostCheck: flag("AUMOHTA_TICK_COST_CHECK", d.features.tickCostCheck) },
+    features: { tickCostCheck: flag("POSITRONTANKS_TICK_COST_CHECK", d.features.tickCostCheck) },
   };
 
   if (problems.length > 0) throw new ConfigError(problems);

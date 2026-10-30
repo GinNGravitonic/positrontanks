@@ -1,6 +1,6 @@
-# Aumohta
+# Positron Tanks
 
-Aumohta is a programmable robot-combat game. Players design bots from a point-budgeted parts catalog, program them in a small language, and enter them into fully automatic battles that they can watch but not influence.
+Positron Tanks is a programmable robot-combat game. Players design bots from a point-budgeted parts catalog, program them in a small language, and enter them into fully automatic battles that they can watch but not influence.
 
 ## Players and their bots
 
@@ -29,7 +29,7 @@ A Player's image, displayed alongside all of that Player's Bots.
 _Avoid_: Team icon, logo, avatar
 
 **Program**:
-The code, written in the Aumohta language, that controls every Bot built from a Bot Design; visible only to its owner.
+The code, written in the Positron Tanks language, that controls every Bot built from a Bot Design; visible only to its owner.
 _Avoid_: Script, AI, brain
 
 **Component**:

@@ -3,7 +3,7 @@
  * peaks (ADR-0002: per-Tick usage is reported in CLI output).
  */
 
-import type { Game, GameResult } from "@aumohta/engine-r1";
+import type { Game, GameResult } from "@positrontanks/engine-r1";
 
 /** How one Bot's Program used its Operation Budget and memory over the Game. */
 export interface BudgetPeak {

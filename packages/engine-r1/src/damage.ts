@@ -3,7 +3,7 @@
  * (spec section 2, Damage; language-r1 section 10.4).
  */
 
-import type { ArmorSide } from "@aumohta/ruleset-data";
+import type { ArmorSide } from "@positrontanks/ruleset-data";
 import type { DamageSource, TickEvent } from "./events.js";
 import type { Point } from "./geometry.js";
 import { atan2Deg, normalizeAngle } from "./math.js";

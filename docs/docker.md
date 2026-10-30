@@ -8,10 +8,10 @@ Litestream configuration.
 ## Build and run locally
 
 ```bash
-docker build -t aumohta-server .
+docker build -t positrontanks-server .
 
-docker volume create aumohta-data
-docker run --rm -p 8080:8080 -v aumohta-data:/data -e AUMOHTA_TICK_COST_CHECK=on aumohta-server
+docker volume create positrontanks-data
+docker run --rm -p 8080:8080 -v positrontanks-data:/data -e POSITRONTANKS_TICK_COST_CHECK=on positrontanks-server
 ```
 
 Then `curl localhost:8080/health` returns `{"status":"ok"}`,
@@ -29,21 +29,21 @@ shared volume, and Litestream in particular, assume a single writer.
 ## Environment
 
 The image sets these defaults; everything else uses the server's own defaults
-(`packages/server/src/config.ts`, all `AUMOHTA_*` variables).
+(`packages/server/src/config.ts`, all `POSITRONTANKS_*` variables).
 
 | Variable                        | Image default       | Meaning                                       |
 | ------------------------------- | ------------------- | --------------------------------------------- |
-| `AUMOHTA_HOST`                  | `0.0.0.0`           | Listen address                                |
-| `AUMOHTA_PORT`                  | `8080`              | Listen port (also used by the `HEALTHCHECK`)   |
-| `AUMOHTA_DATABASE_PATH`         | `/data/aumohta.db`  | SQLite file                                   |
-| `AUMOHTA_STORAGE`               | `local`             | Object storage: `local` or `s3`               |
-| `AUMOHTA_STORAGE_DIRECTORY`     | `/data/objects`     | Object directory when `AUMOHTA_STORAGE=local` |
-| `AUMOHTA_LITESTREAM_REPLICA_URL`| unset               | Enables Litestream (below)                    |
-| `AUMOHTA_TICK_COST_CHECK`       | unset (`off`)       | `on` enables the tick cost check (below)      |
+| `POSITRONTANKS_HOST`                  | `0.0.0.0`           | Listen address                                |
+| `POSITRONTANKS_PORT`                  | `8080`              | Listen port (also used by the `HEALTHCHECK`)   |
+| `POSITRONTANKS_DATABASE_PATH`         | `/data/positrontanks.db`  | SQLite file                                   |
+| `POSITRONTANKS_STORAGE`               | `local`             | Object storage: `local` or `s3`               |
+| `POSITRONTANKS_STORAGE_DIRECTORY`     | `/data/objects`     | Object directory when `POSITRONTANKS_STORAGE=local` |
+| `POSITRONTANKS_LITESTREAM_REPLICA_URL`| unset               | Enables Litestream (below)                    |
+| `POSITRONTANKS_TICK_COST_CHECK`       | unset (`off`)       | `on` enables the tick cost check (below)      |
 
-For S3 object storage set `AUMOHTA_STORAGE=s3`, `AUMOHTA_S3_BUCKET` and
-optionally `AUMOHTA_S3_KEY_PREFIX`, `AUMOHTA_S3_REGION`,
-`AUMOHTA_S3_ENDPOINT`. AWS credentials, for both the server and Litestream,
+For S3 object storage set `POSITRONTANKS_STORAGE=s3`, `POSITRONTANKS_S3_BUCKET` and
+optionally `POSITRONTANKS_S3_KEY_PREFIX`, `POSITRONTANKS_S3_REGION`,
+`POSITRONTANKS_S3_ENDPOINT`. AWS credentials, for both the server and Litestream,
 come from the AWS default chain (environment variables, the ECS task role, ...).
 
 Invalid configuration makes the server exit at startup listing every problem.
@@ -53,22 +53,22 @@ Invalid configuration makes the server exit at startup listing every problem.
 The tick cost check (`POST /tick-cost-checks`,
 `POST /bot-designs/{designId}/tick-cost-checks`) runs a Program for up to ~100
 Ticks synchronously on the server, so it is a local-server feature: a Player
-runs their own server with `AUMOHTA_TICK_COST_CHECK=on` (as above) and their
+runs their own server with `POSITRONTANKS_TICK_COST_CHECK=on` (as above) and their
 checks load only their own machine. Shared deployments, including the Pulumi
 deployment (`packages/infra`, [docs/deployment.md](deployment.md)), leave it unset, and the endpoints answer
 `410 feature_disabled`. `GET /server` reports `features.tickCostCheck` so
 clients can tell before calling.
 
-With no server at all, `aumohta tick-cost --entry FILE` runs the same check
+With no server at all, `positrontanks tick-cost --entry FILE` runs the same check
 offline from an Entry file and reports the same numbers (see
 [docs/spec/cli-runner.md](spec/cli-runner.md#tick-cost-check)).
 
 ## Litestream
 
-Setting `AUMOHTA_LITESTREAM_REPLICA_URL` (for example
-`s3://my-bucket/aumohta`) turns replication on. The entrypoint then:
+Setting `POSITRONTANKS_LITESTREAM_REPLICA_URL` (for example
+`s3://my-bucket/positrontanks`) turns replication on. The entrypoint then:
 
-1. restores `AUMOHTA_DATABASE_PATH` from the replica if the file does not
+1. restores `POSITRONTANKS_DATABASE_PATH` from the replica if the file does not
    exist yet and the replica has a backup (`litestream restore
    -if-db-not-exists -if-replica-exists`), so a new task with empty storage
    comes back with the latest data;
@@ -87,11 +87,11 @@ timeout of at least that (`docker stop -t 40`, ECS `stopTimeout`).
 To try replication locally against a second volume:
 
 ```bash
-docker volume create aumohta-replica
-docker run --rm -u root -v aumohta-replica:/replica aumohta-server chown node:node /replica
-docker run --rm -p 8080:8080 -v aumohta-data:/data -v aumohta-replica:/replica \
-  -e AUMOHTA_TICK_COST_CHECK=on -e AUMOHTA_LITESTREAM_REPLICA_URL=file:///replica/aumohta aumohta-server
+docker volume create positrontanks-replica
+docker run --rm -u root -v positrontanks-replica:/replica positrontanks-server chown node:node /replica
+docker run --rm -p 8080:8080 -v positrontanks-data:/data -v positrontanks-replica:/replica \
+  -e POSITRONTANKS_TICK_COST_CHECK=on -e POSITRONTANKS_LITESTREAM_REPLICA_URL=file:///replica/positrontanks positrontanks-server
 ```
 
-Deleting `aumohta-data` and starting again restores the database from
-`aumohta-replica`.
+Deleting `positrontanks-data` and starting again restores the database from
+`positrontanks-replica`.

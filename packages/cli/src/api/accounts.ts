@@ -1,5 +1,5 @@
 /**
- * `aumohta auth` and `aumohta keys` (docs/spec/cli-api.md): accounts,
+ * `positrontanks auth` and `positrontanks keys` (docs/spec/cli-api.md): accounts,
  * sessions and API keys.
  *
  * The CLI stores API keys, not session tokens, since a session expires
@@ -24,7 +24,7 @@ const password = (context: Context, fromStdin: boolean) => readSecret(context, f
 
 function keySource({ settings }: Context): string {
   if (settings.apiKeySource === "option") return "--api-key-stdin";
-  if (settings.apiKeySource === "environment") return "AUMOHTA_API_KEY";
+  if (settings.apiKeySource === "environment") return "POSITRONTANKS_API_KEY";
   return `profile ${settings.profile}`;
 }
 
@@ -36,8 +36,8 @@ async function storeKey(context: Context, apiKey: string, apiKeyId: string, user
   const { profile, server } = context.settings;
   const stored = context.config.profiles[profile] ?? {};
   await context.saveConfig(withProfile(context.config, profile, { ...stored, server, apiKey, apiKeyId, username }));
-  if (context.env.AUMOHTA_API_KEY !== undefined && context.env.AUMOHTA_API_KEY !== "") {
-    context.io.err("Note: AUMOHTA_API_KEY is set, and takes precedence over the stored key.");
+  if (context.env.POSITRONTANKS_API_KEY !== undefined && context.env.POSITRONTANKS_API_KEY !== "") {
+    context.io.err("Note: POSITRONTANKS_API_KEY is set, and takes precedence over the stored key.");
   }
 }
 
@@ -60,7 +60,7 @@ export const authCommands: Group = {
       const player = await context.client.request<Player>("POST", "/players", { body });
       emit(context, player, () => [
         `Signed up ${player.username} (Player ${player.id}) on ${context.settings.server}.`,
-        `Log in with: aumohta auth login ${player.username}`,
+        `Log in with: positrontanks auth login ${player.username}`,
       ]);
     },
   },
@@ -72,7 +72,7 @@ export const authCommands: Group = {
     options: { "password-stdin": { type: "boolean" }, "key-name": { type: "string" } },
     run: async (context, [username = ""], values) => {
       const body = { username, password: await password(context, flag(values, "password-stdin")) };
-      const name = str(values, "key-name") ?? `aumohta-cli on ${hostname()}`;
+      const name = str(values, "key-name") ?? `positrontanks-cli on ${hostname()}`;
       const { client } = context;
       const session = await client.request<Schema<"Session">>("POST", "/sessions", { body });
       let created: CreatedApiKey;
@@ -114,7 +114,7 @@ export const authCommands: Group = {
         throw new CliError(
           EXIT.notAuthenticated,
           "not_authenticated",
-          `profile ${profile} has no stored API key; a key given by option or environment is never revoked by logout (use 'aumohta keys revoke KEY_ID')`,
+          `profile ${profile} has no stored API key; a key given by option or environment is never revoked by logout (use 'positrontanks keys revoke KEY_ID')`,
         );
       }
       const client = new ApiClient(server, stored.apiKey);

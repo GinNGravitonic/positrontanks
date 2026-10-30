@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
+import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";

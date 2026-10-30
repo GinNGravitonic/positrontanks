@@ -28,7 +28,7 @@ const serverSchema: Json = {
           type: "boolean",
           description:
             "The tick cost check (`checkTickCost`, `checkBotDesignTickCost`), a local-server feature: on only where " +
-            "the server sets AUMOHTA_TICK_COST_CHECK=on.",
+            "the server sets POSITRONTANKS_TICK_COST_CHECK=on.",
         },
       },
     },

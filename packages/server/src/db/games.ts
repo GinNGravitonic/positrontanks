@@ -23,7 +23,7 @@
  */
 
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
-import type { Build } from "@aumohta/ruleset-data";
+import type { Build } from "@positrontanks/ruleset-data";
 import { FIRST_PAGE, queryPage, type Page, type PageRequest } from "./paging.js";
 
 export const GAME_STATES = ["open", "running", "finished", "cancelled"] as const;

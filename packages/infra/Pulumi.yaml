@@ -1,5 +1,5 @@
-name: aumohta
-description: Aumohta server on AWS (ECS Fargate, ALB, S3, Litestream). See docs/deployment.md.
+name: positrontanks
+description: Positron Tanks server on AWS (ECS Fargate, ALB, S3, Litestream). See docs/deployment.md.
 runtime:
   name: nodejs
   options:

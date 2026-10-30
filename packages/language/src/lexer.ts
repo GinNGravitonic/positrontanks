@@ -1,5 +1,5 @@
 /**
- * Tokenizer for Aumohta source (language-r1 section 2).
+ * Tokenizer for Positron Tanks source (language-r1 section 2).
  *
  * The lexer never stops at the first problem: it records a Diagnostic and
  * produces the most plausible token so parsing can carry on. A reserved word

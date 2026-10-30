@@ -2,7 +2,7 @@
  * A small Ruleset and Map for engine tests. Not r1's real numbers.
  */
 
-import type { Build, Component, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
+import type { Build, Component, MapFormat1, Ruleset } from "@positrontanks/ruleset-data";
 import { createWorld, type BotState, type EntrySetup, type World } from "./world.js";
 
 const noArmor = { front: null, left: null, right: null, rear: null } as const;

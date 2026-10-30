@@ -21,8 +21,8 @@ import {
   type Game,
   type GameRecord,
   type GameResult,
-} from "@aumohta/engine-r1";
-import type { Build, MapFormat1, Ruleset } from "@aumohta/ruleset-data";
+} from "@positrontanks/engine-r1";
+import type { Build, MapFormat1, Ruleset } from "@positrontanks/ruleset-data";
 import type { DecidedBy, GameEnd } from "../db/games.js";
 
 /** Everything a Game is started from; it all goes into the Game Record. */

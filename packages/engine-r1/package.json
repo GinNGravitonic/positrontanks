@@ -1,5 +1,5 @@
 {
-  "name": "@aumohta/engine-r1",
+  "name": "@positrontanks/engine-r1",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@aumohta/language": "workspace:*",
-    "@aumohta/ruleset-data": "workspace:*"
+    "@positrontanks/language": "workspace:*",
+    "@positrontanks/ruleset-data": "workspace:*"
   }
 }

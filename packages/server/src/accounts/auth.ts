@@ -25,7 +25,7 @@ export interface Principal {
 }
 
 export const unauthorized = (message: string): ApiError =>
-  new ApiError(401, "unauthorized", message, undefined, { "www-authenticate": 'Bearer realm="aumohta"' });
+  new ApiError(401, "unauthorized", message, undefined, { "www-authenticate": 'Bearer realm="positrontanks"' });
 
 /** The bearer token in the request, if it has one. */
 export function bearerToken(context: RequestContext): string | undefined {

@@ -1,4 +1,4 @@
-import type { Build } from "@aumohta/ruleset-data";
+import type { Build } from "@positrontanks/ruleset-data";
 import { describe, expect, it } from "vitest";
 import { disableBot } from "./damage.js";
 import { incoming, rangefind, scan } from "./sensors.js";

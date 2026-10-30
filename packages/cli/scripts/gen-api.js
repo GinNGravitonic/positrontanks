@@ -1,5 +1,5 @@
 /**
- * Regenerates src/api/openapi.json and src/api/schema.ts from @aumohta/server
+ * Regenerates src/api/openapi.json and src/api/schema.ts from @positrontanks/server
  * (docs/spec/cli-api.md, HTTP client). The server must be built first
  * (`pnpm build`); src/api/openapi.test.ts fails until this is run after the
  * server's API changes.

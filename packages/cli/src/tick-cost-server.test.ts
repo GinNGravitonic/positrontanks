@@ -26,7 +26,7 @@ afterEach(async () => {
   await server.close();
 });
 
-/** `aumohta tick-cost --json` for one Bot with the Build and Program, and the report it prints. */
+/** `positrontanks tick-cost --json` for one Bot with the Build and Program, and the report it prints. */
 async function cliReport(program: string, ...options: string[]): Promise<unknown> {
   const entry = join(server.configFile, "..", "ada.entry.json");
   await writeFile(entry, JSON.stringify({ ruleset: "r1", bots: [{ name: "Probe", build: BUILD, program }] }));
@@ -40,7 +40,7 @@ async function cliReport(program: string, ...options: string[]): Promise<unknown
 const serverReport = (program: string, options: { ticks?: number; seed?: number } = {}) =>
   client.request("POST", "/tick-cost-checks", { auth: true, body: { rulesetVersion: "r1", build: BUILD, program, ...options } });
 
-describe("aumohta tick-cost and the server's tick cost check", () => {
+describe("positrontanks tick-cost and the server's tick cost check", () => {
   it("report the same numbers, with the same defaults", async () => {
     expect(await cliReport(STEADY)).toEqual(await serverReport(STEADY));
     const program = "let seen = []; function tick() { if (random() < 0.5) { seen.push(scan().length); } while (random() < 0.9) {} }";
@@ -49,8 +49,8 @@ describe("aumohta tick-cost and the server's tick cost check", () => {
 
   it("run on the server with --remote, with the offline command's input and output", async () => {
     const entry = join(server.configFile, "..", "ada.entry.json");
-    await writeFile(join(entry, "..", "steady.aum"), STEADY);
-    await writeFile(entry, JSON.stringify({ bots: [{ name: "Probe", build: BUILD, programFile: "steady.aum" }, { name: "Other", build: BUILD, program: STEADY }] }));
+    await writeFile(join(entry, "..", "steady.ptk"), STEADY);
+    await writeFile(entry, JSON.stringify({ bots: [{ name: "Probe", build: BUILD, programFile: "steady.ptk" }, { name: "Other", build: BUILD, program: STEADY }] }));
     const offline = await server.cli(["tick-cost", "--entry", entry, "--ticks", "5", "--json"]);
     const remote = await server.cli(["tick-cost", "--entry", entry, "--ticks", "5", "--remote", "--json"]);
     expect(remote).toMatchObject({ code: 0, err: "" });
@@ -61,11 +61,11 @@ describe("aumohta tick-cost and the server's tick cost check", () => {
     expect(human.out).toContain(`Ruleset r1, Entry ${entry} (ada), seed 1, 20 Ticks in the sample world on ${server.url}`);
     expect(human.out).toMatch(/^ +Probe +\d+\/\d+/m);
 
-    await writeFile(join(entry, "..", "steady.aum"), "function tick() {\n  fly();\n}");
+    await writeFile(join(entry, "..", "steady.ptk"), "function tick() {\n  fly();\n}");
     const broken = await server.cli(["tick-cost", "--entry", entry, "--remote"]);
     expect(broken.code).toBe(1);
     expect(broken.err).toContain('Bot "Probe": ');
-    expect(broken.err).toContain(`${join(entry, "..", "steady.aum")}:2:3: `);
+    expect(broken.err).toContain(`${join(entry, "..", "steady.ptk")}:2:3: `);
   });
 
   it("check a Bot Design's Revision with designs tick-cost", async () => {

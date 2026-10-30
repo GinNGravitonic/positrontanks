@@ -2,7 +2,7 @@
  * Terrain lookup on a Map Format 1 Map (spec section 6).
  */
 
-import type { MapFormat1, TerrainRegion } from "@aumohta/ruleset-data";
+import type { MapFormat1, TerrainRegion } from "@positrontanks/ruleset-data";
 import { pointInShape, type Point, type WorldShape } from "./geometry.js";
 
 function regionShape(region: TerrainRegion): WorldShape {

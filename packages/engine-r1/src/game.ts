@@ -26,7 +26,7 @@ import {
   type ProgramSlots,
   type RunResult,
   type Value,
-} from "@aumohta/language";
+} from "@positrontanks/language";
 import type { BotSpec } from "./bot-spec.js";
 import { disableBot } from "./damage.js";
 import type { TickEvent } from "./events.js";

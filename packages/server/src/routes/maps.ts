@@ -26,7 +26,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { validateMap, type MapFormat1 } from "@aumohta/ruleset-data";
+import { validateMap, type MapFormat1 } from "@positrontanks/ruleset-data";
 import { authenticate } from "../accounts/auth.js";
 import { USERNAME_PATTERN } from "./accounts.js";
 import type { MapRecord, MapRevisionRecord, MapRevisionSummary } from "../db/maps.js";

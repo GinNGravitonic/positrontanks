@@ -3,8 +3,8 @@
  * Configuration): named profiles, each a server URL and optionally an API
  * key, and which profile is current.
  *
- * The file is `$XDG_CONFIG_HOME/aumohta/config.json` (default
- * `~/.config/aumohta/config.json`), or `%APPDATA%\aumohta\config.json` on
+ * The file is `$XDG_CONFIG_HOME/positrontanks/config.json` (default
+ * `~/.config/positrontanks/config.json`), or `%APPDATA%\positrontanks\config.json` on
  * Windows, written with mode 0600 since it holds API keys. Each setting is
  * taken from the first of an option, the environment, the chosen profile
  * and the built-in default (`resolveSettings`).
@@ -36,9 +36,9 @@ export const DEFAULT_SERVER = "http://localhost:8080";
 const configError = (message: string): CliError => new CliError(EXIT.refused, "config", message);
 
 export function configPath(env: Env, platform: NodeJS.Platform = process.platform, home: string = homedir()): string {
-  if (platform === "win32") return join(env.APPDATA ?? join(home, "AppData", "Roaming"), "aumohta", "config.json");
+  if (platform === "win32") return join(env.APPDATA ?? join(home, "AppData", "Roaming"), "positrontanks", "config.json");
   const base = env.XDG_CONFIG_HOME;
-  return join(base !== undefined && base !== "" ? base : join(home, ".config"), "aumohta", "config.json");
+  return join(base !== undefined && base !== "" ? base : join(home, ".config"), "positrontanks", "config.json");
 }
 
 const PROFILE_FIELDS: readonly (keyof Profile)[] = ["server", "apiKey", "apiKeyId", "username"];
@@ -129,12 +129,12 @@ export interface SettingOptions {
 /** Each setting from the first of the options, the environment, the chosen profile and the default. */
 export function resolveSettings(config: Config, env: Env, options: SettingOptions): Settings {
   const set = (value: string | undefined): value is string => value !== undefined && value !== "";
-  const profile = checkProfileName(options.profile ?? (set(env.AUMOHTA_PROFILE) ? env.AUMOHTA_PROFILE : currentProfileName(config)));
+  const profile = checkProfileName(options.profile ?? (set(env.POSITRONTANKS_PROFILE) ? env.POSITRONTANKS_PROFILE : currentProfileName(config)));
   const stored = config.profiles[profile] ?? {};
   const pick = (option: string | undefined, envValue: string | undefined, profileValue: string | undefined): [string, Source] | undefined =>
     set(option) ? [option, "option"] : set(envValue) ? [envValue, "environment"] : set(profileValue) ? [profileValue, "profile"] : undefined;
-  const [server, serverSource] = pick(options.server, env.AUMOHTA_SERVER, stored.server) ?? [DEFAULT_SERVER, "default"];
-  const key = pick(options.apiKey, env.AUMOHTA_API_KEY, stored.apiKey);
+  const [server, serverSource] = pick(options.server, env.POSITRONTANKS_SERVER, stored.server) ?? [DEFAULT_SERVER, "default"];
+  const key = pick(options.apiKey, env.POSITRONTANKS_API_KEY, stored.apiKey);
   return { profile, server: checkServerUrl(server), serverSource, apiKey: key?.[0], apiKeySource: key?.[1] };
 }
 

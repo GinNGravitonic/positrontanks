@@ -9,7 +9,7 @@
         "components": { "gun": "pelletGun", "eye": "shortRadar", "drive": "wheels" },
         "armor": { "front": null, "left": null, "right": null, "rear": null }
       },
-      "programFile": "hunter.aum"
+      "programFile": "hunter.ptk"
     }
   ]
 }

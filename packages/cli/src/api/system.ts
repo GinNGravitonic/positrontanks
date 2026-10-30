@@ -1,5 +1,5 @@
 /**
- * `aumohta server`, `aumohta config` and `aumohta api` (docs/spec/cli-api.md):
+ * `positrontanks server`, `positrontanks config` and `positrontanks api` (docs/spec/cli-api.md):
  * the server itself, the profiles in the config file, and one request to
  * any endpoint.
  */
@@ -117,7 +117,7 @@ export const configCommands: Group = {
       const created = !(name in context.config.profiles);
       const config = created ? withProfile(context.config, name, {}) : context.config;
       await context.saveConfig({ ...config, currentProfile: name });
-      emit(context, {}, () => [`Now using profile ${name}${created ? ` (new: server ${DEFAULT_SERVER} until 'aumohta config set server URL')` : ""}.`]);
+      emit(context, {}, () => [`Now using profile ${name}${created ? ` (new: server ${DEFAULT_SERVER} until 'positrontanks config set server URL')` : ""}.`]);
     },
   },
 
@@ -149,7 +149,7 @@ export const configCommands: Group = {
       await context.saveConfig(currentProfile === name || currentProfile === undefined ? rest : { ...rest, currentProfile });
       emit(context, {}, () => [
         `Removed profile ${name}.`,
-        ...(profile.apiKey === undefined ? [] : [`Its API key ${profile.apiKeyId ?? maskKey(profile.apiKey)} still works; revoke it with 'aumohta keys revoke KEY_ID'.`]),
+        ...(profile.apiKey === undefined ? [] : [`Its API key ${profile.apiKeyId ?? maskKey(profile.apiKey)} still works; revoke it with 'positrontanks keys revoke KEY_ID'.`]),
       ]);
     },
   },

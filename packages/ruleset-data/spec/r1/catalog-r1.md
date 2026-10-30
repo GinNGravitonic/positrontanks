@@ -2,7 +2,7 @@
 
 The starter Parts Catalog and balance numbers for Ruleset r1. v1.md §5 fixes the structure, the Ruleset schema in `packages/ruleset-data/src/ruleset.ts` fixes the data shape, and [engine-r1.md](engine) gives each stat its meaning. This document fixes the values. The r1 Ruleset data file (aumohta-0ka.27) transcribes them. Like the rest of a Ruleset, they are frozen once r1 is released.
 
-Vocabulary follows the Aumohta glossary (GLOSSARY.md).
+Vocabulary follows the Positron Tanks glossary (GLOSSARY.md).
 
 ---
 

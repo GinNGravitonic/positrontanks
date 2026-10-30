@@ -12,9 +12,9 @@
  * an entry to `hostVersion` below wired to its engine.
  */
 
-import { deriveBotSpec, programSlots, tickCostCheck, type TickCost, type TickCostOptions } from "@aumohta/engine-r1";
-import { R1_LANGUAGE, type LanguageDefinition, type ProgramSlots } from "@aumohta/language";
-import type { Build, Ruleset } from "@aumohta/ruleset-data";
+import { deriveBotSpec, programSlots, tickCostCheck, type TickCost, type TickCostOptions } from "@positrontanks/engine-r1";
+import { R1_LANGUAGE, type LanguageDefinition, type ProgramSlots } from "@positrontanks/language";
+import type { Build, Ruleset } from "@positrontanks/ruleset-data";
 import { r1Engine, type GameEngine } from "../games/engine.js";
 import {
   loadRuleset,
@@ -22,7 +22,7 @@ import {
   RULESET_VERSIONS,
   type RulesetDocs,
   type RulesetVersion,
-} from "@aumohta/ruleset-data/rulesets";
+} from "@positrontanks/ruleset-data/rulesets";
 
 export interface HostedRuleset {
   readonly ruleset: Ruleset;

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Aumohta server image (spec section 10, ADR-0003): the server with SQLite and
+# Positron Tanks server image (spec section 10, ADR-0003): the server with SQLite and
 # local object storage under /data, plus Litestream for optional replication.
 # See docs/docker.md for the environment interface and how to run it.
 
@@ -26,7 +26,7 @@ RUN npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages ./packages
-RUN pnpm install --frozen-lockfile --prod --filter "@aumohta/server..."
+RUN pnpm install --frozen-lockfile --prod --filter "@positrontanks/server..."
 
 # --- litestream: fetch and verify the release binary ---
 FROM debian:bookworm-slim AS litestream
@@ -48,16 +48,16 @@ RUN set -eu; \
 # --- runtime ---
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 ENV NODE_ENV=production \
-    AUMOHTA_HOST=0.0.0.0 \
-    AUMOHTA_PORT=8080 \
-    AUMOHTA_DATABASE_PATH=/data/aumohta.db \
-    AUMOHTA_STORAGE=local \
-    AUMOHTA_STORAGE_DIRECTORY=/data/objects
+    POSITRONTANKS_HOST=0.0.0.0 \
+    POSITRONTANKS_PORT=8080 \
+    POSITRONTANKS_DATABASE_PATH=/data/positrontanks.db \
+    POSITRONTANKS_STORAGE=local \
+    POSITRONTANKS_STORAGE_DIRECTORY=/data/objects
 COPY --from=litestream /usr/local/bin/litestream /usr/local/bin/litestream
 COPY docker/litestream.yml /etc/litestream.yml
-COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/aumohta-entrypoint
+COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/positrontanks-entrypoint
 # Guard against CRLF line endings from a Windows checkout.
-RUN sed -i 's/\r$//' /usr/local/bin/aumohta-entrypoint /etc/litestream.yml \
+RUN sed -i 's/\r$//' /usr/local/bin/positrontanks-entrypoint /etc/litestream.yml \
  && mkdir -p /data && chown node:node /data
 
 WORKDIR /app
@@ -82,6 +82,6 @@ WORKDIR /app/packages/server
 VOLUME ["/data"]
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+process.env.AUMOHTA_PORT+'/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
-ENTRYPOINT ["aumohta-entrypoint"]
+  CMD node -e "fetch('http://127.0.0.1:'+process.env.POSITRONTANKS_PORT+'/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+ENTRYPOINT ["positrontanks-entrypoint"]
 CMD ["node", "/app/packages/server/dist/main.js"]

@@ -2,9 +2,9 @@ import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { replayGame, tickCostCheck, type GameRecord, type GameResult, type Replay, type TickCost } from "@aumohta/engine-r1";
-import { validateBuild } from "@aumohta/ruleset-data";
-import { loadRuleset, RULESET_VERSIONS } from "@aumohta/ruleset-data/rulesets";
+import { replayGame, tickCostCheck, type GameRecord, type GameResult, type Replay, type TickCost } from "@positrontanks/engine-r1";
+import { validateBuild } from "@positrontanks/ruleset-data";
+import { loadRuleset, RULESET_VERSIONS } from "@positrontanks/ruleset-data/rulesets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_RULESET, main, USAGE, type Io } from "./cli.js";
 import type { BudgetPeak } from "./report.js";
@@ -15,8 +15,8 @@ const duelMap = fileURLToPath(new URL("../../ruleset-data/maps/duel.json", impor
 let dir: string;
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), "aumohta-cli-"));
-  for (const file of ["alice.entry.json", "bob.entry.json", "hunter.aum", "rammer.aum"]) await copyFile(join(examples, file), join(dir, file));
+  dir = await mkdtemp(join(tmpdir(), "positrontanks-cli-"));
+  for (const file of ["alice.entry.json", "bob.entry.json", "hunter.ptk", "rammer.ptk"]) await copyFile(join(examples, file), join(dir, file));
   await copyFile(duelMap, join(dir, "duel.json"));
 });
 
@@ -49,7 +49,7 @@ function duel(out = "out", ...extra: string[]): Promise<Run> {
 const none = { front: null, left: null, right: null, rear: null };
 const scout = { chassis: "scout", components: { gun: "pelletGun", eye: "shortRadar", drive: "wheels" }, armor: none };
 
-describe("aumohta run", () => {
+describe("positrontanks run", () => {
   it("plays a two-Entry Game from files and writes its Game Record, Replay and Program logs", async () => {
     const run = await duel();
     expect(run.err).toBe("");
@@ -68,7 +68,7 @@ describe("aumohta run", () => {
     expect(record.seed).toBe(1);
     expect(record.timeLimitTicks).toBe(1200);
     expect(record.entries.map((e) => e.player)).toEqual(["alice", "bob"]);
-    expect(record.entries[0]?.bots[0]?.program).toBe(await readFile(at("hunter.aum"), "utf8"));
+    expect(record.entries[0]?.bots[0]?.program).toBe(await readFile(at("hunter.ptk"), "utf8"));
     expect(record.result).not.toBeNull();
     expect(replay.result).toEqual(record.result);
     expect(replay.ticks).toHaveLength((record.result?.tick ?? 0) + 1);
@@ -144,18 +144,18 @@ describe("aumohta run", () => {
         bots: [
           { name: "Pecker", build: scout, program: "function tick() {}" },
           { name: "Bad", build: { chassis: "scout", components: { gun: "noSuchGun" }, armor: none }, program: "function tick() {}" },
-          { name: "Typo", build: scout, programFile: "typo.aum" },
+          { name: "Typo", build: scout, programFile: "typo.ptk" },
           { name: "Heavy", build: pricey, program: "function tick() {}" },
         ],
       }),
     );
-    await writeFile(at("typo.aum"), 'function tick() {\n  fire("cannon", 0);\n}\n');
+    await writeFile(at("typo.ptk"), 'function tick() {\n  fire("cannon", 0);\n}\n');
     const run = await cli("run", "--map", at("duel.json"), "--entry", at("alice.entry.json"), "--entry", at("bad.entry.json"), "--point-budget", "300", "--unthrottled", "--out", at("out"));
     expect(run.code).toBe(1);
     expect(run.out).toBe("");
     expect(run.err).toContain('Bot "Pecker": the Bot Name is already used');
     expect(run.err).toContain('Bot "Bad": build.components.gun is the unknown Component "noSuchGun"');
-    expect(run.err).toMatch(/typo\.aum:2:\d+: Bot "Typo": /);
+    expect(run.err).toMatch(/typo\.ptk:2:\d+: Bot "Typo": /);
     expect(run.err).toMatch(/over the Point Budget of 300/);
   });
 
@@ -203,12 +203,12 @@ describe("aumohta run", () => {
     expect(await cli("run", "--map", "m.json")).toMatchObject({ code: 2, err: expect.stringContaining("at least one --entry") as unknown });
     expect(await cli("run", "--map", "m.json", "--entry", "e.json", "--bogus")).toMatchObject({ code: 2 });
     expect(await cli("fly")).toMatchObject({ code: 2, err: expect.stringContaining('unknown command "fly"') as unknown });
-    expect(await cli("--help")).toMatchObject({ code: 0, out: expect.stringContaining("Usage: aumohta run") as unknown });
+    expect(await cli("--help")).toMatchObject({ code: 0, out: expect.stringContaining("Usage: positrontanks run") as unknown });
     expect(await cli()).toMatchObject({ code: 2 });
   });
 });
 
-describe("aumohta tick-cost", () => {
+describe("positrontanks tick-cost", () => {
   interface Summary {
     player: string;
     bots: { name: string; report: TickCost }[];
@@ -224,7 +224,7 @@ describe("aumohta tick-cost", () => {
     const r1 = loadRuleset("r1");
     const build = validateBuild(r1, scout);
     if (!build.ok) throw new Error("the scout Build is invalid");
-    const expected = tickCostCheck(r1, build.build, await readFile(at("hunter.aum"), "utf8"), { ticks: 20, seed: 1 });
+    const expected = tickCostCheck(r1, build.build, await readFile(at("hunter.ptk"), "utf8"), { ticks: 20, seed: 1 });
     expect(summary.bots[0]?.report).toEqual(expected);
     expect(expected.runs).toHaveLength(20);
   });
@@ -267,6 +267,6 @@ describe("aumohta tick-cost", () => {
     expect((await cli("tick-cost", "--entry", at("alice.entry.json"), "--seed=-1")).err).toContain("the seed must be a whole number");
     expect(await cli("tick-cost")).toMatchObject({ code: 2, err: expect.stringContaining("--entry is required") as unknown });
     expect(await cli("tick-cost", "--entry", at("alice.entry.json"), "--map", "m.json")).toMatchObject({ code: 2 });
-    expect(await cli("tick-cost", "--help")).toMatchObject({ code: 0, out: expect.stringContaining("aumohta tick-cost --entry FILE") as unknown });
+    expect(await cli("tick-cost", "--help")).toMatchObject({ code: 0, out: expect.stringContaining("positrontanks tick-cost --entry FILE") as unknown });
   });
 });

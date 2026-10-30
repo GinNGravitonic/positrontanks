@@ -35,7 +35,7 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { checkMapTerrains, entryFitsMap, terrainNames } from "@aumohta/ruleset-data";
+import { checkMapTerrains, entryFitsMap, terrainNames } from "@positrontanks/ruleset-data";
 import { authenticate } from "../accounts/auth.js";
 import {
   botNameKey,

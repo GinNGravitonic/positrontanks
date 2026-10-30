@@ -1,11 +1,11 @@
 # CLI runner
 
-The CLI runner (`packages/cli`, command `aumohta`) plays a Game locally from files, with no account, server or database ([v1.md section 10](v1.md#10-architecture)), and runs the tick cost check offline ([`aumohta tick-cost`](#tick-cost-check)). This document records its input format, its defaults and its output files. Vocabulary follows [GLOSSARY.md](../../GLOSSARY.md).
+The CLI runner (`packages/cli`, command `positrontanks`, or its short alias `ptanks`) plays a Game locally from files, with no account, server or database ([v1.md section 10](v1.md#10-architecture)), and runs the tick cost check offline ([`positrontanks tick-cost`](#tick-cost-check)). This document records its input format, its defaults and its output files. Vocabulary follows [GLOSSARY.md](../../GLOSSARY.md).
 
-Worked examples are in [`packages/cli/examples`](../../packages/cli/examples): two Entry files (`alice.entry.json`, `bob.entry.json`) and their Programs (`hunter.aum`, `rammer.aum`). With the bundled duel Map:
+Worked examples are in [`packages/cli/examples`](../../packages/cli/examples): two Entry files (`alice.entry.json`, `bob.entry.json`) and their Programs (`hunter.ptk`, `rammer.ptk`). With the bundled duel Map:
 
 ```bash
-aumohta run --map packages/ruleset-data/maps/duel.json \
+positrontanks run --map packages/ruleset-data/maps/duel.json \
   --entry packages/cli/examples/alice.entry.json \
   --entry packages/cli/examples/bob.entry.json --unthrottled
 ```
@@ -13,7 +13,7 @@ aumohta run --map packages/ruleset-data/maps/duel.json \
 ## Command
 
 ```
-aumohta run --map FILE --entry FILE [--entry FILE ...] [options]
+positrontanks run --map FILE --entry FILE [--entry FILE ...] [options]
 ```
 
 | Option | Meaning | Default |
@@ -49,7 +49,7 @@ An Entry file is a JSON object describing one Entry: its Player and its Bots. Un
         "components": { "gun": "pelletGun", "eye": "shortRadar", "drive": "wheels" },
         "armor": { "front": null, "left": null, "right": null, "rear": null }
       },
-      "programFile": "hunter.aum"
+      "programFile": "hunter.ptk"
     }
   ]
 }
@@ -69,9 +69,9 @@ Each Bot needs exactly one of `program` and `programFile`.
 
 Locally there are no Garages, Bot Designs or Revisions: each Bot carries its Build and Program directly. The Entry's cost is the sum of its Builds' costs.
 
-## Program files: `.aum`
+## Program files: `.ptk`
 
-`.aum` is the project-wide file extension for Program source (Aumohta language, UTF-8). The CLI runner's examples use it, and the API CLI will use it too. The runner itself reads a `programFile` of any name.
+`.ptk` is the project-wide file extension for Program source (Positron Tanks language, UTF-8). The CLI runner's examples use it, and the API CLI will use it too. The runner itself reads a `programFile` of any name.
 
 ## Output
 
@@ -88,7 +88,7 @@ The files are compact JSON (one line each). With `--json`, stdout is a summary o
 ## Tick cost check
 
 ```
-aumohta tick-cost --entry FILE [--ticks N] [--seed N] [--json]
+positrontanks tick-cost --entry FILE [--ticks N] [--seed N] [--json]
 ```
 
 Runs the tick cost check ([ADR-0002](../adr/0002-counted-operation-budget.md)) offline, with no server: each Bot of the Entry file runs its init phase and then `tick()` for `--ticks` Ticks in the sample world, exactly as the server's tick cost endpoints (`POST /tick-cost-checks`) run it, so the two report the same numbers for the same Build, Program, Ticks and seed. It is the offline alternative where a server leaves the endpoints off (`410 feature_disabled`; see [docs/docker.md](../docker.md#tick-cost-check)). Both run `tickCostCheck` from `packages/engine-r1`.
@@ -109,6 +109,6 @@ The text output is a table of each Bot's init phase, Tick peak, Ticks out of bud
 
 A local Game should be repeatable as a server Game with the same Ruleset, Map, Entries, Point Budget and time limit (the server chooses its own seed, so the outcome may differ). Hence:
 
-- **Time limit.** The CLI's 120 s default must stay at or below the server's maximum time limit. The server's default maximum is 600 s (`maxTimeLimitSeconds` in `packages/server/src/config.ts`); `packages/server/src/config.test.ts` checks it is at least the CLI default. An operator can lower it with `AUMOHTA_MAX_TIME_LIMIT_SECONDS`, so on such a server a 120 s local Game cannot be repeated as is. Like the server, the CLI takes the time limit as a whole number of seconds, at least 1, so a fractional limit such as `--time-limit 0.5` is rejected even when it is a whole number of Ticks. The CLI does not apply a maximum, since the server's is configurable.
+- **Time limit.** The CLI's 120 s default must stay at or below the server's maximum time limit. The server's default maximum is 600 s (`maxTimeLimitSeconds` in `packages/server/src/config.ts`); `packages/server/src/config.test.ts` checks it is at least the CLI default. An operator can lower it with `POSITRONTANKS_MAX_TIME_LIMIT_SECONDS`, so on such a server a 120 s local Game cannot be repeated as is. Like the server, the CLI takes the time limit as a whole number of seconds, at least 1, so a fractional limit such as `--time-limit 0.5` is rejected even when it is a whole number of Ticks. The CLI does not apply a maximum, since the server's is configurable.
 - **Point Budget.** Both default and range come from the Ruleset, so any Point Budget the CLI accepts is one the server accepts.
 - **Map.** The CLI reads a Map file directly; the server's Map Revisions also pass the server's Map size limits, which the CLI does not apply.

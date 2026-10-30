@@ -1,5 +1,5 @@
 /**
- * Runtime values of the Aumohta language (language-r1 section 4.1).
+ * Runtime values of the Positron Tanks language (language-r1 section 4.1).
  *
  * Numbers, strings, booleans and null are JavaScript primitives. Lists and
  * records are wrapper objects so that they can be marked read-only (section

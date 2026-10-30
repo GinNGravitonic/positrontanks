@@ -1,10 +1,11 @@
 {
-  "name": "@aumohta/cli",
+  "name": "@positrontanks/cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "aumohta": "./dist/main.js"
+    "positrontanks": "./dist/main.js",
+    "ptanks": "./dist/main.js"
   },
   "exports": {
     ".": {
@@ -17,12 +18,12 @@
     "gen:api": "node scripts/gen-api.js"
   },
   "dependencies": {
-    "@aumohta/engine-r1": "workspace:*",
-    "@aumohta/language": "workspace:*",
-    "@aumohta/ruleset-data": "workspace:*"
+    "@positrontanks/engine-r1": "workspace:*",
+    "@positrontanks/language": "workspace:*",
+    "@positrontanks/ruleset-data": "workspace:*"
   },
   "devDependencies": {
-    "@aumohta/server": "workspace:*",
+    "@positrontanks/server": "workspace:*",
     "openapi-typescript": "7.13.0"
   }
 }

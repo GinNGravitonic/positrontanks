@@ -33,7 +33,7 @@ export function buildOpenApiDocument(modules: readonly ApiModule[]): Record<stri
   return {
     openapi: "3.1.0",
     info: {
-      title: "Aumohta API",
+      title: "Positron Tanks API",
       version: API_VERSION,
       description:
         "Programmable robot combat. Errors use one format everywhere: " +

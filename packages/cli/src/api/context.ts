@@ -161,7 +161,7 @@ export async function rulesetOrLatest(context: Context, given: string | undefine
 
 /**
  * Runs `send`, and in human output shows the Program's problems at `file`
- * (`hunter.aum:12:5`, as the local runner does) instead of at `program`.
+ * (`hunter.ptk:12:5`, as the local runner does) instead of at `program`.
  * JSON output keeps the server's error body as is.
  */
 export async function withProgramFile<T>(context: Context, file: string | undefined, send: () => Promise<T>): Promise<T> {

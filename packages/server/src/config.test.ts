@@ -14,12 +14,12 @@ describe("loadConfig", () => {
 
   it("reads overrides", () => {
     const config = loadConfig({
-      AUMOHTA_HOST: "0.0.0.0",
-      AUMOHTA_PORT: "3000",
-      AUMOHTA_DATABASE_PATH: "/data/db.sqlite",
-      AUMOHTA_MAX_MAP_WIDTH: "500",
-      AUMOHTA_MAX_UNTHROTTLED_GAMES: "0",
-      AUMOHTA_MAX_EVENT_STREAM_BUFFER_BYTES: "65536",
+      POSITRONTANKS_HOST: "0.0.0.0",
+      POSITRONTANKS_PORT: "3000",
+      POSITRONTANKS_DATABASE_PATH: "/data/db.sqlite",
+      POSITRONTANKS_MAX_MAP_WIDTH: "500",
+      POSITRONTANKS_MAX_UNTHROTTLED_GAMES: "0",
+      POSITRONTANKS_MAX_EVENT_STREAM_BUFFER_BYTES: "65536",
     });
     expect(config.host).toBe("0.0.0.0");
     expect(config.port).toBe(3000);
@@ -33,13 +33,13 @@ describe("loadConfig", () => {
   it("reports every invalid value at once", () => {
     let error: unknown;
     try {
-      loadConfig({ AUMOHTA_PORT: "70000", AUMOHTA_MAX_TIME_LIMIT_SECONDS: "1.5", AUMOHTA_HOST: " " });
+      loadConfig({ POSITRONTANKS_PORT: "70000", POSITRONTANKS_MAX_TIME_LIMIT_SECONDS: "1.5", POSITRONTANKS_HOST: " " });
     } catch (e) {
       error = e;
     }
     expect(error).toBeInstanceOf(ConfigError);
     expect((error as ConfigError).problems).toHaveLength(3);
-    expect((error as ConfigError).message).toContain("AUMOHTA_PORT");
+    expect((error as ConfigError).message).toContain("POSITRONTANKS_PORT");
   });
 
   describe("storage", () => {
@@ -54,29 +54,29 @@ describe("loadConfig", () => {
 
     it("defaults to a local directory", () => {
       expect(loadConfig({}).storage).toEqual({ kind: "local", directory: "data/objects" });
-      expect(loadConfig({ AUMOHTA_STORAGE_DIRECTORY: "/srv/objects" }).storage).toEqual({
+      expect(loadConfig({ POSITRONTANKS_STORAGE_DIRECTORY: "/srv/objects" }).storage).toEqual({
         kind: "local",
         directory: "/srv/objects",
       });
     });
 
     it("reads S3 settings", () => {
-      expect(loadConfig({ AUMOHTA_STORAGE: "s3", AUMOHTA_S3_BUCKET: "aumohta" }).storage).toEqual({
+      expect(loadConfig({ POSITRONTANKS_STORAGE: "s3", POSITRONTANKS_S3_BUCKET: "positrontanks" }).storage).toEqual({
         kind: "s3",
-        bucket: "aumohta",
+        bucket: "positrontanks",
         keyPrefix: "",
       });
       expect(
         loadConfig({
-          AUMOHTA_STORAGE: "s3",
-          AUMOHTA_S3_BUCKET: "aumohta",
-          AUMOHTA_S3_KEY_PREFIX: "objects/",
-          AUMOHTA_S3_REGION: "eu-west-1",
-          AUMOHTA_S3_ENDPOINT: "http://127.0.0.1:9000",
+          POSITRONTANKS_STORAGE: "s3",
+          POSITRONTANKS_S3_BUCKET: "positrontanks",
+          POSITRONTANKS_S3_KEY_PREFIX: "objects/",
+          POSITRONTANKS_S3_REGION: "eu-west-1",
+          POSITRONTANKS_S3_ENDPOINT: "http://127.0.0.1:9000",
         }).storage,
       ).toEqual({
         kind: "s3",
-        bucket: "aumohta",
+        bucket: "positrontanks",
         keyPrefix: "objects/",
         region: "eu-west-1",
         endpoint: "http://127.0.0.1:9000",
@@ -84,10 +84,10 @@ describe("loadConfig", () => {
     });
 
     it("reports invalid storage settings", () => {
-      expect(problems({ AUMOHTA_STORAGE: "ftp" })).toHaveLength(1);
-      expect(problems({ AUMOHTA_STORAGE: "s3" })).toEqual([expect.stringContaining("AUMOHTA_S3_BUCKET")]);
-      expect(problems({ AUMOHTA_STORAGE: "s3", AUMOHTA_S3_BUCKET: "b", AUMOHTA_S3_KEY_PREFIX: "objects" })).toEqual([
-        expect.stringContaining("AUMOHTA_S3_KEY_PREFIX"),
+      expect(problems({ POSITRONTANKS_STORAGE: "ftp" })).toHaveLength(1);
+      expect(problems({ POSITRONTANKS_STORAGE: "s3" })).toEqual([expect.stringContaining("POSITRONTANKS_S3_BUCKET")]);
+      expect(problems({ POSITRONTANKS_STORAGE: "s3", POSITRONTANKS_S3_BUCKET: "b", POSITRONTANKS_S3_KEY_PREFIX: "objects" })).toEqual([
+        expect.stringContaining("POSITRONTANKS_S3_KEY_PREFIX"),
       ]);
     });
   });
@@ -95,12 +95,12 @@ describe("loadConfig", () => {
   describe("features", () => {
     it("leaves the tick cost check off unless enabled", () => {
       expect(loadConfig({}).features.tickCostCheck).toBe(false);
-      expect(loadConfig({ AUMOHTA_TICK_COST_CHECK: "off" }).features.tickCostCheck).toBe(false);
-      expect(loadConfig({ AUMOHTA_TICK_COST_CHECK: "on" }).features.tickCostCheck).toBe(true);
+      expect(loadConfig({ POSITRONTANKS_TICK_COST_CHECK: "off" }).features.tickCostCheck).toBe(false);
+      expect(loadConfig({ POSITRONTANKS_TICK_COST_CHECK: "on" }).features.tickCostCheck).toBe(true);
     });
 
     it("reports an invalid setting", () => {
-      expect(() => loadConfig({ AUMOHTA_TICK_COST_CHECK: "yes" })).toThrow(/AUMOHTA_TICK_COST_CHECK must be "on" or "off"/);
+      expect(() => loadConfig({ POSITRONTANKS_TICK_COST_CHECK: "yes" })).toThrow(/POSITRONTANKS_TICK_COST_CHECK must be "on" or "off"/);
     });
   });
 
@@ -116,27 +116,27 @@ describe("loadConfig", () => {
 
     it("is off unless a replica URL is set", () => {
       expect(loadConfig({}).litestream).toBeUndefined();
-      expect(loadConfig({ AUMOHTA_LITESTREAM_REPLICA_URL: "" }).litestream).toBeUndefined();
+      expect(loadConfig({ POSITRONTANKS_LITESTREAM_REPLICA_URL: "" }).litestream).toBeUndefined();
     });
 
     it("reads the replica URL", () => {
-      expect(loadConfig({ AUMOHTA_LITESTREAM_REPLICA_URL: "s3://aumohta-db/prod" }).litestream).toEqual({
-        replicaUrl: "s3://aumohta-db/prod",
+      expect(loadConfig({ POSITRONTANKS_LITESTREAM_REPLICA_URL: "s3://positrontanks-db/prod" }).litestream).toEqual({
+        replicaUrl: "s3://positrontanks-db/prod",
       });
-      expect(loadConfig({ AUMOHTA_LITESTREAM_REPLICA_URL: "file:///backups/aumohta" }).litestream).toEqual({
-        replicaUrl: "file:///backups/aumohta",
+      expect(loadConfig({ POSITRONTANKS_LITESTREAM_REPLICA_URL: "file:///backups/positrontanks" }).litestream).toEqual({
+        replicaUrl: "file:///backups/positrontanks",
       });
     });
 
     it("reports an invalid replica URL", () => {
-      expect(problems({ AUMOHTA_LITESTREAM_REPLICA_URL: "aumohta-db/prod" })).toEqual([
-        expect.stringContaining("AUMOHTA_LITESTREAM_REPLICA_URL"),
+      expect(problems({ POSITRONTANKS_LITESTREAM_REPLICA_URL: "positrontanks-db/prod" })).toEqual([
+        expect.stringContaining("POSITRONTANKS_LITESTREAM_REPLICA_URL"),
       ]);
     });
 
     it("rejects replicating an in-memory database", () => {
       expect(
-        problems({ AUMOHTA_LITESTREAM_REPLICA_URL: "s3://aumohta-db/prod", AUMOHTA_DATABASE_PATH: ":memory:" }),
+        problems({ POSITRONTANKS_LITESTREAM_REPLICA_URL: "s3://positrontanks-db/prod", POSITRONTANKS_DATABASE_PATH: ":memory:" }),
       ).toEqual([expect.stringContaining("in-memory")]);
     });
   });

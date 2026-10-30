@@ -1,23 +1,23 @@
 #!/bin/sh
-# Container entrypoint for the Aumohta server (spec section 10, ADR-0003).
+# Container entrypoint for the Positron Tanks server (spec section 10, ADR-0003).
 #
-# Without AUMOHTA_LITESTREAM_REPLICA_URL it simply runs the server. With it,
+# Without POSITRONTANKS_LITESTREAM_REPLICA_URL it simply runs the server. With it,
 # it first restores the database from the replica if the database file does
 # not exist yet (a fresh volume or a new Fargate task), then runs the server
 # as a child of `litestream replicate`, which streams every change to the
 # replica and exits when the server does. The Litestream configuration is
-# /etc/litestream.yml, which reads AUMOHTA_DATABASE_PATH and
-# AUMOHTA_LITESTREAM_REPLICA_URL from the environment.
+# /etc/litestream.yml, which reads POSITRONTANKS_DATABASE_PATH and
+# POSITRONTANKS_LITESTREAM_REPLICA_URL from the environment.
 set -eu
 
-db="${AUMOHTA_DATABASE_PATH:?AUMOHTA_DATABASE_PATH must be set}"
+db="${POSITRONTANKS_DATABASE_PATH:?POSITRONTANKS_DATABASE_PATH must be set}"
 mkdir -p "$(dirname "$db")"
 
 if [ "$#" -eq 0 ]; then
   set -- node /app/packages/server/dist/main.js
 fi
 
-if [ -z "${AUMOHTA_LITESTREAM_REPLICA_URL:-}" ]; then
+if [ -z "${POSITRONTANKS_LITESTREAM_REPLICA_URL:-}" ]; then
   exec "$@"
 fi
 

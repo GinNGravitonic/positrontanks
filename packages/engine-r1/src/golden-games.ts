@@ -11,7 +11,7 @@
  * failures.
  */
 
-import type { Build, MapFormat1 } from "@aumohta/ruleset-data";
+import type { Build, MapFormat1 } from "@positrontanks/ruleset-data";
 import type { ProgramEntrySetup } from "./game.js";
 
 export interface GoldenGame {

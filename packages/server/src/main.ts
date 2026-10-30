@@ -1,5 +1,5 @@
 /**
- * Process entry point: `node dist/main.js`. Configured by `AUMOHTA_*`
+ * Process entry point: `node dist/main.js`. Configured by `POSITRONTANKS_*`
  * environment variables (see config.ts). The Docker image runs this through
  * docker/entrypoint.sh.
  */

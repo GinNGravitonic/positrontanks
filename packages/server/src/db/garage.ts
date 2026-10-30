@@ -8,7 +8,7 @@
  */
 
 import type { DatabaseSync } from "node:sqlite";
-import type { Build } from "@aumohta/ruleset-data";
+import type { Build } from "@positrontanks/ruleset-data";
 import { FIRST_PAGE, queryPage, type Page, type PageRequest } from "./paging.js";
 
 export interface RevisionRecord {

@@ -1,5 +1,5 @@
-import { sampleMap, TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@aumohta/engine-r1";
-import { loadRuleset } from "@aumohta/ruleset-data/rulesets";
+import { sampleMap, TICK_COST_DEFAULT_SEED, TICK_COST_DEFAULT_TICKS, TICK_COST_MAX_TICKS } from "@positrontanks/engine-r1";
+import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";
@@ -290,7 +290,7 @@ describe("on a server that does not enable the check", () => {
       const { error } = (await response.json()) as { error: { code: string; message: string } };
       expect(error.code).toBe("feature_disabled");
       expect(error.message).toContain("docs/docker.md");
-      expect(error.message).toContain("aumohta tick-cost");
+      expect(error.message).toContain("positrontanks tick-cost");
     }
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MapFormat1 } from "@aumohta/ruleset-data";
+import type { MapFormat1 } from "@positrontanks/ruleset-data";
 import { pointInShape, shapeBounds, shapesOverlap } from "./geometry.js";
 import { hashWorld } from "./hash.js";
 import { discBuild, ruleset, testMap, without } from "./test-fixtures.js";

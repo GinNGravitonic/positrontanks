@@ -7,7 +7,7 @@
  * inputs always reach the same state (ADR-0001); `hashWorld` fingerprints it.
  */
 
-import type { Build, MapFormat1, Obstacle, Ruleset } from "@aumohta/ruleset-data";
+import type { Build, MapFormat1, Obstacle, Ruleset } from "@positrontanks/ruleset-data";
 import { checkRuleset, deriveBotSpec, type BotSpec, type WeaponCategory } from "./bot-spec.js";
 import {
   boundsOverlap,

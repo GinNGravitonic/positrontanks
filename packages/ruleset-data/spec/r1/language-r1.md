@@ -1,6 +1,6 @@
-# Aumohta Language Specification, Ruleset r1
+# Positron Tanks Language Specification, Ruleset r1
 
-This document is the detailed language specification for Ruleset r1. It fills in the structure fixed by v1.md §4 and ADR-0002. Vocabulary follows the Aumohta glossary (GLOSSARY.md).
+This document is the detailed language specification for Ruleset r1. It fills in the structure fixed by v1.md §4 and ADR-0002. Vocabulary follows the Positron Tanks glossary (GLOSSARY.md).
 
 Numeric limits are Ruleset data. This document defines what they mean and states the r1 values, which [catalog-r1.md](catalog) confirms.
 

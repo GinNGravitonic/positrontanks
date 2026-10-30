@@ -11,8 +11,8 @@
  * reported at once.
  */
 
-import { check } from "@aumohta/language";
-import { validateBuild, type Build } from "@aumohta/ruleset-data";
+import { check } from "@positrontanks/language";
+import { validateBuild, type Build } from "@positrontanks/ruleset-data";
 import type { ErrorDetail } from "../http/errors.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
 

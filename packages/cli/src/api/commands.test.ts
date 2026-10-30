@@ -68,7 +68,7 @@ describe("an account from signup to logout", () => {
     expect((await server.config())?.profiles.default).toEqual({ server: server.url });
 
     // The key no longer works, and there is nothing left to log out.
-    const revoked = await server.cli(["auth", "whoami", "--json"], { env: { AUMOHTA_API_KEY: key } });
+    const revoked = await server.cli(["auth", "whoami", "--json"], { env: { POSITRONTANKS_API_KEY: key } });
     expect(revoked.code).toBe(3);
     expect(errorOf(revoked).code).toBe("unauthorized");
     expect(await cli("auth", "logout")).toMatchObject({ code: 3, out: "" });
@@ -76,10 +76,10 @@ describe("an account from signup to logout", () => {
 
   it("names the key after the host by default, and prints the login in human output", async () => {
     expect((await server.cli(["auth", "signup", "ada", "--password-stdin"], pw)).code).toBe(0);
-    expect(await server.cli(["auth", "signup", "ADA", "--password-stdin"], pw)).toMatchObject({ code: 1, err: 'aumohta: username_taken: The username "ADA" is already taken' });
+    expect(await server.cli(["auth", "signup", "ADA", "--password-stdin"], pw)).toMatchObject({ code: 1, err: 'positrontanks: username_taken: The username "ADA" is already taken' });
     const login = await server.cli(["auth", "login", "ada", "--password-stdin"], pw);
     expect(login.out).toContain(`Logged in as ada on ${server.url}.`);
-    expect(login.out).toMatch(/Stored API key \S+ \("aumohta-cli on .+"\) in profile default\./);
+    expect(login.out).toMatch(/Stored API key \S+ \("positrontanks-cli on .+"\) in profile default\./);
   });
 
   it("asks for the password on the terminal, and refuses to without one", async () => {
@@ -89,13 +89,13 @@ describe("an account from signup to logout", () => {
 
     const noTerminal = await cli("auth", "login", "ada");
     expect(noTerminal.code).toBe(2);
-    expect(noTerminal.err).toContain("aumohta: usage: there is no terminal to ask on; give it with --password-stdin");
+    expect(noTerminal.err).toContain("positrontanks: usage: there is no terminal to ask on; give it with --password-stdin");
   });
 
   it("reports a wrong password as not authenticated, storing nothing", async () => {
     await server.cli(["auth", "signup", "ada", "--password-stdin"], pw);
     const login = await server.cli(["auth", "login", "ada", "--password-stdin"], { stdin: "wrong password" });
-    expect(login).toMatchObject({ code: 3, out: "", err: "aumohta: invalid_credentials: The username or password is incorrect" });
+    expect(login).toMatchObject({ code: 3, out: "", err: "positrontanks: invalid_credentials: The username or password is incorrect" });
     expect(await server.config()).toBeUndefined();
   });
 
@@ -103,7 +103,7 @@ describe("an account from signup to logout", () => {
     await loggedIn();
     const id = (await server.config())?.profiles.default?.apiKeyId ?? "";
     const other = (json(await cli("keys", "create", "other", "--json")) as Schema<"CreatedApiKey">).key;
-    expect((await server.cli(["api", "DELETE", `/api-keys/${id}`], { env: { AUMOHTA_API_KEY: other } })).code).toBe(0);
+    expect((await server.cli(["api", "DELETE", `/api-keys/${id}`], { env: { POSITRONTANKS_API_KEY: other } })).code).toBe(0);
     const logout = await cli("auth", "logout");
     expect(logout).toMatchObject({ code: 0, out: `API key ${id} was already revoked; removed it from profile default.` });
     expect((await server.config())?.profiles.default).toEqual({ server: server.url });
@@ -136,17 +136,17 @@ describe("keys", () => {
     expect(key).toMatch(/^auk_/);
 
     const list = json(await cli("keys", "list", "--json")) as Schema<"ApiKeyList">;
-    expect(list.apiKeys.map((k) => k.name)).toEqual([expect.stringMatching(/^aumohta-cli on /), "ci"]);
+    expect(list.apiKeys.map((k) => k.name)).toEqual([expect.stringMatching(/^positrontanks-cli on /), "ci"]);
     const human = await cli("keys", "list");
     const own = (await server.config())?.profiles.default?.apiKeyId ?? "";
-    expect(human.out).toMatch(new RegExp(`^\\* +${own} +aumohta-cli on `, "m"));
+    expect(human.out).toMatch(new RegExp(`^\\* +${own} +positrontanks-cli on `, "m"));
     expect(human.out).toMatch(/^ +\S+ +ci +auk_\S+\.\.\. +just now +never$/m);
 
     const ci = list.apiKeys[1]?.id ?? "";
     const revoke = await cli("keys", "revoke", ci, "--json");
     expect(revoke).toMatchObject({ code: 0, out: "{}" });
     expect((json(await cli("keys", "list", "--json")) as Schema<"ApiKeyList">).apiKeys).toHaveLength(1);
-    expect(await server.cli(["auth", "whoami"], { env: { AUMOHTA_API_KEY: key ?? "" } })).toMatchObject({ code: 3 });
+    expect(await server.cli(["auth", "whoami"], { env: { POSITRONTANKS_API_KEY: key ?? "" } })).toMatchObject({ code: 3 });
     expect((await cli("keys", "revoke", ci)).code).toBe(1);
   });
 
@@ -163,8 +163,8 @@ describe("credentials", () => {
   it("fails with exit code 3 before sending anything when there is no key", async () => {
     const run = await cli("keys", "list");
     expect(run).toMatchObject({ code: 3, out: "" });
-    expect(run.err).toMatch(/^aumohta: not_authenticated: No API key/);
-    const asJson = await server.cli(["keys", "list"], { env: { AUMOHTA_OUTPUT: "json" } });
+    expect(run.err).toMatch(/^positrontanks: not_authenticated: No API key/);
+    const asJson = await server.cli(["keys", "list"], { env: { POSITRONTANKS_OUTPUT: "json" } });
     expect(errorOf(asJson).code).toBe("not_authenticated");
   });
 
@@ -178,12 +178,12 @@ describe("credentials", () => {
     const whoami = async (options: Parameters<TestServer["cli"]>[1], ...argv: string[]) =>
       (json(await server.cli(["auth", "whoami", "--json", ...argv], options)) as Schema<"Player">).username;
     expect(await whoami({})).toBe("ada");
-    expect(await whoami({ env: { AUMOHTA_API_KEY: bob } })).toBe("bob");
+    expect(await whoami({ env: { POSITRONTANKS_API_KEY: bob } })).toBe("bob");
     expect(await whoami({ stdin: bob }, "--api-key-stdin")).toBe("bob");
-    expect(await whoami({ stdin: ada, env: { AUMOHTA_API_KEY: bob } }, "--api-key-stdin")).toBe("ada");
-    expect(await whoami({ env: { AUMOHTA_PROFILE: "bob" } })).toBe("bob");
-    expect(await whoami({ env: { AUMOHTA_PROFILE: "bob" } }, "--profile", "default")).toBe("ada");
-    expect(JSON.stringify(await server.config())).not.toContain("AUMOHTA");
+    expect(await whoami({ stdin: ada, env: { POSITRONTANKS_API_KEY: bob } }, "--api-key-stdin")).toBe("ada");
+    expect(await whoami({ env: { POSITRONTANKS_PROFILE: "bob" } })).toBe("bob");
+    expect(await whoami({ env: { POSITRONTANKS_PROFILE: "bob" } }, "--profile", "default")).toBe("ada");
+    expect(JSON.stringify(await server.config())).not.toContain("POSITRONTANKS");
   });
 
   it("refuses two options reading stdin", async () => {
@@ -197,7 +197,7 @@ describe("errors and exit codes", () => {
   it("prints the server's error with its details, in human and JSON output", async () => {
     const human = await server.cli(["auth", "signup", "ab", "--password-stdin"], pw);
     expect(human).toMatchObject({ code: 1, out: "" });
-    expect(human.err.split("\n")).toEqual(["aumohta: validation_failed: The request is not valid", "  username: must be 3 to 32 letters, digits, '-' or '_'"]);
+    expect(human.err.split("\n")).toEqual(["positrontanks: validation_failed: The request is not valid", "  username: must be 3 to 32 letters, digits, '-' or '_'"]);
 
     const asJson = await server.cli(["auth", "signup", "ab", "--password-stdin", "--json"], pw);
     expect(asJson).toMatchObject({ code: 1, out: "" });
@@ -208,8 +208,8 @@ describe("errors and exit codes", () => {
 
   it("exits 2 for bad usage, in the error format", async () => {
     expect(await cli("auth")).toMatchObject({ code: 2, out: "" });
-    expect((await cli("auth", "fly")).err).toContain('aumohta: usage: unknown command "auth fly"');
-    expect((await cli("auth", "signup")).err).toContain("'aumohta auth signup' needs USERNAME");
+    expect((await cli("auth", "fly")).err).toContain('positrontanks: usage: unknown command "auth fly"');
+    expect((await cli("auth", "signup")).err).toContain("'positrontanks auth signup' needs USERNAME");
     expect((await cli("auth", "whoami", "extra")).code).toBe(2);
     expect((await cli("auth", "whoami", "--bogus")).code).toBe(2);
     expect(errorOf(await cli("keys", "list", "--bogus", "--json"))).toMatchObject({ code: "usage" });
@@ -219,10 +219,10 @@ describe("errors and exit codes", () => {
   it("exits 4 when the server cannot be reached", async () => {
     const run = await cli("server", "health", "--server", "http://127.0.0.1:9");
     expect(run).toMatchObject({ code: 4, out: "" });
-    expect(run.err).toMatch(/^aumohta: network: cannot reach http:\/\/127\.0\.0\.1:9/);
+    expect(run.err).toMatch(/^positrontanks: network: cannot reach http:\/\/127\.0\.0\.1:9/);
   });
 
-  describe("against a server that is not Aumohta", () => {
+  describe("against a server that is not Positron Tanks", () => {
     let other: Server;
     let url: string;
     beforeEach(async () => {
@@ -243,7 +243,7 @@ describe("errors and exit codes", () => {
     });
 
     it("exits 4 for a 5xx and for a body that is not the expected JSON", async () => {
-      expect(await cli("server", "health", "--server", url)).toMatchObject({ code: 4, err: "aumohta: unavailable: down" });
+      expect(await cli("server", "health", "--server", url)).toMatchObject({ code: 4, err: "positrontanks: unavailable: down" });
       const html = await cli("server", "info", "--server", url, "--json");
       expect(html.code).toBe(4);
       expect(errorOf(html).code).toBe("bad_response");
@@ -270,7 +270,7 @@ describe("server", () => {
 
 describe("config", () => {
   it("behaves as one default profile with no config file", async () => {
-    const show = json(await server.cli(["config", "show", "--json"], { env: { AUMOHTA_SERVER: "" } })) as Record<string, unknown>;
+    const show = json(await server.cli(["config", "show", "--json"], { env: { POSITRONTANKS_SERVER: "" } })) as Record<string, unknown>;
     expect(show).toEqual({
       profile: "default",
       configFile: server.configFile,
@@ -288,14 +288,14 @@ describe("config", () => {
   it("switches, sets, lists and removes profiles", async () => {
     await loggedIn();
     const use = await cli("config", "use", "hosted");
-    expect(use.out).toBe("Now using profile hosted (new: server http://localhost:8080 until 'aumohta config set server URL').");
-    const set = await server.cli(["config", "set", "server", "https://aumohta.example.com/"], { env: { AUMOHTA_SERVER: "" } });
-    expect(set.out).toBe("Profile hosted now uses server https://aumohta.example.com.");
+    expect(use.out).toBe("Now using profile hosted (new: server http://localhost:8080 until 'positrontanks config set server URL').");
+    const set = await server.cli(["config", "set", "server", "https://positrontanks.example.com/"], { env: { POSITRONTANKS_SERVER: "" } });
+    expect(set.out).toBe("Profile hosted now uses server https://positrontanks.example.com.");
     expect((await cli("config", "set", "colour", "blue")).code).toBe(2);
     expect((await cli("config", "set", "server", "ftp://x")).code).toBe(2);
 
-    const show = await server.cli(["config", "show"], { env: { AUMOHTA_SERVER: "" } });
-    expect(show.out).toContain("server:       https://aumohta.example.com (from profile)");
+    const show = await server.cli(["config", "show"], { env: { POSITRONTANKS_SERVER: "" } });
+    expect(show.out).toContain("server:       https://positrontanks.example.com (from profile)");
     expect(show.out).toContain("API key:      none");
 
     const key = await storedKey();
@@ -306,11 +306,11 @@ describe("config", () => {
       ["hosted", true],
     ]);
     expect(profiles.profiles[0]?.apiKey).toBe(`${key.slice(0, 12)}...`);
-    expect((await cli("config", "profiles")).out).toMatch(/^\* +hosted +https:\/\/aumohta\.example\.com$/m);
+    expect((await cli("config", "profiles")).out).toMatch(/^\* +hosted +https:\/\/positrontanks\.example\.com$/m);
 
     const remove = await cli("config", "remove", "default");
     expect(remove.out).toContain("Removed profile default.\nIts API key");
-    expect(await server.config()).toEqual({ currentProfile: "hosted", profiles: { hosted: { server: "https://aumohta.example.com" } } });
+    expect(await server.config()).toEqual({ currentProfile: "hosted", profiles: { hosted: { server: "https://positrontanks.example.com" } } });
     expect((await cli("config", "remove", "default")).code).toBe(1);
     await cli("config", "remove", "hosted");
     expect(await server.config()).toEqual({ profiles: {} });
@@ -336,7 +336,7 @@ describe("config", () => {
     await writeFile(server.configFile, "{ nope");
     const run = await cli("config", "show");
     expect(run.code).toBe(1);
-    expect(run.err).toContain(`aumohta: config: ${server.configFile} is not valid JSON`);
+    expect(run.err).toContain(`positrontanks: config: ${server.configFile} is not valid JSON`);
   });
 });
 
@@ -360,7 +360,7 @@ describe("api", () => {
     expect(docs.out.startsWith("#")).toBe(true);
 
     const missing = await cli("api", "GET", "/nowhere");
-    expect(missing).toMatchObject({ code: 1, out: "", err: "aumohta: not_found: No endpoint at /nowhere" });
+    expect(missing).toMatchObject({ code: 1, out: "", err: "positrontanks: not_found: No endpoint at /nowhere" });
   });
 
   it("passes query parameters and checks its arguments", async () => {
@@ -372,7 +372,7 @@ describe("api", () => {
     expect((await cli("api", "GET", "rulesets")).code).toBe(2);
     const badBody = await server.cli(["api", "POST", "/api-keys", "--body", "-"], { stdin: "{" });
     expect(badBody.code).toBe(1);
-    expect(badBody.err).toContain("aumohta: input: stdin is not valid JSON");
+    expect(badBody.err).toContain("positrontanks: input: stdin is not valid JSON");
   });
 });
 
@@ -400,13 +400,13 @@ describe("paging", () => {
 
 describe("help", () => {
   it("lists the server commands in the top-level help, and each group's and command's usage", async () => {
-    expect((await cli("--help")).out).toContain("aumohta auth login USERNAME [--password-stdin] [--key-name NAME]");
+    expect((await cli("--help")).out).toContain("positrontanks auth login USERNAME [--password-stdin] [--key-name NAME]");
     const group = await cli("keys", "--help");
     expect(group.code).toBe(0);
-    expect(group.out).toContain("aumohta keys revoke KEY_ID");
-    expect(group.out).not.toContain("aumohta auth");
+    expect(group.out).toContain("positrontanks keys revoke KEY_ID");
+    expect(group.out).not.toContain("positrontanks auth");
     const command = await cli("api", "--help");
-    expect(command.out).toMatch(/^Usage: aumohta api METHOD PATH \[--body FILE\] \[--query KEY=VALUE \.\.\.\]/);
+    expect(command.out).toMatch(/^Usage: positrontanks api METHOD PATH \[--body FILE\] \[--query KEY=VALUE \.\.\.\]/);
     expect(command.out).toContain("3 not authenticated");
   });
 });

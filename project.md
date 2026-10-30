@@ -58,7 +58,7 @@ The most important decision is to determine if this will be a strategy board gam
 
 
 
-The game is called "Aumohta".
+The game is called "Positron Tanks".
 
 
 

@@ -1,5 +1,5 @@
 /**
- * The tick cost check offline (`aumohta tick-cost`; ADR-0002): runs each Bot
+ * The tick cost check offline (`positrontanks tick-cost`; ADR-0002): runs each Bot
  * of an Entry file in engine-r1's sample world with `tickCostCheck`, exactly
  * as the server's tick cost endpoints do, with no server or database.
  *
@@ -17,10 +17,10 @@ import {
   TICK_COST_MAX_TICKS,
   type TickCost,
   type TickCostOptions,
-} from "@aumohta/engine-r1";
-import { check, R1_LANGUAGE } from "@aumohta/language";
-import { validateBuild, type Build, type Ruleset } from "@aumohta/ruleset-data";
-import { isRulesetVersion, loadRuleset, RULESET_VERSIONS } from "@aumohta/ruleset-data/rulesets";
+} from "@positrontanks/engine-r1";
+import { check, R1_LANGUAGE } from "@positrontanks/language";
+import { validateBuild, type Build, type Ruleset } from "@positrontanks/ruleset-data";
+import { isRulesetVersion, loadRuleset, RULESET_VERSIONS } from "@positrontanks/ruleset-data/rulesets";
 import { InputError, readEntryFile } from "./entry-file.js";
 import { table } from "./report.js";
 import { SEED_LIMIT } from "./run.js";

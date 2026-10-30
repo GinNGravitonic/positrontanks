@@ -42,7 +42,7 @@ beforeAll(async () => {
         }
       },
     },
-    "aumohta",
+    "positrontanks",
     "test",
     true,
   );
@@ -76,8 +76,8 @@ describe("createStack", () => {
   it("runs at most one task and stops it before starting a replacement (ADR-0003)", async () => {
     const stack = createStack("single", {
       ...baseArgs,
-      environment: { AUMOHTA_MAX_UNTHROTTLED_GAMES: "2" },
-      secretEnvironment: { AUMOHTA_EXAMPLE_SECRET: "hunter2" },
+      environment: { POSITRONTANKS_MAX_UNTHROTTLED_GAMES: "2" },
+      secretEnvironment: { POSITRONTANKS_EXAMPLE_SECRET: "hunter2" },
     });
     await resolved(stack.serviceName);
 
@@ -90,8 +90,8 @@ describe("createStack", () => {
   it("gives Litestream time for its final sync and configures S3 storage", async () => {
     const stack = createStack("litestream", {
       ...baseArgs,
-      environment: { AUMOHTA_MAX_UNTHROTTLED_GAMES: "2" },
-      secretEnvironment: { AUMOHTA_EXAMPLE_SECRET: "hunter2" },
+      environment: { POSITRONTANKS_MAX_UNTHROTTLED_GAMES: "2" },
+      secretEnvironment: { POSITRONTANKS_EXAMPLE_SECRET: "hunter2" },
     });
     await resolved(stack.serviceName);
 
@@ -106,15 +106,15 @@ describe("createStack", () => {
 
     const environment = Object.fromEntries((container?.environment ?? []).map((v) => [v.name, v.value]));
     expect(environment).toMatchObject({
-      AUMOHTA_STORAGE: "s3",
-      AUMOHTA_S3_BUCKET: "litestream-objects-bucket",
-      AUMOHTA_LITESTREAM_REPLICA_URL: "s3://litestream-litestream-bucket/aumohta",
-      AUMOHTA_MAX_UNTHROTTLED_GAMES: "2",
+      POSITRONTANKS_STORAGE: "s3",
+      POSITRONTANKS_S3_BUCKET: "litestream-objects-bucket",
+      POSITRONTANKS_LITESTREAM_REPLICA_URL: "s3://litestream-litestream-bucket/positrontanks",
+      POSITRONTANKS_MAX_UNTHROTTLED_GAMES: "2",
     });
     // A local-server feature; shared deployments leave it off (docs/docker.md).
-    expect(environment).not.toHaveProperty("AUMOHTA_TICK_COST_CHECK");
+    expect(environment).not.toHaveProperty("POSITRONTANKS_TICK_COST_CHECK");
     expect(container?.secrets).toEqual([
-      { name: "AUMOHTA_EXAMPLE_SECRET", valueFrom: "arn:aws:mock:::litestream:AUMOHTA_EXAMPLE_SECRET::" },
+      { name: "POSITRONTANKS_EXAMPLE_SECRET", valueFrom: "arn:aws:mock:::litestream:POSITRONTANKS_EXAMPLE_SECRET::" },
     ]);
     expect(taskDefinition.containerDefinitions).not.toContain("hunter2");
   });
@@ -133,12 +133,12 @@ describe("createStack", () => {
   it("serves HTTPS with a redirect from HTTP when given a domain", async () => {
     const stack = createStack("https", {
       ...baseArgs,
-      domain: { name: "aumohta.example.com", hostedZoneId: "Z123" },
+      domain: { name: "positrontanks.example.com", hostedZoneId: "Z123" },
     });
     await resolved(stack.serviceName);
 
     const listeners = ofStack("https", "aws:lb/listener:Listener");
     expect(listeners.map((listener) => listener.inputs.port as number).toSorted((a, b) => a - b)).toEqual([80, 443]);
-    expect(await resolved(stack.url)).toBe("https://aumohta.example.com");
+    expect(await resolved(stack.url)).toBe("https://positrontanks.example.com");
   });
 });

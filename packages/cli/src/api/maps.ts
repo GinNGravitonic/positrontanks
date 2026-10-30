@@ -1,7 +1,7 @@
 /**
- * `aumohta maps` (docs/spec/cli-api.md): Maps and their Revisions.
+ * `positrontanks maps` (docs/spec/cli-api.md): Maps and their Revisions.
  *
- * `--map FILE` is Map Format JSON, the file `aumohta run --map` reads, so a
+ * `--map FILE` is Map Format JSON, the file `positrontanks run --map` reads, so a
  * Map tried locally is uploaded unchanged; `--out FILE` writes a Revision's
  * Map Format JSON back. Map reads need no credentials.
  */
