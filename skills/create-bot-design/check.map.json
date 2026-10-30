@@ -1,0 +1,12 @@
+{
+  "format": 1,
+  "width": 60,
+  "height": 40,
+  "baseTerrain": "grass",
+  "terrainRegions": [],
+  "obstacles": [],
+  "spawnZones": [
+    { "heading": 90, "capacity": 20, "shape": "polygon", "points": [{ "x": 2, "y": 8 }, { "x": 26, "y": 8 }, { "x": 26, "y": 32 }, { "x": 2, "y": 32 }] },
+    { "heading": 270, "capacity": 20, "shape": "polygon", "points": [{ "x": 34, "y": 8 }, { "x": 58, "y": 8 }, { "x": 58, "y": 32 }, { "x": 34, "y": 32 }] }
+  ]
+}
