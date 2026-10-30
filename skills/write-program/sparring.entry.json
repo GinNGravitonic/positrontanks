@@ -1,0 +1,15 @@
+{
+  "ruleset": "r1",
+  "player": "sparring",
+  "bots": [
+    {
+      "name": "Sparrer",
+      "build": {
+        "chassis": "rover",
+        "components": { "leftGun": "autocannon", "rightGun": "autocannon", "eye": "radar", "drive": "wheels" },
+        "armor": { "front": "mediumPlate", "left": "lightPlate", "right": "lightPlate", "rear": null }
+      },
+      "programFile": "starter.ptk"
+    }
+  ]
+}

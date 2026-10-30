@@ -1,0 +1,61 @@
+// Starter: works with any Build that has a weapon, a Radar and a motor.
+// It reads the Build's Slot ids from self.weapons, so it needs no editing to
+// run; replace each part with tactics for the design's role.
+
+let weaponIds = [];   // Slot ids of the installed weapons
+let reach = 0;        // the shortest weapon range, so every weapon can hit
+let lastSeen = null;  // {x, y} of the last Foe seen, to chase it out of sight
+let center = null;
+
+function init() {
+  for (const w of self.weapons) {
+    weaponIds.push(w.id);
+    if (reach == 0 || w.range < reach) {
+      reach = w.range;
+    }
+  }
+  center = {x: map.width / 2, y: map.height / 2};
+}
+
+// The nearest Foe the Radars see, or null.
+function nearestFoe() {
+  let best = null;
+  for (const c of scan()) {
+    if (c.isFoe && (best == null || c.distance < best.distance)) {
+      best = c;
+    }
+  }
+  return best;
+}
+
+// Steer toward a relative bearing: full turn beyond 20 degrees off.
+function steer(bearing) {
+  turn(clamp(bearing / 20, -1, 1));
+}
+
+function tick() {
+  const foe = nearestFoe();
+  if (foe != null) {
+    lastSeen = {x: foe.x, y: foe.y};
+    steer(foe.bearing);
+    // Close to most of the weapons' reach, then hold there.
+    throttle(foe.distance > reach * 0.8 ? 1 : 0);
+    for (const id of weaponIds) {
+      fire(id, foe);
+    }
+  } else if (lastSeen != null) {
+    steer(bearingTo(lastSeen.x, lastSeen.y));
+    throttle(0.8);
+    if (distanceTo(lastSeen.x, lastSeen.y) < 3) {
+      lastSeen = null;
+    }
+  } else {
+    // Nothing seen: head for the middle, then circle there.
+    if (distanceTo(center.x, center.y) > 10) {
+      steer(bearingTo(center.x, center.y));
+    } else {
+      turn(0.5);
+    }
+    throttle(0.7);
+  }
+}

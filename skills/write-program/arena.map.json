@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "width": 60,
+  "height": 40,
+  "baseTerrain": "grass",
+  "terrainRegions": [
+    { "terrain": "sand", "shape": "circle", "x": 30, "y": 20, "radius": 6 }
+  ],
+  "obstacles": [
+    { "id": "rock-north", "destructible": false, "shape": "circle", "x": 30, "y": 9, "radius": 2.5 },
+    { "id": "rock-south", "destructible": false, "shape": "circle", "x": 30, "y": 31, "radius": 2.5 }
+  ],
+  "spawnZones": [
+    { "heading": 90, "capacity": 4, "shape": "polygon", "points": [{ "x": 2, "y": 12 }, { "x": 12, "y": 12 }, { "x": 12, "y": 28 }, { "x": 2, "y": 28 }] },
+    { "heading": 270, "capacity": 4, "shape": "polygon", "points": [{ "x": 48, "y": 12 }, { "x": 58, "y": 12 }, { "x": 58, "y": 28 }, { "x": 48, "y": 28 }] }
+  ]
+}
