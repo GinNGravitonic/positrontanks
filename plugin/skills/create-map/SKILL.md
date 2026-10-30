@@ -96,7 +96,7 @@ On exit code 1, fix every reported path and run it again. Problems surface in st
 
 This is the only early Terrain check: the server checks Terrain names only when a Game picks the Map and a Ruleset, not when the Map is saved.
 
-To watch real Bots on the Map, play the worked Entries in the repo's `packages/cli/examples` (`alice.entry.json`, `bob.entry.json`) at their default time limit.
+To watch real Bots on the Map, play the worked Entries in `packages/cli/examples` in the Positron Tanks clone (`~/positrontanks` by default; see the play-positron-tanks skill): `alice.entry.json` and `bob.entry.json`, at their default time limit.
 
 ## 5. Upload it
 

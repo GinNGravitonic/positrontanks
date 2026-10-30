@@ -1,0 +1,10 @@
+{
+  "name": "positron-tanks",
+  "version": "0.1.0",
+  "description": "Skills for playing Positron Tanks with its API CLI: install the game and run a local server, create Maps, Bot Designs and Programs, improve designs by self-play, and upload them to a remote server.",
+  "author": {
+    "name": "GinNGravitonic"
+  },
+  "repository": "https://github.com/GinNGravitonic/positrontanks",
+  "keywords": ["positron-tanks", "game", "bots", "programming-game"]
+}

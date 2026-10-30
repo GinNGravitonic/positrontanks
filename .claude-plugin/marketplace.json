@@ -1,0 +1,16 @@
+{
+  "name": "positron-tanks",
+  "owner": {
+    "name": "GinNGravitonic"
+  },
+  "metadata": {
+    "description": "The Positron Tanks plugin: agent skills for playing Positron Tanks."
+  },
+  "plugins": [
+    {
+      "name": "positron-tanks",
+      "source": "./plugin",
+      "description": "Skills for playing Positron Tanks with its API CLI: install the game and run a local server, create Maps, Bot Designs and Programs, improve designs by self-play, and upload them to a remote server."
+    }
+  ]
+}

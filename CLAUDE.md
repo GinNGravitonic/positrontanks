@@ -73,6 +73,7 @@ TypeScript is pinned to 6.0.x because typescript-eslint does not yet support TS 
 
 The server's Docker image (`Dockerfile`, `docker/`) and its environment interface are described in `docs/docker.md`.
 The AWS deployment (`packages/infra`, Pulumi) is described in `docs/deployment.md`.
+The Claude Code plugin (skills for playing the game) is in `plugin/`, with the repo as its marketplace (`.claude-plugin/marketplace.json`); see `docs/plugin.md`.
 
 ## Architecture Overview
 

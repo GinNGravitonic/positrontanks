@@ -86,7 +86,7 @@ Done when you have read the spec and the essentials hold no surprises.
 
 ## 4. Write the Program
 
-Copy the bundled [`starter.ptk`](starter.ptk) to `<name>.ptk` and adapt it. It runs unchanged on any Build with a weapon, a Radar and a motor, because it reads its weapon Slot ids from `self.weapons`: it chases the nearest Foe, holds at weapon range and fires every weapon, chases a Foe's last position when it loses sight, and otherwise heads for the Map centre. The repo's [`packages/cli/examples`](../../packages/cli/examples) has two more worked Programs, `hunter.ptk` (sweeps and shoots) and `rammer.ptk` (charges with a Hammer).
+Copy the bundled [`starter.ptk`](starter.ptk) to `<name>.ptk` and adapt it. It runs unchanged on any Build with a weapon, a Radar and a motor, because it reads its weapon Slot ids from `self.weapons`: it chases the nearest Foe, holds at weapon range and fires every weapon, chases a Foe's last position when it loses sight, and otherwise heads for the Map centre. `packages/cli/examples` in the Positron Tanks clone (`~/positrontanks` by default; see the play-positron-tanks skill) has two more worked Programs, `hunter.ptk` (sweeps and shoots) and `rammer.ptk` (charges with a Hammer).
 
 Shape the Program around the role:
 
