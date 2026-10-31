@@ -18,6 +18,8 @@ export interface SceneBot {
   readonly x: number;
   readonly y: number;
   readonly heading: number;
+  /** In m/s, negative when reversing. */
+  readonly speed: number;
   readonly hitPoints: number;
   readonly disabled: boolean;
 }
@@ -78,6 +80,25 @@ export interface Hit {
   readonly bots: readonly [number, number];
 }
 
+/**
+ * Hit Points a Bot lost (frontend spec section 7, Bot inset): what got past
+ * Armor, to `target`, dealt by the Bot `dealer` (the one that fired, or the
+ * other Bot in a ram), or by no Bot (a wreck, an Obstacle or the boundary).
+ */
+export interface Damage {
+  readonly time: Time;
+  readonly target: number;
+  readonly dealer: number | null;
+  readonly amount: number;
+}
+
+/** A Bot becoming Disabled, and why, as the engine names it (in r1, `destroyed` or `programHalted`). */
+export interface Disablement {
+  readonly time: Time;
+  readonly bot: number;
+  readonly cause: string;
+}
+
 /** A Replay, ready to watch. */
 export interface ViewerReplay {
   readonly rulesetVersion: string;
@@ -89,6 +110,10 @@ export interface ViewerReplay {
   readonly lastTick: number;
   /** Every hit between two different Bots, in time order. */
   readonly hits: readonly Hit[];
+  /** Every Hit Point lost by a Bot, in time order. */
+  readonly damage: readonly Damage[];
+  /** Every Bot Disabled, in time order. */
+  readonly disablements: readonly Disablement[];
   /** The Scene at `time`, which is kept within [0, lastTick]. */
   scene(time: Time): Scene;
 }

@@ -12,7 +12,7 @@
 import type { BotFrame, ImpactEvent, ProjectileFrame, Replay, ReplayTick, TickEvent } from "@positrontanks/engine-r1";
 import type { Point } from "@positrontanks/ruleset-data";
 import { shapeBounds } from "../draw/geometry.js";
-import type { Effect, EngineViewer, Hit, Scene, SceneBot, SceneProjectile, Time, ViewerReplay } from "./scene.js";
+import type { Damage, Disablement, Effect, EngineViewer, Hit, Scene, SceneBot, SceneProjectile, Time, ViewerReplay } from "./scene.js";
 
 /** How long an event's effect lasts, in simulated seconds (at least one Tick). */
 export const EFFECT_SECONDS = 0.4;
@@ -61,6 +61,10 @@ export function loadR1Replay(json: unknown): ViewerReplay {
     entries: replay.entries,
     lastTick: last.tick,
     hits: ticks.flatMap((t) => t.events.flatMap((e) => hitsOf(e, eventTime(t.tick)))),
+    damage: ticks.flatMap((t) => t.events.flatMap((e) => damageOf(e, eventTime(t.tick)))),
+    disablements: ticks.flatMap((t) =>
+      t.events.flatMap((e): Disablement[] => (e.type === "disabled" ? [{ time: eventTime(t.tick), bot: e.bot, cause: e.cause }] : [])),
+    ),
     scene(time: Time): Scene {
       const t = Math.min(Math.max(time, 0), last.tick);
       const i = Math.floor(t);
@@ -103,6 +107,18 @@ export function hitsOf(e: TickEvent, time: Time): Hit[] {
   return other.kind === "bot" || other.kind === "wreck" ? hit(other.id, e.target.id) : [];
 }
 
+/**
+ * The Hit Points a `damage` event took from a Bot, if any. A shot is dealt
+ * by the Bot that fired it, a ram by the other Bot; a ram into a wreck, an
+ * Obstacle or the boundary is dealt by no Bot, as the engine counts Foe
+ * damage.
+ */
+export function damageOf(e: TickEvent, time: Time): Damage[] {
+  if (e.type !== "damage" || e.target.kind !== "bot" || e.dealt <= 0) return [];
+  const dealer = e.source.kind === "weapon" ? e.source.bot : e.source.with.kind === "bot" ? e.source.with.id : null;
+  return [{ time, target: e.target.id, dealer, amount: e.dealt }];
+}
+
 /** The heading `f` of the way from `from` to `to`, turning the short way round; in [0, 360). */
 export function lerpHeading(from: number, to: number, f: number): number {
   const turn = ((((to - from) % 360) + 540) % 360) - 180;
@@ -121,6 +137,7 @@ export function interpolateBots(a: readonly BotFrame[], b: readonly BotFrame[], 
       x: lerp(from.x, to.x, f),
       y: lerp(from.y, to.y, f),
       heading: lerpHeading(from.heading, to.heading, f),
+      speed: lerp(from.speed, to.speed, f),
       hitPoints: now.hitPoints,
       disabled: now.status === "disabled",
     };

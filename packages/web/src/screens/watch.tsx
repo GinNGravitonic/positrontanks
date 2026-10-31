@@ -3,7 +3,8 @@
  * Replay in the viewer, from Tick 0, with its time controls; a Game of a
  * Ruleset without a viewer says so instead. The main view pans by dragging
  * and zooms with the wheel or its buttons; the overview moves it by a click
- * or a drag. Clicking a Bot follows it, until the Spectator pans.
+ * or a drag. Clicking a Bot selects it and opens its inset, whose Follow
+ * button follows it until the Spectator pans.
  */
 
 import type { Point } from "@positrontanks/ruleset-data";
@@ -22,6 +23,7 @@ import { botAt, follow, followStep, zoomFollowing, type Camera } from "../viewer
 import { advance, clockText, seek, skipToEnd, SPEEDS, START, togglePlaying, type Playback } from "../viewer/playback.js";
 import type { ViewerReplay } from "../viewer/scene.js";
 import { unsupportedText } from "../viewer/viewers.js";
+import { BotInset } from "./bot-inset.js";
 import { gameRoute } from "./game.js";
 
 export function WatchScreen({ id }: { readonly id: string }) {
@@ -130,6 +132,9 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
   const bounds = useMemo(() => mapBounds(replay.map), [replay]);
   const [playback, setPlayback] = useState<Playback>(START);
   const [camera, setCamera] = useState<Camera>();
+  /** The Bot whose inset is open. */
+  const [selected, setSelected] = useState<number>();
+  const usernames = useMemo(() => new Map(game.entries.map((entry) => [entry.player.id, entry.player.username])), [game]);
   const view = camera?.view;
   const area = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLCanvasElement>(null);
@@ -238,12 +243,10 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
     const parts = looks.get(bot)?.parts;
     return (parts === undefined ? DISC_REACH : botReach(parts)) + (view === undefined ? 0 : CLICK_SLOP / view.scale);
   };
-  /** Follows the live Bot clicked at `at` on the main view, if any. */
+  /** Selects the Bot clicked at `at` on the main view, or none if no Bot is there. */
   const clickAt = (at: Point) => {
     if (view === undefined) return;
-    const id = botAt(scene, screenToMap(view, at), reach);
-    if (id === undefined || scene.bots.find((b) => b.id === id)?.disabled !== false) return;
-    setCamera((c) => (c === undefined ? c : follow(c, id)));
+    setSelected(botAt(scene, screenToMap(view, at), reach));
   };
   const followedName = followed === undefined ? undefined : looks.get(followed)?.name;
 
@@ -261,7 +264,7 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
               height={view.height}
               label="The main view of the Game"
               draw={(ctx) => {
-                drawMainView(ctx, view, replay, scene, looks);
+                drawMainView(ctx, view, replay, scene, looks, selected);
               }}
               onPointerDown={(event) => {
                 event.currentTarget.setPointerCapture(event.pointerId);
@@ -280,6 +283,26 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
                 const from = press.current;
                 press.current = undefined;
                 if (from !== undefined && !from.dragging) clickAt(from.start);
+              }}
+            />
+          )}
+          {selected === undefined ? null : (
+            <BotInset
+              replay={replay}
+              catalog={catalog}
+              scene={scene}
+              bot={selected}
+              looks={looks.get(selected)}
+              usernames={usernames}
+              following={followed === selected}
+              onFollow={() => {
+                setCamera((c) => (c === undefined ? c : follow(c, selected)));
+              }}
+              onStopFollowing={() => {
+                moveView((v) => v);
+              }}
+              onClose={() => {
+                setSelected(undefined);
               }}
             />
           )}
@@ -317,7 +340,7 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
           )}
           <p className="viewer-following">
             {followedName === undefined ? (
-              "Click a Bot to follow it."
+              "Click a Bot to see it."
             ) : (
               <>
                 Following <strong>{followedName}</strong>{" "}

@@ -4,7 +4,7 @@ import type { MapFormat1 } from "@positrontanks/ruleset-data";
 import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
 import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { describe, expect, it } from "vitest";
-import { EFFECT_SECONDS, eventTime, hitsOf, interpolateBots, lerpHeading, loadR1Replay } from "./r1.js";
+import { damageOf, EFFECT_SECONDS, eventTime, hitsOf, interpolateBots, lerpHeading, loadR1Replay } from "./r1.js";
 
 const duel = duelJson as MapFormat1;
 const build = { chassis: "scout", components: {}, armor: { front: null, left: null, right: null, rear: null } };
@@ -40,6 +40,10 @@ describe("interpolating between Ticks", () => {
   it("moves a Bot straight from one Tick's position to the next", () => {
     const [b] = interpolateBots([bot(1, { x: 10, y: 20 })], [bot(1, { x: 12, y: 16 })], 0.25, entryOf);
     expect(b).toMatchObject({ id: 1, entry: 0, x: 10.5, y: 19 });
+  });
+
+  it("eases a Bot's speed from one Tick's to the next", () => {
+    expect(interpolateBots([bot(1, { speed: 2 })], [bot(1, { speed: -2 })], 0.25, entryOf)[0]?.speed).toBe(1);
   });
 
   it("turns the short way round", () => {
@@ -174,6 +178,42 @@ describe("hits between Bots", () => {
       { time: 0.5, bots: [1, 2] },
       { time: 1.5, bots: [2, 1] },
     ]);
+  });
+});
+
+describe("damage to Bots", () => {
+  const damage = (source: Extract<TickEvent, { type: "damage" }>["source"], dealt = 6, target: Extract<TickEvent, { type: "damage" }>["target"] = { kind: "bot", id: 2 }): TickEvent => ({
+    type: "damage", tick: 3, target, source, raw: 10, absorbed: 4, dealt, side: "front", point: { x: 0, y: 0 }, absorber: "chassis",
+  });
+
+  it("is dealt by the Bot that fired, or the other Bot in a ram, and counts what got past Armor", () => {
+    expect(damageOf(damage({ kind: "weapon", bot: 1, weapon: "gun", category: "projectile" }), 2.5)).toEqual([{ time: 2.5, target: 2, dealer: 1, amount: 6 }]);
+    expect(damageOf(damage({ kind: "collision", with: { kind: "bot", id: 3 } }), 2.5)).toEqual([{ time: 2.5, target: 2, dealer: 3, amount: 6 }]);
+  });
+
+  it("is dealt by no Bot from a wreck, an Obstacle or the boundary", () => {
+    expect(damageOf(damage({ kind: "collision", with: { kind: "wreck", id: 3 } }), 2.5)).toEqual([{ time: 2.5, target: 2, dealer: null, amount: 6 }]);
+    expect(damageOf(damage({ kind: "collision", with: { kind: "boundary" } }), 2.5)).toEqual([{ time: 2.5, target: 2, dealer: null, amount: 6 }]);
+  });
+
+  it("leaves out damage to Obstacles and damage that Armor absorbed entirely", () => {
+    expect(damageOf(damage({ kind: "weapon", bot: 1, weapon: "gun", category: "projectile" }, 6, { kind: "obstacle", id: "crate" }), 2.5)).toEqual([]);
+    expect(damageOf(damage({ kind: "weapon", bot: 1, weapon: "gun", category: "projectile" }, 0), 2.5)).toEqual([]);
+  });
+
+  it("is listed with each Bot Disabled, in time order, at their events' time", () => {
+    const viewer = loadR1Replay(
+      replay([
+        tick(0, [bot(1), bot(2)]),
+        tick(1, [bot(1), bot(2, { hitPoints: 94 })], [damage({ kind: "weapon", bot: 1, weapon: "gun", category: "projectile" })]),
+        tick(2, [bot(1), bot(2, { hitPoints: 0, status: "disabled" })], [damage({ kind: "weapon", bot: 1, weapon: "gun", category: "projectile" }, 94), { type: "disabled", tick: 2, bot: 2, cause: "destroyed" }]),
+      ]),
+    );
+    expect(viewer.damage).toEqual([
+      { time: 0.5, target: 2, dealer: 1, amount: 6 },
+      { time: 1.5, target: 2, dealer: 1, amount: 94 },
+    ]);
+    expect(viewer.disablements).toEqual([{ time: 1.5, bot: 2, cause: "destroyed" }]);
   });
 });
 

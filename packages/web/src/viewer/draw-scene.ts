@@ -6,7 +6,7 @@
  */
 
 import type { MapFormat1 } from "@positrontanks/ruleset-data";
-import { drawBot, type BotParts } from "../draw/bot.js";
+import { botReach, drawBot, type BotParts } from "../draw/bot.js";
 import { DISABLED_COLOR, entryColor } from "../draw/colors.js";
 import { transform, type Artwork, type Context } from "../draw/context.js";
 import { mapToScreen, viewMatrix, type View } from "../draw/geometry.js";
@@ -23,6 +23,7 @@ const MISS_COLOR = "#bdbdbd";
 const RAM_COLOR = "#fafafa";
 const EXPLOSION_COLOR = "#ff6d00";
 const VIEW_RECT_COLOR = "#ffffff";
+const SELECTED_COLOR = "#ffffff";
 
 /** The Map as it stands in `scene`: without the Obstacles destroyed so far. */
 export function mapIn(map: MapFormat1, scene: Scene): MapFormat1 {
@@ -36,7 +37,16 @@ export interface BotLooks {
   readonly parts: BotParts | undefined;
 }
 
-export function drawMainView(ctx: Context, view: View, replay: ViewerReplay, scene: Scene, looks: ReadonlyMap<number, BotLooks>, artwork?: Artwork): void {
+/** The main view of `scene`; the Bot `selected`, if any, gets a ring around it. */
+export function drawMainView(
+  ctx: Context,
+  view: View,
+  replay: ViewerReplay,
+  scene: Scene,
+  looks: ReadonlyMap<number, BotLooks>,
+  selected?: number,
+  artwork?: Artwork,
+): void {
   drawMap(ctx, view, mapIn(replay.map, scene), { spawnZones: false });
   // Wrecks first, so live Bots go over them.
   const ordered = [...scene.bots.filter((b) => b.disabled), ...scene.bots.filter((b) => !b.disabled)];
@@ -49,6 +59,19 @@ export function drawMainView(ctx: Context, view: View, replay: ViewerReplay, sce
       continue;
     }
     drawBot(ctx, view, { parts: look.parts, pose, color, name: look.name, disabled: bot.disabled }, artwork);
+  }
+  const chosen = scene.bots.find((b) => b.id === selected);
+  if (chosen !== undefined) {
+    const parts = looks.get(chosen.id)?.parts;
+    const at = mapToScreen(view, chosen);
+    ctx.save();
+    ctx.strokeStyle = SELECTED_COLOR;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(at.x, at.y, (parts === undefined ? 0.5 : botReach(parts)) * view.scale + 4, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.restore();
   }
 
   ctx.save();

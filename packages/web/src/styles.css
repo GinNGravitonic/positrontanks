@@ -338,6 +338,57 @@ table.designs td {
   height: 2rem;
 }
 
+.bot-inset {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: 17rem;
+  max-height: calc(100% - 1rem);
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid;
+  background: light-dark(rgb(255 255 255 / 0.92), rgb(30 30 30 / 0.92));
+  font-size: 0.875rem;
+}
+
+.bot-inset header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bot-inset h3,
+.bot-inset header p {
+  margin: 0;
+}
+
+.bot-inset-close {
+  margin-left: auto;
+  align-self: flex-start;
+}
+
+.bot-inset dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.bot-inset dt {
+  font-weight: bold;
+}
+
+.bot-inset dd,
+.bot-inset ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.emblem {
+  flex: none;
+}
+
 .viewer-side {
   flex: none;
   width: 200px;

@@ -8,7 +8,7 @@ const map: Bounds = { minX: 0, minY: 0, maxX: 80, maxY: 60 };
 const tickRate = 10;
 
 const hit = (time: number, a: number, b: number): Hit => ({ time, bots: [a, b] });
-const bot = (id: number, x: number, y: number, fields: Partial<SceneBot> = {}): SceneBot => ({ id, entry: id - 1, x, y, heading: 0, hitPoints: 100, disabled: false, ...fields });
+const bot = (id: number, x: number, y: number, fields: Partial<SceneBot> = {}): SceneBot => ({ id, entry: id - 1, x, y, heading: 0, speed: 0, hitPoints: 100, disabled: false, ...fields });
 const scene = (time: number, bots: readonly SceneBot[]): Scene => ({ time, bots, projectiles: [], effects: [], destroyedObstacles: new Set() });
 
 describe("engagement", () => {
