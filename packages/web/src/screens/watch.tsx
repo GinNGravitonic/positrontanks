@@ -3,12 +3,13 @@
  * Replay in the viewer, from Tick 0, with its time controls; a Game of a
  * Ruleset without a viewer says so instead. The main view pans by dragging
  * and zooms with the wheel or its buttons; the overview moves it by a click
- * or a drag.
+ * or a drag. Clicking a Bot follows it, until the Spectator pans.
  */
 
+import type { Point } from "@positrontanks/ruleset-data";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { ApiError } from "../api/client.js";
-import { botParts, type Catalog } from "../draw/bot.js";
+import { botParts, botReach, type Catalog } from "../draw/bot.js";
 import { fitView, screenToMap, type View } from "../draw/geometry.js";
 import { mapBounds } from "../draw/map.js";
 import { Canvas } from "../draw/preview.js";
@@ -17,6 +18,7 @@ import { Link, useLoad, useServices, useSession } from "../hooks.js";
 import { loadReplay } from "../replays.js";
 import { centerOn, defaultView, panBy, resizeView, zoomAt } from "../viewer/camera.js";
 import { drawMainView, drawOverview, type BotLooks } from "../viewer/draw-scene.js";
+import { botAt, follow, followStep, zoomFollowing, type Camera } from "../viewer/follow.js";
 import { advance, clockText, seek, skipToEnd, SPEEDS, START, togglePlaying, type Playback } from "../viewer/playback.js";
 import type { ViewerReplay } from "../viewer/scene.js";
 import { unsupportedText } from "../viewer/viewers.js";
@@ -112,6 +114,12 @@ export function startingBot(replay: ViewerReplay, playerId: string | undefined):
 }
 
 const OVERVIEW_SIZE = 200;
+/** How far, in CSS pixels, a press may move and still be a click rather than a drag. */
+const CLICK_PIXELS = 4;
+/** Extra reach, in CSS pixels, for clicking a Bot. */
+const CLICK_SLOP = 6;
+/** The reach of a Bot drawn as a plain disc, in meters. */
+const DISC_REACH = 0.5;
 const ZOOM_STEP = 1.25;
 /** The longest real-time step played at once, so a hidden tab does not jump ahead when shown again. */
 const MAX_FRAME_SECONDS = 0.25;
@@ -121,10 +129,18 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
   const looks = useMemo(() => botLooks(replay, catalog), [replay, catalog]);
   const bounds = useMemo(() => mapBounds(replay.map), [replay]);
   const [playback, setPlayback] = useState<Playback>(START);
-  const [view, setView] = useState<View>();
+  const [camera, setCamera] = useState<Camera>();
+  const view = camera?.view;
   const area = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLCanvasElement>(null);
-  const drag = useRef<{ readonly x: number; readonly y: number }>(undefined);
+  /** A press on the main view: where it started, where it is now, and whether it has become a drag. */
+  const press = useRef<{ readonly start: Point; readonly at: Point; readonly dragging: boolean }>(undefined);
+  const time = useRef(playback.time);
+  time.current = playback.time;
+  /** Moves the view by hand, which stops following. */
+  const moveView = (change: (view: View) => View) => {
+    setCamera((c) => (c === undefined ? c : { view: change(c.view) }));
+  };
 
   // The main view fills its area, and follows it when the window is resized.
   useEffect(() => {
@@ -133,11 +149,14 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
     const fit = () => {
       const width = Math.max(1, Math.floor(element.clientWidth));
       const height = Math.max(1, Math.floor(element.clientHeight));
-      setView((current) => {
-        if (current !== undefined) return current.width === width && current.height === height ? current : resizeView(current, bounds, width, height);
+      setCamera((current) => {
+        if (current !== undefined) {
+          const { view: v } = current;
+          return v.width === width && v.height === height ? current : { ...current, view: resizeView(v, bounds, width, height) };
+        }
         const first = startingBot(replay, playerId);
         const bot = replay.scene(0).bots.find((b) => b.id === first);
-        return defaultView(bounds, width, height, bot);
+        return { view: defaultView(bounds, width, height, bot) };
       });
     };
     fit();
@@ -162,6 +181,23 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
     };
   }, [playback.playing, replay]);
 
+  // While following, the camera tracks the followed Bot every frame, paused or not.
+  const followed = camera?.following?.bot;
+  useEffect(() => {
+    if (followed === undefined) return;
+    let last = performance.now();
+    let frame = requestAnimationFrame(function step(now) {
+      const seconds = Math.min((now - last) / 1000, MAX_FRAME_SECONDS);
+      last = now;
+      const scene = replay.scene(time.current);
+      setCamera((c) => (c === undefined ? c : followStep(c, bounds, scene, replay.hits, replay.tickRate, seconds)));
+      frame = requestAnimationFrame(step);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [followed, replay, bounds]);
+
   // The wheel zooms the main view; React's wheel listeners cannot stop the page from scrolling.
   const shown = view !== undefined;
   useEffect(() => {
@@ -171,7 +207,8 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
       event.preventDefault();
       const rect = canvas.getBoundingClientRect();
       const at = { x: event.clientX - rect.left, y: event.clientY - rect.top };
-      setView((v) => (v === undefined ? v : zoomAt(v, bounds, at, Math.exp(-event.deltaY * 0.0015))));
+      const factor = Math.exp(-event.deltaY * 0.0015);
+      setCamera((c) => (c === undefined ? c : c.following === undefined ? { view: zoomAt(c.view, bounds, at, factor) } : zoomFollowing(c, bounds, factor)));
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => {
@@ -191,12 +228,24 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
   const zoomBy = (factor: number) => {
-    setView((v) => (v === undefined ? v : zoomAt(v, bounds, { x: v.width / 2, y: v.height / 2 }, factor)));
+    setCamera((c) => (c === undefined ? c : zoomFollowing(c, bounds, factor)));
   };
   const moveTo = (event: PointerEvent<HTMLCanvasElement>) => {
     const target = screenToMap(overviewView, point(event));
-    setView((v) => (v === undefined ? v : centerOn(v, bounds, target)));
+    moveView((v) => centerOn(v, bounds, target));
   };
+  const reach = (bot: number) => {
+    const parts = looks.get(bot)?.parts;
+    return (parts === undefined ? DISC_REACH : botReach(parts)) + (view === undefined ? 0 : CLICK_SLOP / view.scale);
+  };
+  /** Follows the live Bot clicked at `at` on the main view, if any. */
+  const clickAt = (at: Point) => {
+    if (view === undefined) return;
+    const id = botAt(scene, screenToMap(view, at), reach);
+    if (id === undefined || scene.bots.find((b) => b.id === id)?.disabled !== false) return;
+    setCamera((c) => (c === undefined ? c : follow(c, id)));
+  };
+  const followedName = followed === undefined ? undefined : looks.get(followed)?.name;
 
   return (
     <section className="viewer">
@@ -216,17 +265,21 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
               }}
               onPointerDown={(event) => {
                 event.currentTarget.setPointerCapture(event.pointerId);
-                drag.current = point(event);
+                const at = point(event);
+                press.current = { start: at, at, dragging: false };
               }}
               onPointerMove={(event) => {
-                const from = drag.current;
+                const from = press.current;
                 if (from === undefined) return;
                 const to = point(event);
-                drag.current = to;
-                setView((v) => (v === undefined ? v : panBy(v, bounds, to.x - from.x, to.y - from.y)));
+                const dragging = from.dragging || Math.hypot(to.x - from.start.x, to.y - from.start.y) > CLICK_PIXELS;
+                press.current = { ...from, at: to, dragging };
+                if (dragging) moveView((v) => panBy(v, bounds, to.x - from.at.x, to.y - from.at.y));
               }}
               onPointerUp={() => {
-                drag.current = undefined;
+                const from = press.current;
+                press.current = undefined;
+                if (from !== undefined && !from.dragging) clickAt(from.start);
               }}
             />
           )}
@@ -262,6 +315,23 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
               }}
             />
           )}
+          <p className="viewer-following">
+            {followedName === undefined ? (
+              "Click a Bot to follow it."
+            ) : (
+              <>
+                Following <strong>{followedName}</strong>{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    moveView((v) => v);
+                  }}
+                >
+                  Stop following
+                </button>
+              </>
+            )}
+          </p>
           {atEnd && game.result !== null ? <p className="viewer-result">{resultText(game.result)}.</p> : null}
         </div>
       </div>

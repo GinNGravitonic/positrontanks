@@ -67,6 +67,17 @@ export interface ViewerEntry {
   readonly bots: readonly ViewerBot[];
 }
 
+/**
+ * A hit that links two Bots (frontend spec section 7, Following a Bot): one
+ * struck the other, by a shot or a ram. Misses link no one.
+ */
+export interface Hit {
+  /** When it happened. */
+  readonly time: Time;
+  /** The two Bots' ids, in no particular order. */
+  readonly bots: readonly [number, number];
+}
+
 /** A Replay, ready to watch. */
 export interface ViewerReplay {
   readonly rulesetVersion: string;
@@ -76,6 +87,8 @@ export interface ViewerReplay {
   readonly entries: readonly ViewerEntry[];
   /** The last Tick in the Replay; its Scene is the final frame. */
   readonly lastTick: number;
+  /** Every hit between two different Bots, in time order. */
+  readonly hits: readonly Hit[];
   /** The Scene at `time`, which is kept within [0, lastTick]. */
   scene(time: Time): Scene;
 }

@@ -12,7 +12,7 @@
 import type { BotFrame, ImpactEvent, ProjectileFrame, Replay, ReplayTick, TickEvent } from "@positrontanks/engine-r1";
 import type { Point } from "@positrontanks/ruleset-data";
 import { shapeBounds } from "../draw/geometry.js";
-import type { Effect, EngineViewer, Scene, SceneBot, SceneProjectile, Time, ViewerReplay } from "./scene.js";
+import type { Effect, EngineViewer, Hit, Scene, SceneBot, SceneProjectile, Time, ViewerReplay } from "./scene.js";
 
 /** How long an event's effect lasts, in simulated seconds (at least one Tick). */
 export const EFFECT_SECONDS = 0.4;
@@ -60,6 +60,7 @@ export function loadR1Replay(json: unknown): ViewerReplay {
     map: replay.map,
     entries: replay.entries,
     lastTick: last.tick,
+    hits: ticks.flatMap((t) => t.events.flatMap((e) => hitsOf(e, eventTime(t.tick)))),
     scene(time: Time): Scene {
       const t = Math.min(Math.max(time, 0), last.tick);
       const i = Math.floor(t);
@@ -86,6 +87,20 @@ export function eventTime(tick: number): Time {
 
 export function lerp(from: number, to: number, f: number): number {
   return from + (to - from) * f;
+}
+
+/**
+ * The hits an event records: a `damage` event to a Bot, from a weapon or a
+ * ram, or an `impact` that struck a Bot (a wreck included). A Bot's damage
+ * to itself links it to no one.
+ */
+export function hitsOf(e: TickEvent, time: Time): Hit[] {
+  const hit = (a: number, b: number): Hit[] => (a === b ? [] : [{ time, bots: [a, b] }]);
+  if (e.type === "impact") return e.target?.kind === "bot" || e.target?.kind === "wreck" ? hit(e.bot, e.target.id) : [];
+  if (e.type !== "damage" || e.target.kind !== "bot") return [];
+  if (e.source.kind === "weapon") return hit(e.source.bot, e.target.id);
+  const other = e.source.with;
+  return other.kind === "bot" || other.kind === "wreck" ? hit(other.id, e.target.id) : [];
 }
 
 /** The heading `f` of the way from `from` to `to`, turning the short way round; in [0, 360). */

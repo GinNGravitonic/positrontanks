@@ -4,7 +4,7 @@ import type { MapFormat1 } from "@positrontanks/ruleset-data";
 import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
 import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { describe, expect, it } from "vitest";
-import { EFFECT_SECONDS, eventTime, interpolateBots, lerpHeading, loadR1Replay } from "./r1.js";
+import { EFFECT_SECONDS, eventTime, hitsOf, interpolateBots, lerpHeading, loadR1Replay } from "./r1.js";
 
 const duel = duelJson as MapFormat1;
 const build = { chassis: "scout", components: {}, armor: { front: null, left: null, right: null, rear: null } };
@@ -134,6 +134,46 @@ describe("an r1 Replay's Scenes", () => {
     expect(() => loadR1Replay({ ruleset: "r1" })).toThrow("not an r1 Replay");
     expect(() => loadR1Replay(replay([]))).toThrow("no Ticks");
     expect(() => loadR1Replay(replay([tick(1, [])]))).toThrow("numbered from 0");
+  });
+});
+
+describe("hits between Bots", () => {
+  const damage = (source: Extract<TickEvent, { type: "damage" }>["source"], target = 2): TickEvent => ({
+    type: "damage", tick: 3, target: { kind: "bot", id: target }, source, raw: 10, absorbed: 0, dealt: 10, side: "front", point: { x: 0, y: 0 }, absorber: "chassis",
+  });
+  const impact = (target: Extract<TickEvent, { type: "impact" }>["target"]): TickEvent => ({ type: "impact", tick: 3, bot: 1, weapon: "gun", projectile: 7, point: { x: 0, y: 0 }, target });
+
+  it("links a shooter and the Bot its shot struck, wrecks included", () => {
+    expect(hitsOf(impact({ kind: "bot", id: 2 }), 2.5)).toEqual([{ time: 2.5, bots: [1, 2] }]);
+    expect(hitsOf(impact({ kind: "wreck", id: 3 }), 2.5)).toEqual([{ time: 2.5, bots: [1, 3] }]);
+    expect(hitsOf(damage({ kind: "weapon", bot: 1, weapon: "gun", category: "projectile" }), 2.5)).toEqual([{ time: 2.5, bots: [1, 2] }]);
+  });
+
+  it("links the Bots in a ram", () => {
+    expect(hitsOf(damage({ kind: "collision", with: { kind: "bot", id: 1 } }), 2.5)).toEqual([{ time: 2.5, bots: [1, 2] }]);
+  });
+
+  it("links no one for a miss, a shot or ram at an Obstacle or the boundary, or damage to oneself", () => {
+    const fired: TickEvent = { type: "fired", tick: 3, bot: 1, weapon: "gun", category: "projectile", from: { x: 0, y: 0 }, absBearing: 0, projectile: 7 };
+    expect(hitsOf(fired, 2.5)).toEqual([]);
+    expect(hitsOf(impact(null), 2.5)).toEqual([]);
+    expect(hitsOf(impact({ kind: "obstacle", id: "crate" }), 2.5)).toEqual([]);
+    expect(hitsOf(damage({ kind: "collision", with: { kind: "boundary" } }), 2.5)).toEqual([]);
+    expect(hitsOf(damage({ kind: "weapon", bot: 2, weapon: "gun", category: "projectile" }), 2.5)).toEqual([]);
+  });
+
+  it("are listed in time order, at their events' time", () => {
+    const viewer = loadR1Replay(
+      replay([
+        tick(0, [bot(1), bot(2)]),
+        tick(1, [bot(1), bot(2)], [impact({ kind: "bot", id: 2 })]),
+        tick(2, [bot(1), bot(2)], [damage({ kind: "collision", with: { kind: "bot", id: 2 } }, 1)]),
+      ]),
+    );
+    expect(viewer.hits).toEqual([
+      { time: 0.5, bots: [1, 2] },
+      { time: 1.5, bots: [2, 1] },
+    ]);
   });
 });
 
