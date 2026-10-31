@@ -1,8 +1,10 @@
 /**
  * Stand-ins for the browser in tests: an in-memory history and storage, and
- * a fake API with the accounts endpoints the client signs in with.
+ * a fake API with the accounts endpoints the client signs in with and the
+ * Games endpoints of the Games screen and Game page.
  */
 
+import type { Game } from "./games.js";
 import type { HistoryLike } from "./router.js";
 import type { SessionStorage } from "./session.js";
 
@@ -53,8 +55,10 @@ export function memoryStorage(initial: Record<string, string> = {}): SessionStor
 
 export interface FakeApi {
   readonly fetch: typeof fetch;
-  /** Every request, as "METHOD /path". */
+  /** Every request, as "METHOD /path?query". */
   readonly requests: string[];
+  /** The Games the fake serves, newest first; tests may change them. */
+  readonly games: Game[];
   /** Ends every session, as if they had all expired. */
   expireSessions(): void;
 }
@@ -64,14 +68,53 @@ const json = (status: number, body: unknown) =>
 const error = (status: number, code: string, message: string, details?: unknown[]) =>
   json(status, { error: { code, message, ...(details === undefined ? {} : { details }) } });
 
-/** A fake of the API's accounts endpoints, plus `GET /games/{id}` that needs a session. */
-export function fakeApi(): FakeApi {
+/** A Game for tests: Open, initiated by `p-ada_bot`, with no Entries, unless `fields` say otherwise. */
+export function testGame(fields: Partial<Game> = {}): Game {
+  const entries = fields.entries ?? [];
+  return {
+    id: "g1",
+    state: "open",
+    initiator: { id: "p-ada_bot", username: "ada_bot" },
+    rulesetVersion: "r1",
+    map: { id: "m1", name: "Crossroads", revision: 2 },
+    playerCount: 2,
+    pointBudget: 1000,
+    timeLimitSeconds: 120,
+    pace: "realtime",
+    fillTimeoutSeconds: 3600,
+    createdAt: "2026-10-31T00:00:00.000Z",
+    fillDeadline: "2026-10-31T01:00:00.000Z",
+    startedAt: null,
+    endedAt: null,
+    cancelReason: null,
+    result: null,
+    entries,
+    entryCount: entries.length,
+    ...fields,
+  };
+}
+
+/** A fake of the API's accounts and Games endpoints, all but signing up and logging in needing a session. */
+export function fakeApi(options: { readonly games?: readonly Game[] } = {}): FakeApi {
+  const games = [...(options.games ?? [])];
   const passwords = new Map<string, string>();
   const sessions = new Map<string, string>();
   const requests: string[] = [];
   let next = 1;
 
-  const handle = (method: string, path: string, auth: string | null, body: unknown): Response => {
+  const page = (list: readonly Game[], query: URLSearchParams) => {
+    const start = Number(query.get("cursor") ?? "0");
+    const limit = Number(query.get("limit") ?? "50");
+    const end = start + limit;
+    const summaries = list.slice(start, end).map((game) => {
+      const summary: Partial<Game> = { ...game };
+      delete summary.entries;
+      return summary;
+    });
+    return json(200, { games: summaries, nextCursor: end < list.length ? String(end) : null });
+  };
+
+  const handle = (method: string, path: string, query: URLSearchParams, auth: string | null, body: unknown): Response => {
     const player = (username: string) => ({ id: `p-${username}`, username, createdAt: "2026-10-31T00:00:00.000Z" });
     const credentials = body as { username: string; password: string };
     const token = auth?.replace(/^Bearer /, "");
@@ -97,22 +140,64 @@ export function fakeApi(): FakeApi {
       sessions.delete(token);
       return new Response(null, { status: 204 });
     }
-    if (method === "GET" && path.startsWith("/games/")) return json(200, { id: path.slice("/games/".length) });
+    const me = `p-${signedIn}`;
+    if (method === "GET" && path === "/games") {
+      const number = (name: string) => (query.has(name) ? Number(query.get(name)) : undefined);
+      const [ruleset, map, players, min, max] = [query.get("rulesetVersion"), query.get("mapId"), number("playerCount"), number("minPointBudget"), number("maxPointBudget")];
+      return page(
+        games.filter(
+          (g) =>
+            g.state === "open" &&
+            (ruleset === null || g.rulesetVersion === ruleset) &&
+            (map === null || g.map.id === map) &&
+            (players === undefined || g.playerCount === players) &&
+            (min === undefined || g.pointBudget >= min) &&
+            (max === undefined || g.pointBudget <= max),
+        ),
+        query,
+      );
+    }
+    if (method === "GET" && path === "/players/me/games") {
+      const states = query.get("state")?.split(",");
+      const mine = games.filter((g) => g.initiator.id === me || g.entries.some((e) => e.player.id === me));
+      return page(states === undefined ? mine : mine.filter((g) => states.includes(g.state)), query);
+    }
+    const match = /^\/games\/([^/]+)(\/cancel|\/entries\/([^/]+))?$/.exec(path);
+    const game = match?.[1] === undefined ? undefined : games.find((g) => g.id === decodeURIComponent(match[1] ?? ""));
+    if (match === null || game === undefined) return error(404, "not_found", "Not found");
+    const index = games.indexOf(game);
+    if (method === "GET" && match[2] === undefined) return json(200, game);
+    if (method === "POST" && match[2] === "/cancel") {
+      if (game.initiator.id !== me) return error(403, "forbidden", "Only the Game's Initiator may cancel it");
+      if (game.state !== "open") return error(409, "game_not_open", `The Game is ${game.state}, not open`);
+      games[index] = { ...game, state: "cancelled", cancelReason: "initiator", endedAt: "2026-10-31T00:30:00.000Z" };
+      return json(200, games[index]);
+    }
+    if (method === "DELETE" && match[3] !== undefined) {
+      const entry = game.entries.find((e) => e.id === decodeURIComponent(match[3] ?? ""));
+      if (entry?.player.id !== me) return error(404, "not_found", "No such Entry of yours");
+      if (game.state !== "open") return error(409, "game_not_open", `The Game is ${game.state}, not open`);
+      const entries = game.entries.filter((e) => e !== entry);
+      games[index] = { ...game, entries, entryCount: entries.length };
+      return new Response(null, { status: 204 });
+    }
     return error(404, "not_found", "Not found");
   };
 
   return {
     requests,
+    games,
     expireSessions: () => {
       sessions.clear();
     },
     fetch: (input, init) => {
       const method = init?.method ?? "GET";
-      const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
-      requests.push(`${method} ${path}`);
+      const target = typeof input === "string" ? input : input instanceof URL ? input.pathname + input.search : input.url;
+      requests.push(`${method} ${target}`);
+      const url = new URL(target, "http://api.test");
       const headers = new Headers(init?.headers);
       const body = typeof init?.body === "string" ? (JSON.parse(init.body) as unknown) : undefined;
-      return Promise.resolve(handle(method, path, headers.get("authorization"), body));
+      return Promise.resolve(handle(method, url.pathname, url.searchParams, headers.get("authorization"), body));
     },
   };
 }

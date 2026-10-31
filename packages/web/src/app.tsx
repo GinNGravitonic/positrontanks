@@ -8,6 +8,8 @@ import type { ReactNode } from "react";
 import { Link, Redirect, ServicesProvider, useRoute, useServices, useSession } from "./hooks.js";
 import { logInRoute, safeNext, type Route } from "./router.js";
 import { LogInScreen, SignUpScreen } from "./screens/auth.js";
+import { GamePage, NotYetScreen } from "./screens/game.js";
+import { GamesScreen } from "./screens/games.js";
 import { logOut, SIGNED_OUT_ROUTES, type Services } from "./services.js";
 
 export function App({ services }: { readonly services: Services }) {
@@ -16,6 +18,20 @@ export function App({ services }: { readonly services: Services }) {
       <Routes />
     </ServicesProvider>
   );
+}
+
+/** A Game's routes: `/games/{id}`, its page, and `/games/{id}/enter` and `/games/{id}/watch`. */
+export function matchGameRoute(path: string): { readonly id: string; readonly sub?: "enter" | "watch" } | undefined {
+  const match = /^\/games\/([^/]+)(?:\/(enter|watch))?$/.exec(path);
+  if (match?.[1] === undefined) return undefined;
+  let id: string;
+  try {
+    id = decodeURIComponent(match[1]);
+  } catch {
+    return undefined;
+  }
+  const sub = match[2] as "enter" | "watch" | undefined;
+  return sub === undefined ? { id } : { id, sub };
 }
 
 /** Where a route must go instead of being shown, if anywhere. */
@@ -35,6 +51,11 @@ function Routes() {
   const redirect = redirectFor(route, signedIn);
   if (redirect !== undefined) return <Redirect to={redirect} />;
 
+  const game = matchGameRoute(route.path);
+  if (game !== undefined) {
+    return <Shell>{game.sub === undefined ? <GamePage key={game.id} id={game.id} /> : <NotYetScreen id={game.id} sub={game.sub} />}</Shell>;
+  }
+
   switch (route.path) {
     case "/login":
       return <LogInScreen />;
@@ -43,8 +64,7 @@ function Routes() {
     case "/":
       return (
         <Shell>
-          <h2>Games</h2>
-          <p>Open Games and your own Games will be listed here.</p>
+          <GamesScreen />
         </Shell>
       );
     default:

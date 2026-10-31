@@ -61,3 +61,100 @@ main {
   margin: 0;
   color: light-dark(#c62828, #ff8a80);
 }
+
+.tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.tabs a.current {
+  font-weight: bold;
+  text-decoration: none;
+  color: inherit;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.filters label {
+  display: flex;
+  flex-direction: column;
+}
+
+fieldset.filters label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.filters input[type="number"] {
+  width: 6rem;
+}
+
+.filters input,
+.filters select,
+button {
+  font: inherit;
+  padding: 0.25rem 0.4rem;
+}
+
+table.games,
+table.entries {
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+table.games th,
+table.games td,
+table.entries th,
+table.entries td {
+  text-align: left;
+  padding: 0.25rem 0.75rem 0.25rem 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+/* Lists stay usable on a phone (spec section 1): wide tables scroll inside themselves. */
+@media (max-width: 40rem) {
+  table.games {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+.game dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 1rem;
+}
+
+.game dt {
+  font-weight: bold;
+}
+
+.game dd {
+  margin: 0;
+}
+
+.game .state {
+  font-size: 0.8em;
+  font-weight: normal;
+  padding: 0.1rem 0.5rem;
+  border-radius: 1rem;
+  border: 1px solid currentColor;
+  vertical-align: middle;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 1rem 0;
+}

@@ -3,12 +3,12 @@ import { ApiError } from "./api/client.js";
 import { safeNext } from "./router.js";
 import { createServices, logIn, logOut, signUp } from "./services.js";
 import { SESSION_STORAGE_KEY } from "./session.js";
-import { fakeApi, memoryHistory, memoryStorage } from "./test-platform.js";
+import { fakeApi, memoryHistory, memoryStorage, testGame } from "./test-platform.js";
 
 const ada = { username: "ada_bot", password: "correct horse" };
 
 function setup(start: string) {
-  const api = fakeApi();
+  const api = fakeApi({ games: [testGame({ id: "7" }), testGame({ id: "42" })] });
   const history = memoryHistory(start);
   const storage = memoryStorage();
   const services = createServices({ fetch: api.fetch, storage, history });
@@ -32,7 +32,7 @@ describe("signing in", () => {
     await services.api.request("GET", "/games/7");
     const reloaded = createServices({ fetch: api.fetch, storage, history });
     expect(reloaded.session.token()).toBe("pts_1");
-    await expect(reloaded.api.request("GET", "/games/7")).resolves.toEqual({ id: "7" });
+    await expect(reloaded.api.request("GET", "/games/7")).resolves.toMatchObject({ id: "7" });
   });
 
   it("logs out: ends the session on the server, forgets it, and goes to log-in", async () => {
