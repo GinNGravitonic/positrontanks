@@ -12,7 +12,8 @@
       "types": "./dist/rulesets.d.ts",
       "default": "./dist/rulesets.js"
     },
-    "./rulesets/*.json": "./rulesets/*.json"
+    "./rulesets/*.json": "./rulesets/*.json",
+    "./maps/*.json": "./maps/*.json"
   },
   "files": [
     "dist",

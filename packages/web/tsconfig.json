@@ -9,5 +9,5 @@
     "noEmit": true
   },
   "include": ["src", "vite.config.ts"],
-  "references": [{ "path": "../cli" }]
+  "references": [{ "path": "../cli" }, { "path": "../ruleset-data" }]
 }

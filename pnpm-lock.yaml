@@ -250,6 +250,9 @@ importers:
 
   packages/web:
     dependencies:
+      '@positrontanks/ruleset-data':
+        specifier: workspace:*
+        version: link:../ruleset-data
       react:
         specifier: 19.3.1
         version: 19.3.1

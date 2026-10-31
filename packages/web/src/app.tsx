@@ -4,7 +4,7 @@
  * sign-up; every other route sends them to log-in and back (section 4).
  */
 
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { Link, Redirect, ServicesProvider, useRoute, useServices, useSession } from "./hooks.js";
 import { logInRoute, safeNext, type Route } from "./router.js";
 import { LogInScreen, SignUpScreen } from "./screens/auth.js";
@@ -34,6 +34,9 @@ export function matchGameRoute(path: string): { readonly id: string; readonly su
   return sub === undefined ? { id } : { id, sub };
 }
 
+// Development only: production builds drop it, and the r1 data it bundles, entirely.
+const DrawingGallery = import.meta.env.DEV ? lazy(() => import("./screens/drawing.js")) : undefined;
+
 /** Where a route must go instead of being shown, if anywhere. */
 export function redirectFor(route: Route, signedIn: boolean): string | undefined {
   const signedOutRoute = SIGNED_OUT_ROUTES.includes(route.path);
@@ -54,6 +57,16 @@ function Routes() {
   const game = matchGameRoute(route.path);
   if (game !== undefined) {
     return <Shell>{game.sub === undefined ? <GamePage key={game.id} id={game.id} /> : <NotYetScreen id={game.id} sub={game.sub} />}</Shell>;
+  }
+
+  if (DrawingGallery !== undefined && route.path === "/dev/drawing") {
+    return (
+      <Shell>
+        <Suspense fallback={<p>Loading…</p>}>
+          <DrawingGallery />
+        </Suspense>
+      </Shell>
+    );
   }
 
   switch (route.path) {

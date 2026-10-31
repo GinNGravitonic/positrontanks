@@ -158,3 +158,18 @@ table.entries td {
   gap: 0.5rem 1rem;
   margin: 1rem 0;
 }
+
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.gallery figure {
+  margin: 0;
+  max-width: 16rem;
+}
+
+.gallery figcaption {
+  font-size: 0.85em;
+}
