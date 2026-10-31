@@ -8,6 +8,7 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { Link, Redirect, ServicesProvider, useRoute, useServices, useSession } from "./hooks.js";
 import { logInRoute, safeNext, type Route } from "./router.js";
 import { LogInScreen, SignUpScreen } from "./screens/auth.js";
+import { CREATE_GAME_ROUTE, CreateGameScreen } from "./screens/create-game.js";
 import { GamePage, NotYetScreen } from "./screens/game.js";
 import { GamesScreen } from "./screens/games.js";
 import { logOut, SIGNED_OUT_ROUTES, type Services } from "./services.js";
@@ -53,6 +54,14 @@ function Routes() {
   const signedIn = useSession() !== undefined;
   const redirect = redirectFor(route, signedIn);
   if (redirect !== undefined) return <Redirect to={redirect} />;
+
+  if (route.path === CREATE_GAME_ROUTE) {
+    return (
+      <Shell>
+        <CreateGameScreen />
+      </Shell>
+    );
+  }
 
   const game = matchGameRoute(route.path);
   if (game !== undefined) {
@@ -104,6 +113,7 @@ function Shell({ children }: { readonly children: ReactNode }) {
         </Link>
         <nav>
           <Link to="/">Games</Link>
+          <Link to={CREATE_GAME_ROUTE}>Create Game</Link>
         </nav>
         <span className="player">{session?.player.username}</span>
         <button

@@ -24,6 +24,7 @@ import {
   type GameState,
   type GameSummary,
 } from "../games.js";
+import { CREATE_GAME_ROUTE } from "./create-game.js";
 
 /** The route for a tab of the Games screen with `search` as its query. */
 function gamesRoute(search: URLSearchParams): string {
@@ -37,6 +38,9 @@ export function GamesScreen() {
   return (
     <>
       <h2>Games</h2>
+      <p>
+        <Link to={CREATE_GAME_ROUTE}>Create a Game</Link>
+      </p>
       <nav className="tabs" aria-label="Games">
         <Link to="/" className={mine ? undefined : "current"}>
           Open Games

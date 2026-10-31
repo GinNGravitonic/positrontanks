@@ -29,6 +29,8 @@ main {
 
 .shell nav {
   flex: 1;
+  display: flex;
+  gap: 1rem;
 }
 
 .auth {
@@ -172,4 +174,52 @@ table.entries td {
 
 .gallery figcaption {
   font-size: 0.85em;
+}
+
+.create-game {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 1rem 2rem;
+}
+
+.create-game .fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(100%, 24rem);
+}
+
+.create-game label {
+  display: flex;
+  flex-direction: column;
+}
+
+.create-game fieldset label {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.create-game input,
+.create-game select {
+  font: inherit;
+  padding: 0.25rem 0.4rem;
+}
+
+.create-game small {
+  opacity: 0.75;
+}
+
+.create-game fieldset[aria-invalid="true"],
+.create-game [aria-invalid="true"] {
+  outline: 1px solid light-dark(#c62828, #ff8a80);
+}
+
+.map-preview {
+  max-width: 280px;
+}
+
+.map-preview canvas {
+  display: block;
 }

@@ -1,10 +1,13 @@
 /**
  * Stand-ins for the browser in tests: an in-memory history and storage, and
- * a fake API with the accounts endpoints the client signs in with and the
- * Games endpoints of the Games screen and Game page.
+ * a fake API with the accounts endpoints the client signs in with, the
+ * Games endpoints of the Games screen and Game page, and the Rulesets and
+ * Maps the Create Game screen chooses from.
  */
 
-import type { Game } from "./games.js";
+import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
+import type { Schema } from "./api/client.js";
+import type { Game, MapSummary, NewGame, RulesetSummary } from "./games.js";
 import type { HistoryLike } from "./router.js";
 import type { SessionStorage } from "./session.js";
 
@@ -94,9 +97,36 @@ export function testGame(fields: Partial<Game> = {}): Game {
   };
 }
 
-/** A fake of the API's accounts and Games endpoints, all but signing up and logging in needing a session. */
-export function fakeApi(options: { readonly games?: readonly Game[] } = {}): FakeApi {
+export const TEST_RULESETS: readonly RulesetSummary[] = [{ version: "r1", tickRate: 20, pointBudget: { min: 100, max: 2000 }, mapFormats: [1] }];
+
+/** A Map for tests: the bundled duel Map, two Spawn Zones, by `fields.id` (default `m1`). */
+export function testMap(fields: Partial<Schema<"Map">> = {}): Schema<"Map"> {
+  const map = duelJson as Schema<"MapFormat1">;
+  return {
+    id: "m1",
+    name: "Duel",
+    description: "Two Players, face to face.",
+    creator: { id: "p-ada_bot", username: "ada_bot" },
+    latestRevision: { mapId: fields.id ?? "m1", number: 1, map, notes: "", createdAt: "2026-10-31T00:00:00.000Z" },
+    createdAt: "2026-10-31T00:00:00.000Z",
+    updatedAt: "2026-10-31T00:00:00.000Z",
+    archivedAt: null,
+    ...fields,
+  };
+}
+
+export function mapSummary(map: Schema<"Map">): MapSummary {
+  const { map: format, ...revision } = map.latestRevision;
+  return {
+    ...map,
+    latestRevision: { ...revision, format: format.format, width: format.width, height: format.height, spawnZones: format.spawnZones.length },
+  };
+}
+
+/** A fake of the API's accounts, Games, Rulesets and Maps endpoints, all but signing up and logging in needing a session. */
+export function fakeApi(options: { readonly games?: readonly Game[]; readonly maps?: readonly Schema<"Map">[] } = {}): FakeApi {
   const games = [...(options.games ?? [])];
+  const maps = options.maps ?? [testMap()];
   const passwords = new Map<string, string>();
   const sessions = new Map<string, string>();
   const requests: string[] = [];
@@ -161,6 +191,37 @@ export function fakeApi(options: { readonly games?: readonly Game[] } = {}): Fak
       const states = query.get("state")?.split(",");
       const mine = games.filter((g) => g.initiator.id === me || g.entries.some((e) => e.player.id === me));
       return page(states === undefined ? mine : mine.filter((g) => states.includes(g.state)), query);
+    }
+    if (method === "GET" && path === "/rulesets") return json(200, { rulesets: TEST_RULESETS });
+    if (method === "GET" && path === "/maps") return json(200, { maps: maps.map(mapSummary), nextCursor: null });
+    const mapMatch = /^\/maps\/([^/]+)$/.exec(path);
+    if (method === "GET" && mapMatch !== null) {
+      const map = maps.find((m) => m.id === decodeURIComponent(mapMatch[1] ?? ""));
+      return map === undefined ? error(404, "not_found", "Not found") : json(200, map);
+    }
+    if (method === "POST" && path === "/games") {
+      const created = body as NewGame;
+      const map = maps.find((m) => m.id === created.mapId);
+      const details = [];
+      if (map === undefined) details.push({ path: "mapId", message: "is not a Map" });
+      const zones = map?.latestRevision.map.spawnZones.length ?? Number.MAX_SAFE_INTEGER;
+      if (created.playerCount < 2 || created.playerCount > zones) {
+        details.push({ path: "playerCount", message: `must be an integer from 2 to ${String(zones)}` });
+      }
+      if (details.length > 0) return error(422, "validation_failed", "The request is invalid", details);
+      const game = testGame({
+        id: `g${String(next++)}`,
+        initiator: { id: me, username: signedIn },
+        rulesetVersion: created.rulesetVersion,
+        map: { id: created.mapId, name: map?.name ?? "", revision: map?.latestRevision.number ?? 1 },
+        playerCount: created.playerCount,
+        pointBudget: created.pointBudget,
+        timeLimitSeconds: created.timeLimitSeconds,
+        pace: created.pace,
+        fillTimeoutSeconds: created.fillTimeoutSeconds,
+      });
+      games.unshift(game);
+      return json(201, game);
     }
     const match = /^\/games\/([^/]+)(\/cancel|\/entries\/([^/]+))?$/.exec(path);
     const game = match?.[1] === undefined ? undefined : games.find((g) => g.id === decodeURIComponent(match[1] ?? ""));

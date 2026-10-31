@@ -167,3 +167,107 @@ export function outcomeText(game: GameSummary): string {
       return cancelReasonText(game);
   }
 }
+
+export type NewGame = Schema<"NewGame">;
+export type RulesetSummary = Schema<"RulesetSummary">;
+export type MapSummary = Schema<"MapSummary">;
+
+/** Creates an Open Game with no Entries (`POST /games`). */
+export function createGame(api: ApiClient, game: NewGame): Promise<Game> {
+  return api.request<Game>("POST", "/games", { body: game });
+}
+
+/** The Create Game form's fields, as typed; each is named as in `NewGame`, so the API's problems name them too. */
+export interface NewGameFields {
+  readonly rulesetVersion: string;
+  readonly mapId: string;
+  readonly playerCount: string;
+  readonly pointBudget: string;
+  readonly timeLimitSeconds: string;
+  readonly pace: NewGame["pace"];
+  readonly fillTimeoutSeconds: string;
+}
+
+export type NewGameField = keyof NewGameFields;
+
+/** Problems with a form: by the field they belong to, and any others for above the form. */
+export interface FormProblems<Field extends string> {
+  readonly form?: string;
+  readonly fields: Partial<Record<Field, string>>;
+}
+
+/** The defaults `positrontanks games create` uses, and so the form starts from. */
+export const NEW_GAME_DEFAULTS = { playerCount: 2, timeLimitSeconds: 120, pace: "realtime", fillTimeoutSeconds: 3600 } as const;
+
+/** Maps a Ruleset can play on: those whose latest Revision is in a Map Format it supports. */
+export function playableMaps(maps: readonly MapSummary[], ruleset: RulesetSummary | undefined): readonly MapSummary[] {
+  return ruleset === undefined ? [] : maps.filter((map) => ruleset.mapFormats.includes(map.latestRevision.format));
+}
+
+/**
+ * The form's starting values: the newest Ruleset with its largest Point
+ * Budget, its first playable Map, and the CLI's defaults for the rest.
+ */
+export function newGameFields(rulesets: readonly RulesetSummary[], maps: readonly MapSummary[]): NewGameFields {
+  const ruleset = rulesets.at(-1);
+  return {
+    rulesetVersion: ruleset?.version ?? "",
+    mapId: playableMaps(maps, ruleset)[0]?.id ?? "",
+    playerCount: String(NEW_GAME_DEFAULTS.playerCount),
+    pointBudget: ruleset === undefined ? "" : String(ruleset.pointBudget.max),
+    timeLimitSeconds: String(NEW_GAME_DEFAULTS.timeLimitSeconds),
+    pace: NEW_GAME_DEFAULTS.pace,
+    fillTimeoutSeconds: String(NEW_GAME_DEFAULTS.fillTimeoutSeconds),
+  };
+}
+
+const NUMBER_FIELDS = ["playerCount", "pointBudget", "timeLimitSeconds", "fillTimeoutSeconds"] as const;
+
+/**
+ * The Game to create from the form, or the problems that stop it being sent:
+ * a missing Ruleset or Map, or a number that is not whole. Everything else
+ * is for the server to judge.
+ */
+export function newGameFromFields(fields: NewGameFields): { readonly game: NewGame } | { readonly problems: FormProblems<NewGameField> } {
+  const problems: Partial<Record<NewGameField, string>> = {};
+  if (fields.rulesetVersion === "") problems.rulesetVersion = "Choose a Ruleset.";
+  if (fields.mapId === "") problems.mapId = "Choose a Map.";
+  const numbers: Partial<Record<(typeof NUMBER_FIELDS)[number], number>> = {};
+  for (const name of NUMBER_FIELDS) {
+    const value = fields[name].trim();
+    if (/^\d+$/.test(value)) numbers[name] = Number(value);
+    else problems[name] = "Must be a whole number.";
+  }
+  const { playerCount, pointBudget, timeLimitSeconds, fillTimeoutSeconds } = numbers;
+  if (playerCount === undefined || pointBudget === undefined || timeLimitSeconds === undefined || fillTimeoutSeconds === undefined || Object.keys(problems).length > 0) {
+    return { problems: { fields: problems } };
+  }
+  return {
+    game: { rulesetVersion: fields.rulesetVersion, mapId: fields.mapId, playerCount, pointBudget, timeLimitSeconds, pace: fields.pace, fillTimeoutSeconds },
+  };
+}
+
+/**
+ * A failed submission's problems: each detail the API gives against one of
+ * `fields` is shown by that field (`aliases` names fields shown under another,
+ * such as `mapRevision` under the Map), and anything else above the form.
+ */
+export function formProblems<Field extends string>(
+  error: unknown,
+  fields: readonly Field[],
+  aliases: Readonly<Record<string, Field>> = {},
+): FormProblems<Field> {
+  if (!(error instanceof ApiError)) return { form: problemText(error), fields: {} };
+  const byField: Partial<Record<Field, string>> = {};
+  const other: string[] = [];
+  for (const detail of error.details) {
+    const field = aliases[detail.path] ?? fields.find((f) => f === detail.path);
+    const sentence = `${capitalize(detail.message)}.`;
+    if (field === undefined) other.push(`${detail.path === "" ? "" : `${detail.path} `}${detail.message}.`);
+    else byField[field] = byField[field] === undefined ? sentence : `${byField[field]} ${sentence}`;
+  }
+  if (error.details.length > 0 && other.length === 0) return { fields: byField };
+  return { form: [error.message, ...other].join(" "), fields: byField };
+}
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
