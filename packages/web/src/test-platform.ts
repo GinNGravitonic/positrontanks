@@ -1,12 +1,14 @@
 /**
  * Stand-ins for the browser in tests: an in-memory history and storage, and
  * a fake API with the accounts endpoints the client signs in with, the
- * Games endpoints of the Games screen and Game page, and the Rulesets and
- * Maps the Create Game screen chooses from.
+ * Games endpoints of the Games screen and Game page, the Rulesets and
+ * Maps the Create Game screen chooses from, and the Bot Designs and Entries
+ * of the Enter Game screen.
  */
 
 import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
 import type { Schema } from "./api/client.js";
+import type { BotDesignSummary, NewGameEntry } from "./entries.js";
 import type { Game, MapSummary, NewGame, RulesetSummary } from "./games.js";
 import type { HistoryLike } from "./router.js";
 import type { SessionStorage } from "./session.js";
@@ -115,6 +117,23 @@ export function testMap(fields: Partial<Schema<"Map">> = {}): Schema<"Map"> {
   };
 }
 
+/** A Bot Design for tests: `d1`, `Hunter`, in Ruleset r1, at Revision 1 costing 400, unless `fields` say otherwise. */
+export function testDesign(fields: Partial<BotDesignSummary> & { readonly cost?: number } = {}): BotDesignSummary {
+  const { cost = 400, ...rest } = fields;
+  return {
+    id: "d1",
+    name: "Hunter",
+    description: "",
+    rulesetVersion: "r1",
+    latestRevision: { number: 1, cost, notes: "", createdAt: "2026-10-31T00:00:00.000Z" },
+    copiedFrom: null,
+    createdAt: "2026-10-31T00:00:00.000Z",
+    updatedAt: "2026-10-31T00:00:00.000Z",
+    archivedAt: null,
+    ...rest,
+  };
+}
+
 export function mapSummary(map: Schema<"Map">): MapSummary {
   const { map: format, ...revision } = map.latestRevision;
   return {
@@ -123,10 +142,17 @@ export function mapSummary(map: Schema<"Map">): MapSummary {
   };
 }
 
-/** A fake of the API's accounts, Games, Rulesets and Maps endpoints, all but signing up and logging in needing a session. */
-export function fakeApi(options: { readonly games?: readonly Game[]; readonly maps?: readonly Schema<"Map">[] } = {}): FakeApi {
+/**
+ * A fake of the API's accounts, Games, Rulesets, Maps and Bot Designs
+ * endpoints, all but signing up and logging in needing a session. Every
+ * Player has the same `designs`.
+ */
+export function fakeApi(
+  options: { readonly games?: readonly Game[]; readonly maps?: readonly Schema<"Map">[]; readonly designs?: readonly BotDesignSummary[] } = {},
+): FakeApi {
   const games = [...(options.games ?? [])];
   const maps = options.maps ?? [testMap()];
+  const designs = options.designs ?? [testDesign()];
   const passwords = new Map<string, string>();
   const sessions = new Map<string, string>();
   const requests: string[] = [];
@@ -193,6 +219,10 @@ export function fakeApi(options: { readonly games?: readonly Game[]; readonly ma
       return page(states === undefined ? mine : mine.filter((g) => states.includes(g.state)), query);
     }
     if (method === "GET" && path === "/rulesets") return json(200, { rulesets: TEST_RULESETS });
+    if (method === "GET" && path === "/bot-designs") {
+      const ruleset = query.get("rulesetVersion");
+      return json(200, { botDesigns: designs.filter((d) => ruleset === null || d.rulesetVersion === ruleset), nextCursor: null });
+    }
     if (method === "GET" && path === "/maps") return json(200, { maps: maps.map(mapSummary), nextCursor: null });
     const mapMatch = /^\/maps\/([^/]+)$/.exec(path);
     if (method === "GET" && mapMatch !== null) {
@@ -223,7 +253,7 @@ export function fakeApi(options: { readonly games?: readonly Game[]; readonly ma
       games.unshift(game);
       return json(201, game);
     }
-    const match = /^\/games\/([^/]+)(\/cancel|\/entries\/([^/]+))?$/.exec(path);
+    const match = /^\/games\/([^/]+)(\/cancel|\/entries|\/entries\/([^/]+))?$/.exec(path);
     const game = match?.[1] === undefined ? undefined : games.find((g) => g.id === decodeURIComponent(match[1] ?? ""));
     if (match === null || game === undefined) return error(404, "not_found", "Not found");
     const index = games.indexOf(game);
@@ -233,6 +263,34 @@ export function fakeApi(options: { readonly games?: readonly Game[]; readonly ma
       if (game.state !== "open") return error(409, "game_not_open", `The Game is ${game.state}, not open`);
       games[index] = { ...game, state: "cancelled", cancelReason: "initiator", endedAt: "2026-10-31T00:30:00.000Z" };
       return json(200, games[index]);
+    }
+    if (method === "POST" && match[2] === "/entries") {
+      if (game.state !== "open") return error(409, "game_not_open", `The Game is ${game.state}, not open`);
+      const { bots } = body as NewGameEntry;
+      const taken = new Set(game.entries.flatMap((e) => e.bots.map((b) => b.name.toLowerCase())));
+      const details: { path: string; message: string }[] = [];
+      let cost = 0;
+      bots.forEach((bot, i) => {
+        const design = designs.find((d) => d.id === bot.designId && d.rulesetVersion === game.rulesetVersion);
+        if (design === undefined) details.push({ path: `bots[${String(i)}].designId`, message: "is not one of your Bot Designs" });
+        cost += design?.latestRevision.cost ?? 0;
+        if (taken.has(bot.name.toLowerCase())) details.push({ path: `bots[${String(i)}].name`, message: "is already taken in this Game" });
+      });
+      if (cost > game.pointBudget) {
+        details.push({ path: "bots", message: `cost ${String(cost)} points, more than this Game's Point Budget of ${String(game.pointBudget)}` });
+      }
+      if (details.length > 0) return error(422, "validation_failed", "The request is invalid", details);
+      const entry = {
+        id: `e${String(next++)}`,
+        player: { id: me, username: signedIn },
+        createdAt: "2026-10-31T00:10:00.000Z",
+        cost,
+        bots: bots.map((bot) => ({ name: bot.name, design: { designId: bot.designId, revision: bot.revision ?? 1 } })),
+      };
+      const entries = [...game.entries, entry];
+      const full = entries.length === game.playerCount;
+      games[index] = { ...game, entries, entryCount: entries.length, ...(full ? { state: "running", startedAt: "2026-10-31T00:10:00.000Z" } : {}) };
+      return json(201, { entry, game: games[index] });
     }
     if (method === "DELETE" && match[3] !== undefined) {
       const entry = game.entries.find((e) => e.id === decodeURIComponent(match[3] ?? ""));

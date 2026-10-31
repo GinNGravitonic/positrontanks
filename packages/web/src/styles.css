@@ -223,3 +223,74 @@ table.entries td {
 .map-preview canvas {
   display: block;
 }
+
+.enter-game {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 40rem;
+}
+
+.enter-game h2,
+.enter-game h3 {
+  margin-bottom: 0;
+}
+
+table.designs {
+  border-collapse: collapse;
+}
+
+table.designs th,
+table.designs td {
+  text-align: left;
+  padding: 0.25rem 0.75rem 0.25rem 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+.entry-bots {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry-bots li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.25rem 0.75rem;
+}
+
+.entry-bots li .error {
+  flex-basis: 100%;
+}
+
+.entry-bots label {
+  display: flex;
+  flex-direction: column;
+}
+
+.entry-bots input {
+  font: inherit;
+  padding: 0.25rem 0.4rem;
+}
+
+.enter-game .total {
+  margin: 0;
+  font-weight: bold;
+}
+
+.enter-game .total.over {
+  color: light-dark(#c62828, #ff8a80);
+}
+
+.enter-game [aria-invalid="true"],
+.enter-game .invalid {
+  outline: 1px solid light-dark(#c62828, #ff8a80);
+}
+
+.enter-game button[type="submit"] {
+  align-self: start;
+}

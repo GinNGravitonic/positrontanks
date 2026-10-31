@@ -9,6 +9,7 @@ import { Link, Redirect, ServicesProvider, useRoute, useServices, useSession } f
 import { logInRoute, safeNext, type Route } from "./router.js";
 import { LogInScreen, SignUpScreen } from "./screens/auth.js";
 import { CREATE_GAME_ROUTE, CreateGameScreen } from "./screens/create-game.js";
+import { EnterGameScreen } from "./screens/enter-game.js";
 import { GamePage, NotYetScreen } from "./screens/game.js";
 import { GamesScreen } from "./screens/games.js";
 import { logOut, SIGNED_OUT_ROUTES, type Services } from "./services.js";
@@ -65,7 +66,17 @@ function Routes() {
 
   const game = matchGameRoute(route.path);
   if (game !== undefined) {
-    return <Shell>{game.sub === undefined ? <GamePage key={game.id} id={game.id} /> : <NotYetScreen id={game.id} sub={game.sub} />}</Shell>;
+    return (
+      <Shell>
+        {game.sub === undefined ? (
+          <GamePage key={game.id} id={game.id} />
+        ) : game.sub === "enter" ? (
+          <EnterGameScreen key={game.id} id={game.id} />
+        ) : (
+          <NotYetScreen id={game.id} />
+        )}
+      </Shell>
+    );
   }
 
   if (DrawingGallery !== undefined && route.path === "/dev/drawing") {
