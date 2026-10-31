@@ -3,10 +3,12 @@
  * a fake API with the accounts endpoints the client signs in with, the
  * Games endpoints of the Games screen and Game page, the Rulesets and
  * Maps the Create Game screen chooses from, and the Bot Designs and Entries
- * of the Enter Game screen.
+ * of the Enter Game screen, and the Replays and Parts Catalog the viewer
+ * loads.
  */
 
 import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
+import r1Json from "@positrontanks/ruleset-data/rulesets/r1.json";
 import type { Schema } from "./api/client.js";
 import type { BotDesignSummary, NewGameEntry } from "./entries.js";
 import type { Game, MapSummary, NewGame, RulesetSummary } from "./games.js";
@@ -143,12 +145,18 @@ export function mapSummary(map: Schema<"Map">): MapSummary {
 }
 
 /**
- * A fake of the API's accounts, Games, Rulesets, Maps and Bot Designs
- * endpoints, all but signing up and logging in needing a session. Every
- * Player has the same `designs`.
+ * A fake of the API's accounts, Games, Rulesets, Maps, Bot Designs and
+ * Replays endpoints, all but signing up and logging in needing a session.
+ * Every Player has the same `designs`; a Finished Game's Replay is in
+ * `replays`, by Game id; the Parts Catalog is r1's.
  */
 export function fakeApi(
-  options: { readonly games?: readonly Game[]; readonly maps?: readonly Schema<"Map">[]; readonly designs?: readonly BotDesignSummary[] } = {},
+  options: {
+    readonly games?: readonly Game[];
+    readonly maps?: readonly Schema<"Map">[];
+    readonly designs?: readonly BotDesignSummary[];
+    readonly replays?: Readonly<Record<string, unknown>>;
+  } = {},
 ): FakeApi {
   const games = [...(options.games ?? [])];
   const maps = options.maps ?? [testMap()];
@@ -219,6 +227,10 @@ export function fakeApi(
       return page(states === undefined ? mine : mine.filter((g) => states.includes(g.state)), query);
     }
     if (method === "GET" && path === "/rulesets") return json(200, { rulesets: TEST_RULESETS });
+    if (method === "GET" && path === "/rulesets/r1/parts") {
+      const { version, slotTypes, chassisStats, componentKinds, chassis, components } = r1Json;
+      return json(200, { version, slotTypes, chassisStats, componentKinds, chassis, components });
+    }
     if (method === "GET" && path === "/bot-designs") {
       const ruleset = query.get("rulesetVersion");
       return json(200, { botDesigns: designs.filter((d) => ruleset === null || d.rulesetVersion === ruleset), nextCursor: null });
@@ -253,11 +265,15 @@ export function fakeApi(
       games.unshift(game);
       return json(201, game);
     }
-    const match = /^\/games\/([^/]+)(\/cancel|\/entries|\/entries\/([^/]+))?$/.exec(path);
+    const match = /^\/games\/([^/]+)(\/cancel|\/replay|\/entries|\/entries\/([^/]+))?$/.exec(path);
     const game = match?.[1] === undefined ? undefined : games.find((g) => g.id === decodeURIComponent(match[1] ?? ""));
     if (match === null || game === undefined) return error(404, "not_found", "Not found");
     const index = games.indexOf(game);
     if (method === "GET" && match[2] === undefined) return json(200, game);
+    if (method === "GET" && match[2] === "/replay") {
+      if (game.state !== "finished") return error(409, "game_not_finished", `Game ${game.id} is ${game.state}; its Replay comes once it is Finished`);
+      return json(200, { game, replay: options.replays?.[game.id] });
+    }
     if (method === "POST" && match[2] === "/cancel") {
       if (game.initiator.id !== me) return error(403, "forbidden", "Only the Game's Initiator may cancel it");
       if (game.state !== "open") return error(409, "game_not_open", `The Game is ${game.state}, not open`);

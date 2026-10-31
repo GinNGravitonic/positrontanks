@@ -5,7 +5,7 @@
  */
 
 import type { MapFormat1 } from "@positrontanks/ruleset-data";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type PointerEvent, type RefObject } from "react";
 import { botBounds, drawBot, type BotParts } from "./bot.js";
 import { entryColor } from "./colors.js";
 import type { Artwork, Context } from "./context.js";
@@ -20,22 +20,43 @@ export interface CanvasProps {
   readonly draw: (ctx: Context, width: number, height: number) => void;
   /** What the picture shows, for assistive technology. */
   readonly label: string;
+  /** The canvas element, for callers that handle input on it. */
+  readonly canvasRef?: RefObject<HTMLCanvasElement | null>;
+  readonly className?: string;
+  readonly onPointerDown?: (event: PointerEvent<HTMLCanvasElement>) => void;
+  readonly onPointerMove?: (event: PointerEvent<HTMLCanvasElement>) => void;
+  readonly onPointerUp?: (event: PointerEvent<HTMLCanvasElement>) => void;
 }
 
-export function Canvas({ width, height, draw, label }: CanvasProps) {
-  const ref = useRef<HTMLCanvasElement>(null);
+/** Draws on every render; the canvas's pixels are only reallocated when its size or the pixel ratio changes. */
+export function Canvas({ width, height, draw, label, canvasRef, className, onPointerDown, onPointerMove, onPointerUp }: CanvasProps) {
+  const ownRef = useRef<HTMLCanvasElement>(null);
+  const ref = canvasRef ?? ownRef;
   useEffect(() => {
     const canvas = ref.current;
     const ctx = canvas?.getContext("2d");
     if (canvas == null || ctx == null) return;
     const ratio = window.devicePixelRatio;
-    canvas.width = Math.round(width * ratio);
-    canvas.height = Math.round(height * ratio);
+    const pixelWidth = Math.round(width * ratio);
+    const pixelHeight = Math.round(height * ratio);
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
     draw(ctx, width, height);
   });
-  return <canvas ref={ref} role="img" aria-label={label} style={{ width, height }} />;
+  return (
+    <canvas
+      ref={ref}
+      role="img"
+      aria-label={label}
+      style={{ width, height }}
+      {...(className === undefined ? {} : { className })}
+      {...(onPointerDown === undefined ? {} : { onPointerDown })}
+      {...(onPointerMove === undefined ? {} : { onPointerMove })}
+      {...(onPointerUp === undefined ? {} : { onPointerUp, onPointerCancel: onPointerUp })}
+    />
+  );
 }
 
 /** The whole Map, fitted into a `size` x `size` box keeping its proportions. */

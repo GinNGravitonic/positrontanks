@@ -294,3 +294,78 @@ table.designs td {
 .enter-game button[type="submit"] {
   align-self: start;
 }
+
+.viewer h2 {
+  margin-top: 0;
+}
+
+.viewer-views {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.viewer-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: min(70vh, 48rem);
+  background: #1b1b1b;
+}
+
+.viewer-main canvas {
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+.viewer-main canvas:active {
+  cursor: grabbing;
+}
+
+.viewer-zoom {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.viewer-zoom button {
+  font: inherit;
+  width: 2rem;
+  height: 2rem;
+}
+
+.viewer-side {
+  flex: none;
+  width: 200px;
+}
+
+.viewer-overview {
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.viewer-result {
+  font-weight: bold;
+}
+
+.replay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.replay-controls input[type="range"] {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.replay-controls .clock {
+  font-variant-numeric: tabular-nums;
+}

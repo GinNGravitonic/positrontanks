@@ -250,6 +250,9 @@ importers:
 
   packages/web:
     dependencies:
+      '@positrontanks/engine-r1':
+        specifier: workspace:*
+        version: link:../engine-r1
       '@positrontanks/ruleset-data':
         specifier: workspace:*
         version: link:../ruleset-data
@@ -263,6 +266,9 @@ importers:
       '@positrontanks/cli':
         specifier: workspace:*
         version: link:../cli
+      '@positrontanks/server':
+        specifier: workspace:*
+        version: link:../server
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0

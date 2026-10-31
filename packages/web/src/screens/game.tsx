@@ -260,19 +260,3 @@ function Entries({ game, playerId }: { readonly game: Game; readonly playerId: s
     </table>
   );
 }
-
-/** The viewer, which the web client does not have yet, with the CLI commands that watch meanwhile. */
-export function NotYetScreen({ id }: { readonly id: string }) {
-  return (
-    <>
-      <h2>Watch Game</h2>
-      <p>
-        Watching Games is not in the web client yet. Meanwhile, use the CLI:{" "}
-        <code>{`positrontanks games watch ${id} (Running) or positrontanks games replay ${id} (Finished)`}</code>
-      </p>
-      <p>
-        <Link to={gameRoute(id)}>Back to the Game</Link>
-      </p>
-    </>
-  );
-}

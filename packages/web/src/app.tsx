@@ -10,8 +10,9 @@ import { logInRoute, safeNext, type Route } from "./router.js";
 import { LogInScreen, SignUpScreen } from "./screens/auth.js";
 import { CREATE_GAME_ROUTE, CreateGameScreen } from "./screens/create-game.js";
 import { EnterGameScreen } from "./screens/enter-game.js";
-import { GamePage, NotYetScreen } from "./screens/game.js";
+import { GamePage } from "./screens/game.js";
 import { GamesScreen } from "./screens/games.js";
+import { WatchScreen } from "./screens/watch.js";
 import { logOut, SIGNED_OUT_ROUTES, type Services } from "./services.js";
 
 export function App({ services }: { readonly services: Services }) {
@@ -73,7 +74,7 @@ function Routes() {
         ) : game.sub === "enter" ? (
           <EnterGameScreen key={game.id} id={game.id} />
         ) : (
-          <NotYetScreen id={game.id} />
+          <WatchScreen key={game.id} id={game.id} />
         )}
       </Shell>
     );

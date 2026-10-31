@@ -8,12 +8,14 @@
     "dev": "vite"
   },
   "dependencies": {
+    "@positrontanks/engine-r1": "workspace:*",
     "@positrontanks/ruleset-data": "workspace:*",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@positrontanks/cli": "workspace:*",
+    "@positrontanks/server": "workspace:*",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
