@@ -144,7 +144,7 @@ Each Bot's Program runs in the r1 interpreter ([language-r1.md](language)).
 The Game is judged after the init phase (Tick 0) and after every Tick; once it has ended, no further Tick is played.
 
 - **Players**: survival and the tiebreaks are counted per Player, over all of the Player's Entries. A Bot counts toward its Player's survival unless it is Disabled.
-- **Last standing**: when exactly one Player has any Bot not Disabled, that Player is the Winner. A Game whose Entries all belong to one Player ends at Tick 0.
+- **Last standing**: when exactly one Player has any Bot not Disabled, that Player is the Winner. A Game whose Entries all belong to one Player ends at Tick 0; the server and the CLI runner take one Entry per Player (v1.md section 7), so only older Game Records can hold such a Game.
 - **Time limit**: after Tick `timeLimitTicks`, with several Players remaining, the tiebreaks decide among those Players only.
 - **None standing**: when the last Players are all Disabled in the same Tick, the tiebreaks decide among the Players remaining at the start of that Tick.
 - **Tiebreaks**, in order: the most damage dealt to Foes over the whole Game, then the most remaining Hit Points (the total of the Player's Bots that are not Disabled), then a **Draw**. Totals are compared exactly.

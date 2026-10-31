@@ -9,7 +9,7 @@
  * reading or changing Games.
  *
  * This store checks only what concerns Games themselves (state, free slots,
- * ownership, Bot Name clashes); callers validate an Entry's Bot Designs,
+ * ownership, one Entry per Player, Bot Name clashes); callers validate an Entry's Bot Designs,
  * cost and Spawn Zone fit, inside the same transaction as `addEntry`.
  *
  * Entries come back with each Bot's Build (never its Program), read from the
@@ -151,6 +151,7 @@ export type EntryRefusal =
   | { readonly kind: "not_found" }
   | { readonly kind: "not_open"; readonly state: GameState }
   | { readonly kind: "full" }
+  | { readonly kind: "already_entered" }
   | { readonly kind: "name_taken"; readonly names: readonly string[] };
 
 /** The key Bot Names are compared by: unique within a Game, ignoring case. */
@@ -461,6 +462,8 @@ export class GameStore {
       if (game === undefined) return { kind: "not_found" };
       if (game.state !== "open") return { kind: "not_open", state: game.state };
       if (game.entryCount >= game.playerCount) return { kind: "full" };
+      const entered = this.#db.prepare("SELECT 1 FROM game_entries WHERE game_id = ? AND player_id = ?");
+      if (entered.get(gameId, entry.playerId) !== undefined) return { kind: "already_entered" };
 
       const taken = this.#db.prepare("SELECT 1 FROM game_entry_bots WHERE game_id = ? AND name_key = ?");
       const clashes = entry.bots.filter((b) => taken.get(gameId, botNameKey(b.name)) !== undefined).map((b) => b.name);

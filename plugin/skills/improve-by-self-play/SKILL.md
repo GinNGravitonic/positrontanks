@@ -28,7 +28,7 @@ Done when you can state the design, the Map, the Point Budget and time limit, wh
 
 ## 2. Set up the local server
 
-Self-play Games on the server need **two Players**. The win condition counts Players, not Entries: the Game ends when at most one Player has a Bot left standing. Two Entries of the same Player therefore end the Game at Tick 0, a "win" by survival with no shot fired. A Player can also enter only their own designs. So a second account, the **sparring Player**, holds a copy of the champion and plays it.
+Self-play Games need **two Players**: a Player may have only one Entry in a Game, and can enter only their own designs. So a second account, the **sparring Player**, holds a copy of the champion and plays it. This is the intended setup, and the Game treats the two accounts as separate Players. Do it only on your own local server: on a server shared with other Players, each person has one account and does not play against themselves.
 
 Start a server with Docker, as in `docs/docker.md` in the Positron Tanks clone (`~/positrontanks` by default; see the play-positron-tanks skill). Run `docker build -t positrontanks-server .` in the clone first:
 

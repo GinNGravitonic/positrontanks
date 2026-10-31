@@ -100,7 +100,7 @@ positrontanks server info
 
 `server health` answers `ok` and `server info` shows `tickCostCheck on`. The CLI's `default` profile points at `http://localhost:8080`, so it needs no `config set server`.
 
-Sign up and log in on the local server. Local accounts exist only on the player's own machine, so a generated password piped on stdin is fine here. Follow section 2 of the improve-by-self-play skill, which also sets up the **sparring Player** that self-play needs, in a `sparring` profile.
+Sign up and log in on the local server. Local accounts exist only on the player's own machine, so a generated password piped on stdin is fine here. Follow section 2 of the improve-by-self-play skill, which also sets up the **sparring Player** that self-play needs, in a `sparring` profile. A second account is expected on the local server, which exists for self-play.
 
 Done when `positrontanks auth whoami` names the local Player.
 
@@ -148,7 +148,7 @@ positrontanks server health --profile remote
 
 `positrontanks rulesets list --profile remote` lists the Rulesets the remote hosts. Check that each design's Ruleset (printed in step 5) is among them.
 
-The remote account is the player's own, on a shared server, so **the player types the password**, not you. Do not generate, choose, store or pipe it. Ask the player to run the commands in their own terminal, where the CLI prompts for the password:
+The remote account is the player's own, on a shared server. There the player has exactly one account: never sign up a sparring Player there, and never play self-play Games there. **The player types the password**, not you. Do not generate, choose, store or pipe it. Ask the player to run the commands in their own terminal, where the CLI prompts for the password:
 
 - **No account yet**: first sign up, then log in.
 

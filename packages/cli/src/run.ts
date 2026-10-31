@@ -74,9 +74,13 @@ export async function loadGame(options: GameOptions): Promise<LoadedGame> {
 
   const errors: string[] = [];
   const names = new Map<string, string>();
+  const players = new Map<string, string>();
   const entries: { file: EntryFile; bots: ValidBot[]; cost: number }[] = [];
   for (const file of files) {
     const fail = (message: string) => errors.push(`${file.path}: ${message}`);
+    const entered = players.get(file.player);
+    if (entered !== undefined) fail(`Player "${file.player}" already has an Entry in ${entered}; a Player may have one Entry in a Game`);
+    players.set(file.player, file.path);
     if (file.ruleset !== null && file.ruleset !== ruleset.version) fail(`the Entry is for Ruleset ${file.ruleset}, but the Game uses ${ruleset.version}`);
     if (!entryFitsMap(map, file.bots.length)) fail(`${String(file.bots.length)} Bots do not fit any of the Map's Spawn Zones`);
     let cost = 0;

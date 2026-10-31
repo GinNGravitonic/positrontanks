@@ -22,8 +22,8 @@
  *
  * `ruleset` is optional; when given it must be the Game's Ruleset version.
  * `player` is optional and defaults to the file name without `.json` and
- * `.entry` (so `alice.entry.json` is Player `alice`). Entries with the same
- * Player belong to one Player, as on the server.
+ * `.entry` (so `alice.entry.json` is Player `alice`). As on the server, a
+ * Player may have one Entry in a Game.
  *
  * Reading an Entry file only checks its shape; the Builds, Programs and
  * Point Budget are checked against the Ruleset by `loadGame` (run.ts).

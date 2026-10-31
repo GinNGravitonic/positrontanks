@@ -31,7 +31,7 @@ positrontanks run --map FILE --entry FILE [--entry FILE ...] [options]
 
 The `--ruleset` default is the latest Ruleset this CLI supports: the last entry of `RULESET_VERSIONS` (`packages/ruleset-data/src/rulesets.ts`), currently `r1`, the only one. When a later Ruleset is added there, the default moves to it, for `run` and `tick-cost` alike.
 
-Before playing, the runner checks its inputs as the server checks a submission: the Map against the Ruleset (Map Format and Terrains), each Build and Program, each Entry's cost against the Point Budget, each Entry's Bot count against the Map's Spawn Zones, and Bot Names unique within the Game. It reports every problem it finds at once, with `file:line:column` positions for Program errors. Exit codes: 0 on a played Game, 1 on bad input, 2 on bad usage.
+Before playing, the runner checks its inputs as the server checks a submission: the Map against the Ruleset (Map Format and Terrains), each Build and Program, each Entry's cost against the Point Budget, each Entry's Bot count against the Map's Spawn Zones, one Entry per Player, and Bot Names unique within the Game. It reports every problem it finds at once, with `file:line:column` positions for Program errors. Exit codes: 0 on a played Game, 1 on bad input, 2 on bad usage.
 
 ## Entry file
 
@@ -58,7 +58,7 @@ An Entry file is a JSON object describing one Entry: its Player and its Bots. Un
 | Field | Required | Meaning |
 | --- | --- | --- |
 | `ruleset` | no | A Ruleset version. When given, it must equal the Game's Ruleset (`--ruleset`); it guards against running an Entry under the wrong Ruleset. |
-| `player` | no | The Player, a non-empty string. Defaults to the file name without its `.json` and then `.entry` suffixes, so `alice.entry.json` is Player `alice`. Entry files with the same Player belong to one Player, as on the server. |
+| `player` | no | The Player, a non-empty string. Defaults to the file name without its `.json` and then `.entry` suffixes, so `alice.entry.json` is Player `alice`. As on the server, a Player may have one Entry in a Game, so no two Entry files may share a Player. |
 | `bots` | yes | A non-empty list of Bots. |
 | `bots[].name` | yes | The Bot Name, a non-empty string, unique within the Game. |
 | `bots[].build` | yes | The Build, in the same shape the server accepts for a Bot Design. |

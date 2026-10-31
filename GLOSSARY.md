@@ -95,7 +95,7 @@ The maximum total point cost a single Entry may have in a given Game; chosen by 
 _Avoid_: Point limit, cap, weight class
 
 **Entry**:
-What a Player submits to a Game: one or more Bot Designs whose combined cost fits within the Point Budget.
+What a Player submits to a Game: one or more Bot Designs whose combined cost fits within the Point Budget. A Player has at most one Entry in a Game.
 _Avoid_: Submission, team, roster
 
 **Bot**:

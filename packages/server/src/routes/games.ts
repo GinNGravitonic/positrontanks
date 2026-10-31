@@ -23,8 +23,8 @@
  * Design Revisions authored for the Game's Ruleset, each with a Bot Name
  * unique within the Game (ignoring case), costing at most the Point Budget
  * together, and few enough to fit at least one of the Map's Spawn Zones. A
- * Player may submit several Entries to one Game, and may withdraw any of
- * them while the Game is Open. Every check and the insert run in a single
+ * Player may have one Entry in a Game, and may withdraw it while the Game is
+ * Open, which frees them to enter again. Every check and the insert run in a single
  * transaction, so two submissions racing for the last slot cannot both win.
  *
  * Visibility: every authenticated Player may see any Game and who entered it
@@ -741,8 +741,8 @@ export const gamesModule: ApiModule = {
         description:
           "Each Bot is one of your unarchived Bot Designs (at a given Revision, the latest by default) authored " +
           "for the Game's Ruleset, with a Bot Name unique within the Game ignoring case. Together they must cost " +
-          "at most the Point Budget and be few enough for at least one of the Map's Spawn Zones. You may submit " +
-          "several Entries to one Game. The Entry that fills the Game starts it: it is Running in the response. " +
+          "at most the Point Budget and be few enough for at least one of the Map's Spawn Zones. You may have " +
+          "one Entry in a Game; a second is 422 `validation_failed`. The Entry that fills the Game starts it: it is Running in the response. " +
           "If the Game is no longer Open (it filled, was cancelled or timed out) the answer is 409 `game_not_open`.",
         tags: [TAG],
         security: bearer,
@@ -846,6 +846,8 @@ export const gamesModule: ApiModule = {
                 throw notOpen(game.id, result.state);
               case "full":
                 throw new ApiError(409, "game_not_open", `Game ${game.id} is full`);
+              case "already_entered":
+                throw validationFailed([{ path: "", message: "you already have an Entry in this Game" }]);
               case "name_taken": {
                 const clashing = new Set(result.names.map(botNameKey));
                 throw validationFailed(

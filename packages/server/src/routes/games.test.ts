@@ -424,13 +424,18 @@ describe("Entries", () => {
     expect((await getGame(bob, game.id)).entries[0]?.bots[0]?.design).toEqual({ designId: id, revision: 2 });
   });
 
-  it("lets a Player submit several Entries to one Game", async () => {
+  it("takes one Entry per Player in a Game", async () => {
     const game = await createGame(alice, mapId);
     const mine = await design(bob);
-    await enter(bob, game.id, [{ designId: mine, name: "One" }]);
-    const second = await enter(bob, game.id, [{ designId: mine, name: "Two" }]);
-    expect(second.game.state).toBe("running");
-    expect(second.game.entries.map((e) => e.player.username)).toEqual(["bob", "bob"]);
+    const first = await enter(bob, game.id, [{ designId: mine, name: "One" }]);
+    const second = await submit(bob, game.id, [{ designId: mine, name: "Two" }]);
+    expect(second.status).toBe(422);
+    expect(errorOf(second).details).toEqual([{ path: "", message: "you already have an Entry in this Game" }]);
+    expect((await getGame(alice, game.id)).entryCount).toBe(1);
+
+    // Withdrawing frees the Player to enter again.
+    expect((await call("DELETE", `/games/${game.id}/entries/${first.entry.id}`, { token: bob })).status).toBe(204);
+    expect((await enter(bob, game.id, [{ designId: mine, name: "Two" }])).game.entryCount).toBe(1);
   });
 
   it("never shows a Bot Design's description, even to its owner", async () => {

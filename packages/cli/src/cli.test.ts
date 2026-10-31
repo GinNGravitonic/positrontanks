@@ -159,6 +159,14 @@ describe("positrontanks run", () => {
     expect(run.err).toMatch(/over the Point Budget of 300/);
   });
 
+  it("takes one Entry per Player", async () => {
+    await writeFile(at("twin.entry.json"), JSON.stringify({ player: "alice", bots: [{ name: "Twin", build: scout, program: "function tick() {}" }] }));
+    const run = await cli("run", "--map", at("duel.json"), "--entry", at("alice.entry.json"), "--entry", at("twin.entry.json"), "--unthrottled", "--out", at("out"));
+    expect(run.code).toBe(1);
+    expect(run.out).toBe("");
+    expect(run.err).toContain(`twin.entry.json: Player "alice" already has an Entry in ${at("alice.entry.json")}; a Player may have one Entry in a Game`);
+  });
+
   it("rejects bad input files and arguments", async () => {
     await writeFile(at("r2.json"), JSON.stringify({ ruleset: "r2", bots: [{ name: "X", build: scout, program: "function tick() {}" }] }));
     await writeFile(at("shape.json"), JSON.stringify({ bots: [{ name: "Y", build: scout }], extra: 1 }));
