@@ -8,7 +8,7 @@ ARG NODE_VERSION=24
 ARG PNPM_VERSION=12.14.0
 ARG LITESTREAM_VERSION=0.5.17
 
-# --- build: install the whole workspace and compile the server and its deps ---
+# --- build: install the whole workspace, compile the server and its deps, build the web client ---
 FROM node:${NODE_VERSION}-bookworm-slim AS build
 ARG PNPM_VERSION
 RUN npm install -g pnpm@${PNPM_VERSION}
@@ -16,7 +16,8 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.base.json ./
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile
-RUN pnpm exec tsc -b packages/server \
+RUN pnpm exec tsc -b packages/server packages/web \
+ && pnpm --filter @positrontanks/web build \
  && find packages -path '*/dist/*' \( -name '*.test.*' -o -name 'test-*' \) -delete
 
 # --- prod-deps: production node_modules for the server and its workspace deps ---
@@ -76,6 +77,8 @@ COPY --from=build /app/packages/ruleset-data/dist ./packages/ruleset-data/dist
 COPY --from=build /app/packages/ruleset-data/rulesets ./packages/ruleset-data/rulesets
 COPY --from=build /app/packages/ruleset-data/maps ./packages/ruleset-data/maps
 COPY --from=build /app/packages/ruleset-data/spec ./packages/ruleset-data/spec
+# The web client, served under /play/ from the server's default webDirectory (ADR-0006).
+COPY --from=build /app/packages/web/dist ./packages/web/dist
 
 USER node
 WORKDIR /app/packages/server

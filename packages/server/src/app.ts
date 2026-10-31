@@ -6,7 +6,8 @@
  * other exception is logged and answered with a generic 500 so internals
  * never leak to clients. A Reply may instead stream Server-Sent Events
  * (http/events.ts); streams are cut short when the server shuts down, so
- * they never hold it open.
+ * they never hold it open. Paths under `/play/` are the web client's
+ * (http/web-client.ts), not the API's.
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -19,6 +20,7 @@ import { ApiError, notFound } from "./http/errors.js";
 import { formatEvent, SSE_HEARTBEAT_MS, type EventStream } from "./http/events.js";
 import { buildOpenApiDocument } from "./http/openapi.js";
 import { Router, type ApiModule, type Json, type Reply, type Services } from "./http/router.js";
+import { isWebClientPath, serveWebClient } from "./http/web-client.js";
 import { accountsModule } from "./routes/accounts.js";
 import { gamesModule } from "./routes/games.js";
 import { garageModule } from "./routes/garage.js";
@@ -85,6 +87,7 @@ export function createApp(services: Services, options: AppOptions = {}): Request
 
   const handle = async (request: IncomingMessage): Promise<Reply> => {
     const url = new URL(request.url ?? "/", "http://localhost");
+    if (isWebClientPath(url.pathname)) return serveWebClient(services.config.webDirectory, request.method ?? "GET", url);
     const match = router.match(request.method ?? "GET", url.pathname);
     if (match.kind === "none") throw notFound(`No endpoint at ${url.pathname}`);
     if (match.kind === "wrong-method") {
@@ -117,7 +120,7 @@ export function createApp(services: Services, options: AppOptions = {}): Request
         return new ApiError(500, "internal_error", "Internal server error").toReply();
       })
       .then((reply) => {
-        if (reply.events === undefined) send(response, reply);
+        if (reply.events === undefined) send(response, reply, request.method === "HEAD");
         else {
           const { maxEventStreamBufferBytes } = services.config.limits;
           stream(response, reply, reply.events, closing, request.url, maxEventStreamBufferBytes, logger);
@@ -130,19 +133,18 @@ export function createApp(services: Services, options: AppOptions = {}): Request
   };
 }
 
-function send(response: ServerResponse, reply: Reply): void {
-  const { text } = reply;
-  const hasBody = reply.body !== undefined || text !== undefined;
+/** Sends `reply`; a HEAD request gets its headers only. */
+function send(response: ServerResponse, reply: Reply, head: boolean): void {
+  const { text, bytes } = reply;
+  const hasBody = reply.body !== undefined || text !== undefined || bytes !== undefined;
   const status = reply.status ?? (hasBody ? 200 : 204);
-  const payload = text?.content ?? (reply.body === undefined ? undefined : JSON.stringify(reply.body));
-  const type = text === undefined ? "application/json" : text.type;
+  const payload = bytes?.content ?? text?.content ?? (reply.body === undefined ? undefined : JSON.stringify(reply.body));
+  const type = bytes?.type ?? `${text?.type ?? "application/json"}; charset=utf-8`;
   response.writeHead(status, {
-    ...(payload === undefined
-      ? {}
-      : { "content-type": `${type}; charset=utf-8`, "content-length": Buffer.byteLength(payload) }),
+    ...(payload === undefined ? {} : { "content-type": type, "content-length": Buffer.byteLength(payload) }),
     ...reply.headers,
   });
-  response.end(payload);
+  response.end(head ? undefined : payload);
 }
 
 /**

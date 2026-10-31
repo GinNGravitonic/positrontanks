@@ -16,7 +16,8 @@ docker run --rm -p 8080:8080 -v positrontanks-data:/data -e POSITRONTANKS_TICK_C
 
 Then `curl localhost:8080/health` returns `{"status":"ok"}`,
 `curl localhost:8080/server` returns `{"features":{"tickCostCheck":true}}` and
-`curl localhost:8080/openapi.json` returns the API document. Everything the
+`curl localhost:8080/openapi.json` returns the API document, and
+`http://localhost:8080/play/` opens the web client (ADR-0006). Everything the
 server writes (the SQLite database and its WAL, and the object storage
 directory) is under `/data`, so the data survives `docker rm` and is reused by
 the next container that mounts the same volume. A bind mount
@@ -40,6 +41,7 @@ The image sets these defaults; everything else uses the server's own defaults
 | `POSITRONTANKS_STORAGE_DIRECTORY`     | `/data/objects`     | Object directory when `POSITRONTANKS_STORAGE=local` |
 | `POSITRONTANKS_LITESTREAM_REPLICA_URL`| unset               | Enables Litestream (below)                    |
 | `POSITRONTANKS_TICK_COST_CHECK`       | unset (`off`)       | `on` enables the tick cost check (below)      |
+| `POSITRONTANKS_WEB_DIRECTORY`         | unset               | Built web client served under `/play/`; unset uses `packages/web/dist`, where the image puts it |
 
 For S3 object storage set `POSITRONTANKS_STORAGE=s3`, `POSITRONTANKS_S3_BUCKET` and
 optionally `POSITRONTANKS_S3_KEY_PREFIX`, `POSITRONTANKS_S3_REGION`,

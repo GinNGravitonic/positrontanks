@@ -7,6 +7,8 @@
  * with every problem listed.
  */
 
+import { fileURLToPath } from "node:url";
+
 /** Server-wide limits. Map limits match ruleset-data's MapLimits. */
 export interface Limits {
   /** Largest accepted request body. */
@@ -57,6 +59,12 @@ export interface ServerConfig {
   readonly databasePath: string;
   readonly storage: StorageConfig;
   /**
+   * The built web client (packages/web/dist), served under `/play/`
+   * (ADR-0006). Defaults to the workspace's build next to this package, which
+   * is also where the Docker image puts it.
+   */
+  readonly webDirectory: string;
+  /**
    * Continuous replication of the database by Litestream (ADR-0003). Unset
    * means no replication. The server itself does not replicate: the Docker
    * entrypoint reads the same variable and runs the server under
@@ -89,6 +97,7 @@ export const defaultConfig: ServerConfig = {
   port: 8080,
   databasePath: "data/positrontanks.db",
   storage: { kind: "local", directory: "data/objects" },
+  webDirectory: fileURLToPath(new URL("../../web/dist", import.meta.url)),
   limits: {
     maxRequestBodyBytes: 1024 * 1024,
     map: { maxWidth: 200, maxHeight: 200, maxPolygonPoints: 64, maxFeatures: 100 },
@@ -191,6 +200,7 @@ export function loadConfig(env: Env): ServerConfig {
     port: integer("POSITRONTANKS_PORT", d.port, 0, 65535),
     databasePath,
     storage: storage(),
+    webDirectory: string("POSITRONTANKS_WEB_DIRECTORY", d.webDirectory),
     ...(replication === undefined ? {} : { litestream: replication }),
     limits: {
       maxRequestBodyBytes: integer("POSITRONTANKS_MAX_REQUEST_BODY_BYTES", l.maxRequestBodyBytes, 1),

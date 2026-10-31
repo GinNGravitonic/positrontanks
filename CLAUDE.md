@@ -64,13 +64,14 @@ pnpm workspace (Node >= 24, pnpm 12 pinned via `packageManager`). Install pnpm d
 
 ```bash
 pnpm install
-pnpm build   # tsc -b over all project references
+pnpm build   # tsc -b over all project references, then vite build of packages/web
 pnpm lint    # eslint, typescript-eslint strictTypeChecked
-pnpm test    # vitest; tests are packages/*/src/**/*.test.ts
+pnpm test    # vitest; tests are packages/*/src/**/*.test.{ts,tsx}
 ```
 
 TypeScript is pinned to 6.0.x because typescript-eslint does not yet support TS >= 6.1.
 
+The web client (`packages/web`, React and Vite) is served by the server under `/play/` (ADR-0006, `docs/spec/frontend.md`); `pnpm --filter @positrontanks/web dev` runs it against a local server on port 8080.
 The server's Docker image (`Dockerfile`, `docker/`) and its environment interface are described in `docs/docker.md`.
 The AWS deployment (`packages/infra`, Pulumi) is described in `docs/deployment.md`.
 The Claude Code plugin (skills for playing the game) is in `plugin/`, with the repo as its marketplace (`.claude-plugin/marketplace.json`); see `docs/plugin.md`.

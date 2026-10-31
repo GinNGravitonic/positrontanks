@@ -65,6 +65,8 @@ export interface Reply {
   readonly body?: unknown;
   /** Instead of a JSON body: a text body in the given media type, such as `text/markdown`. */
   readonly text?: { readonly type: string; readonly content: string };
+  /** Instead of a JSON body: raw bytes, with `type` as the whole content-type header. */
+  readonly bytes?: { readonly type: string; readonly content: Uint8Array };
   /** Instead of a body: a Server-Sent Events stream (see events.ts). */
   readonly events?: EventStream;
   readonly headers?: Readonly<Record<string, string>>;

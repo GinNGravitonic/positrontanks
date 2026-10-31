@@ -6,6 +6,7 @@
     { "path": "packages/ruleset-data" },
     { "path": "packages/server" },
     { "path": "packages/cli" },
-    { "path": "packages/infra" }
+    { "path": "packages/infra" },
+    { "path": "packages/web" }
   ]
 }
