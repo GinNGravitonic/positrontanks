@@ -8,9 +8,11 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { jsonLogger, startServer } from "./app.js";
 import { loadConfig } from "./config.js";
+import { checkObjectStorage } from "./storage/create.js";
 
 const config = loadConfig(process.env);
 if (config.databasePath !== ":memory:") mkdirSync(dirname(config.databasePath), { recursive: true });
+await checkObjectStorage(config.storage);
 
 const running = await startServer(config);
 jsonLogger.info("Server listening", {

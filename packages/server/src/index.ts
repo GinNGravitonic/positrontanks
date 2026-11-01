@@ -79,7 +79,7 @@ export type {
   Route,
   Services,
 } from "./http/router.js";
-export { createObjectStore } from "./storage/create.js";
+export { checkObjectStorage, createObjectStore } from "./storage/create.js";
 export { LocalObjectStore } from "./storage/local-object-store.js";
 export { assertValidKey, assertValidPrefix, InvalidKeyError, maxKeyLength } from "./storage/object-store.js";
 export type { ObjectStore } from "./storage/object-store.js";

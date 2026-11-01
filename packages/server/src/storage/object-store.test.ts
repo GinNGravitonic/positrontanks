@@ -13,8 +13,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadConfig } from "../config.js";
-import { createObjectStore } from "./create.js";
+import { ConfigError, loadConfig } from "../config.js";
+import { checkObjectStorage, createObjectStore } from "./create.js";
 import { LocalObjectStore } from "./local-object-store.js";
 import { InvalidKeyError, type ObjectStore } from "./object-store.js";
 import { S3ObjectStore } from "./s3-object-store.js";
@@ -284,5 +284,37 @@ describe("createObjectStore", () => {
     expect(createObjectStore(loadConfig({}).storage)).toBeInstanceOf(LocalObjectStore);
     const s3 = loadConfig({ POSITRONTANKS_STORAGE: "s3", POSITRONTANKS_S3_BUCKET: "b", POSITRONTANKS_S3_REGION: "eu-west-1" }).storage;
     expect(createObjectStore(s3)).toBeInstanceOf(S3ObjectStore);
+  });
+});
+
+describe("checkObjectStorage", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "positrontanks-check-"));
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("creates a usable local directory and leaves nothing behind", async () => {
+    const directory = join(dir, "nested", "objects");
+    await checkObjectStorage({ kind: "local", directory });
+    expect(await readdir(directory)).toEqual([]);
+  });
+
+  it("rejects a local directory that cannot be created, naming the variable and path", async () => {
+    await writeFile(join(dir, "file"), "not a directory");
+    const directory = join(dir, "file", "objects");
+    const check = checkObjectStorage({ kind: "local", directory });
+    await expect(check).rejects.toBeInstanceOf(ConfigError);
+    await expect(check).rejects.toThrow(`POSITRONTANKS_STORAGE_DIRECTORY "${directory}" cannot be created or written`);
+  });
+
+  it("does not touch S3", async () => {
+    await expect(
+      checkObjectStorage(loadConfig({ POSITRONTANKS_STORAGE: "s3", POSITRONTANKS_S3_BUCKET: "b" }).storage),
+    ).resolves.toBeUndefined();
   });
 });

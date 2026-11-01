@@ -48,7 +48,9 @@ optionally `POSITRONTANKS_S3_KEY_PREFIX`, `POSITRONTANKS_S3_REGION`,
 `POSITRONTANKS_S3_ENDPOINT`. AWS credentials, for both the server and Litestream,
 come from the AWS default chain (environment variables, the ECS task role, ...).
 
-Invalid configuration makes the server exit at startup listing every problem.
+Invalid configuration makes the server exit at startup listing every problem. With
+`POSITRONTANKS_STORAGE=local` it also creates the storage directory and probes a
+write there at startup, exiting with an error naming the directory if that fails.
 
 ### Tick cost check
 
