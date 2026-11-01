@@ -13,7 +13,9 @@
  * Snapshots and the stream speak in Replay terms: a snapshot is the Replay
  * header with only the latest Tick in `ticks`, and each `tick` event is one
  * more Tick for it, so a client that appends them holds the Replay from the
- * moment it joined.
+ * moment it joined. What the Ticks before that left behind (Obstacles
+ * destroyed, damage, Bots Disabled) comes with the snapshot as `earlier`,
+ * summarized by the Ruleset version's engine.
  *
  * A Bot's Program log (runtime errors, halts, budget use and `log()` output)
  * goes only to its owner: a Player reads the logs of their own Bots in a
@@ -148,12 +150,64 @@ const schemas: Record<string, Json> = {
       },
     },
   },
+  EarlierTicks: {
+    type: "object",
+    description:
+      "What the Ticks before a snapshot's Tick left behind, so a Spectator joining then sees the Game as it " +
+      "stands. Its size depends on the Map and the Bots, not on how long the Game has run. The shape is the " +
+      "Ruleset version's; this describes r1.",
+    required: ["beforeTick", "obstaclesDestroyed", "disabled", "damage"],
+    properties: {
+      beforeTick: { type: "integer", minimum: 0, description: "The Ticks summarized are those before this one: the snapshot's Tick." },
+      obstaclesDestroyed: {
+        type: "array",
+        description: "Every `obstacleDestroyed` event of those Ticks, in order.",
+        items: {
+          type: "object",
+          required: ["type", "tick", "obstacle"],
+          properties: { type: { const: "obstacleDestroyed" }, tick: { type: "integer", minimum: 0 }, obstacle: { type: "string" } },
+        },
+      },
+      disabled: {
+        type: "array",
+        description: "Every `disabled` event of those Ticks, in order.",
+        items: {
+          type: "object",
+          required: ["type", "tick", "bot", "cause"],
+          properties: {
+            type: { const: "disabled" },
+            tick: { type: "integer", minimum: 0 },
+            bot: { type: "integer", minimum: 1 },
+            cause: { type: "string", enum: ["destroyed", "programHalted"] },
+          },
+        },
+      },
+      damage: {
+        type: "array",
+        description:
+          "Hit Points removed from Bots (`damage` events' `dealt`) in those Ticks, summed per dealer and target, " +
+          "in the order each pair first took damage. A shot is dealt by the Bot that fired it, a ram by the other " +
+          "Bot; a ram into a wreck, an Obstacle or the boundary by no Bot (`dealer` null).",
+        items: {
+          type: "object",
+          required: ["dealer", "target", "dealt"],
+          properties: {
+            dealer: { type: ["integer", "null"], minimum: 1 },
+            target: { type: "integer", minimum: 1 },
+            dealt: { type: "number" },
+          },
+        },
+      },
+    },
+  },
   GameSnapshot: {
     type: "object",
-    description: "A Game and its Replay so far, with only the latest Tick in `replay.ticks`.",
-    required: ["game", "replay"],
+    description:
+      "A Game and its Replay so far, with only the latest Tick in `replay.ticks`, and what the Ticks before it " +
+      "left behind in `earlier`.",
+    required: ["game", "replay", "earlier"],
     additionalProperties: false,
-    properties: { game: ref("Game"), replay: ref("Replay") },
+    properties: { game: ref("Game"), replay: ref("Replay"), earlier: ref("EarlierTicks") },
   },
   GameReplay: {
     type: "object",
@@ -279,6 +333,13 @@ function latest(replay: ReplayData): ReplayData {
   return { ...replay, ticks: last === undefined ? [] : [last] };
 }
 
+/** A snapshot of `replay` (the Game's whole Replay so far): its latest Tick, and what the Ticks before it left behind. */
+function snapshotOf(context: RequestContext, game: GameRecord, replay: ReplayData, view: Json): unknown {
+  const hosted = context.services.rulesets.get(game.rulesetVersion);
+  if (hosted === undefined) throw new Error(`Game ${game.id} has Ruleset ${game.rulesetVersion}, which is not hosted`);
+  return { game: view, replay: latest(replay), earlier: hosted.engine.earlierTicks(replay) };
+}
+
 /** The latest Tick's number, as the snapshot event's id. */
 const latestTick = (replay: ReplayData): string => String(replay.ticks.at(-1)?.tick ?? 0);
 
@@ -312,8 +373,9 @@ export const spectatingModule: ApiModule = {
         summary: "Get the latest Tick of a Running or Finished Game",
         description:
           "The Game, and its Replay header with only the latest Tick played in `replay.ticks` (the last Tick, " +
-          "once Finished). Open Games answer 409 `game_not_started`, as do Running Games the server has not " +
-          "started playing yet; Cancelled Games answer 409 `game_cancelled`.",
+          "once Finished), and what the Ticks before it left behind in `earlier`. Open Games answer 409 " +
+          "`game_not_started`, as do Running Games the server has not started playing yet; Cancelled Games " +
+          "answer 409 `game_cancelled`.",
         tags: [TAG],
         security: bearer,
         parameters: [gameIdParameter],
@@ -335,7 +397,7 @@ export const spectatingModule: ApiModule = {
           if (live === undefined) throw waiting(game);
           replay = live;
         }
-        return { body: { game: gameJson(context, game, player.id), replay: latest(replay) } };
+        return { body: snapshotOf(context, game, replay, gameJson(context, game, player.id)) };
       },
     },
     {
@@ -378,7 +440,7 @@ export const spectatingModule: ApiModule = {
           const ended = gameJson(context, game, player.id);
           return {
             events: (sink) => {
-              sink.send({ event: "snapshot", id: latestTick(replay), data: { game: ended, replay: latest(replay) } });
+              sink.send({ event: "snapshot", id: latestTick(replay), data: snapshotOf(context, game, replay, ended) });
               sink.send({ event: "end", data: { game: ended } });
               sink.close();
               return () => undefined;
@@ -396,7 +458,7 @@ export const spectatingModule: ApiModule = {
                   sink.send({
                     event: "snapshot",
                     id: latestTick(event.replay),
-                    data: { game: currentGame(context, game.id, player.id), replay: latest(event.replay) },
+                    data: snapshotOf(context, game, event.replay, currentGame(context, game.id, player.id)),
                   });
                   break;
                 case "tick":

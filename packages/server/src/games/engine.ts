@@ -13,6 +13,7 @@
 
 import {
   createGame,
+  earlierTicks,
   gameRecord,
   playTick,
   programLogs,
@@ -21,6 +22,7 @@ import {
   type Game,
   type GameRecord,
   type GameResult,
+  type ReplayTick,
 } from "@positrontanks/engine-r1";
 import type { Build, MapFormat1, Ruleset } from "@positrontanks/ruleset-data";
 import type { DecidedBy, GameEnd } from "../db/games.js";
@@ -95,6 +97,13 @@ export interface GameEngine {
    * record does not reproduce.
    */
   resume(record: unknown, toTick: number): EngineGame;
+  /**
+   * What the Ticks of `replay` before its latest left behind (Obstacles
+   * destroyed, damage dealt, Bots Disabled and so on, in the engine's own
+   * terms), for a snapshot: a Spectator joining at the latest Tick sees the
+   * Game as it stands. Its size must not grow with the number of Ticks.
+   */
+  earlierTicks(replay: ReplayData): unknown;
 }
 
 const R1_ENDS: Readonly<Record<GameResult["end"], GameEnd>> = {
@@ -139,5 +148,9 @@ export function r1Engine(ruleset: Ruleset): GameEngine {
   return {
     start: (game) => r1Game(createGame({ ruleset, ...game })),
     resume: (record, toTick) => r1Game(replayGame(record as GameRecord, ruleset, toTick)),
+    earlierTicks: (replay) => {
+      const ticks = replay.ticks as readonly ReplayTick[];
+      return earlierTicks(ticks, ticks.at(-1)?.tick ?? 0);
+    },
   };
 }

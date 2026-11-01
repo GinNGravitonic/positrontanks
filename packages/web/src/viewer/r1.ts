@@ -9,10 +9,13 @@
  * also when that Tick's events are drawn as effects.
  *
  * A Replay assembled from a live stream starts at the Tick of joining rather
- * than Tick 0; its Ticks are numbered on from there.
+ * than Tick 0; its Ticks are numbered on from there. What happened before
+ * comes summarized with the snapshot (EarlierTicks): its destroyed Obstacles
+ * stay destroyed, its Disablements keep their real Tick, and its damage
+ * counts from just before the first Tick.
  */
 
-import type { BotFrame, ImpactEvent, ProjectileFrame, Replay, ReplayTick, TickEvent } from "@positrontanks/engine-r1";
+import type { BotFrame, EarlierTicks, ImpactEvent, ProjectileFrame, Replay, ReplayTick, TickEvent } from "@positrontanks/engine-r1";
 import type { Point } from "@positrontanks/ruleset-data";
 import { shapeBounds } from "../draw/geometry.js";
 import type { Damage, Disablement, Effect, EngineViewer, Hit, Scene, SceneBot, SceneProjectile, Time, ViewerReplay } from "./scene.js";
@@ -20,7 +23,7 @@ import type { Damage, Disablement, Effect, EngineViewer, Hit, Scene, SceneBot, S
 /** How long an event's effect lasts, in simulated seconds (at least one Tick). */
 export const EFFECT_SECONDS = 0.4;
 
-export const r1Viewer: EngineViewer = { load: (replay) => loadR1Replay(replay) };
+export const r1Viewer: EngineViewer = { load: (replay, earlier) => loadR1Replay(replay, earlier) };
 
 /** Whether `json` has an r1 Replay's header; its Ticks are trusted as the API sends them. */
 function isR1Replay(json: unknown): json is Replay {
@@ -35,7 +38,24 @@ function isR1Replay(json: unknown): json is Replay {
   );
 }
 
-export function loadR1Replay(json: unknown): ViewerReplay {
+/** Whether `json` is an r1 summary of the Ticks before `firstTick`; its entries are trusted as the API sends them. */
+function isEarlierTicks(json: unknown, firstTick: number): json is EarlierTicks {
+  const earlier = json as Partial<Record<keyof EarlierTicks, unknown>> | null | undefined;
+  return (
+    earlier?.beforeTick === firstTick &&
+    Array.isArray(earlier.obstaclesDestroyed) &&
+    Array.isArray(earlier.disabled) &&
+    Array.isArray(earlier.damage)
+  );
+}
+
+const NOTHING_EARLIER: Omit<EarlierTicks, "beforeTick"> = { obstaclesDestroyed: [], disabled: [], damage: [] };
+
+/**
+ * Reads an r1 Replay, with `earlierJson` taken as having happened before its
+ * first Tick. A summary of the Ticks before some other Tick is ignored.
+ */
+export function loadR1Replay(json: unknown, earlierJson?: unknown): ViewerReplay {
   if (!isR1Replay(json)) throw new Error("not an r1 Replay");
   const replay = json;
   const ticks = replay.ticks;
@@ -43,12 +63,14 @@ export function loadR1Replay(json: unknown): ViewerReplay {
   const last = ticks.at(-1);
   if (first === undefined || last === undefined) throw new Error("the Replay has no Ticks");
   if (ticks.some((t, i) => t.tick !== first.tick + i)) throw new Error("the Replay's Ticks are not numbered in order");
+  const earlier = isEarlierTicks(earlierJson, first.tick) ? earlierJson : NOTHING_EARLIER;
 
   const entryOf = new Map<number, number>();
   replay.entries.forEach((entry, i) => {
     for (const bot of entry.bots) entryOf.set(bot.id, i);
   });
   const destroyedAt = new Map<string, number>();
+  for (const e of earlier.obstaclesDestroyed) destroyedAt.set(e.obstacle, e.tick);
   for (const t of ticks) for (const e of t.events) if (e.type === "obstacleDestroyed") destroyedAt.set(e.obstacle, t.tick);
   const obstacleCenters = new Map(
     replay.map.obstacles.map((o) => {
@@ -66,10 +88,16 @@ export function loadR1Replay(json: unknown): ViewerReplay {
     firstTick: first.tick,
     lastTick: last.tick,
     hits: ticks.flatMap((t) => t.events.flatMap((e) => hitsOf(e, eventTime(t.tick)))),
-    damage: ticks.flatMap((t) => t.events.flatMap((e) => damageOf(e, eventTime(t.tick)))),
-    disablements: ticks.flatMap((t) =>
-      t.events.flatMap((e): Disablement[] => (e.type === "disabled" ? [{ time: eventTime(t.tick), bot: e.bot, cause: e.cause }] : [])),
-    ),
+    damage: [
+      ...earlier.damage.map((d): Damage => ({ time: first.tick - 1, target: d.target, dealer: d.dealer, amount: d.dealt })),
+      ...ticks.flatMap((t) => t.events.flatMap((e) => damageOf(e, eventTime(t.tick)))),
+    ],
+    disablements: [
+      ...earlier.disabled.map((e): Disablement => ({ time: eventTime(e.tick), bot: e.bot, cause: e.cause })),
+      ...ticks.flatMap((t) =>
+        t.events.flatMap((e): Disablement[] => (e.type === "disabled" ? [{ time: eventTime(t.tick), bot: e.bot, cause: e.cause }] : [])),
+      ),
+    ],
     scene(time: Time): Scene {
       const t = Math.min(Math.max(time, first.tick), last.tick);
       const i = Math.floor(t);

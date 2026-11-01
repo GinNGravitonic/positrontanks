@@ -134,6 +134,34 @@ describe("an r1 Replay's Scenes", () => {
     expect(destroyed.scene(0.5).effects).toEqual([{ kind: "explosion", at: { x: 30, y: 12 }, age: 0 }]);
   });
 
+  it("takes what happened before a live Replay's first Tick from the snapshot's summary", () => {
+    const map: MapFormat1 = { ...duel, obstacles: [{ id: "crate", shape: "circle", x: 30, y: 12, radius: 1, destructible: true, hitPoints: 50 }] };
+    const joined = replay([tick(7, [bot(1), bot(2, { hitPoints: 0, status: "disabled" })])], map);
+    const earlier = {
+      beforeTick: 7,
+      obstaclesDestroyed: [{ type: "obstacleDestroyed", tick: 3, obstacle: "crate" }],
+      disabled: [{ type: "disabled", tick: 5, bot: 2, cause: "destroyed" }],
+      damage: [
+        { dealer: 1, target: 2, dealt: 80 },
+        { dealer: null, target: 2, dealt: 20 },
+      ],
+    };
+    const live = loadR1Replay(joined, earlier);
+    expect([...live.scene(7).destroyedObstacles]).toEqual(["crate"]);
+    expect(live.scene(7).effects).toEqual([]);
+    expect(live.disablements).toEqual([{ time: 4.5, bot: 2, cause: "destroyed" }]);
+    expect(live.damage).toEqual([
+      { time: 6, target: 2, dealer: 1, amount: 80 },
+      { time: 6, target: 2, dealer: null, amount: 20 },
+    ]);
+
+    // A summary of the Ticks before some other Tick says nothing about these.
+    const stale = loadR1Replay(joined, { ...earlier, beforeTick: 6 });
+    expect([...stale.scene(7).destroyedObstacles]).toEqual([]);
+    expect(stale.damage).toEqual([]);
+    expect(stale.disablements).toEqual([]);
+  });
+
   it("refuses what is not an r1 Replay", () => {
     expect(() => loadR1Replay({ ruleset: "r1" })).toThrow("not an r1 Replay");
     expect(() => loadR1Replay(replay([]))).toThrow("no Ticks");

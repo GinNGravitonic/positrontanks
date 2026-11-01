@@ -6,7 +6,7 @@
  */
 
 import type { Build, MapFormat1 } from "@positrontanks/ruleset-data";
-import type { TickEvent } from "./events.js";
+import type { DisabledEvent, ObstacleDestroyedEvent, TickEvent } from "./events.js";
 import type { GameResult } from "./outcome.js";
 import type { BotStatus, World } from "./world.js";
 
@@ -80,4 +80,56 @@ export function replayTick(world: World, events: readonly TickEvent[]): ReplayTi
     })),
     projectiles: world.projectiles.map((p) => ({ id: p.id, x: p.x, y: p.y })),
   };
+}
+
+/**
+ * Damage to one Bot summed over Ticks: Hit Points actually removed (`dealt`),
+ * credited as the engine credits Foe damage: a shot to the Bot that fired it,
+ * a ram to the other Bot, and anything else (a ram into a wreck, an Obstacle
+ * or the boundary) to no Bot.
+ */
+export interface DamageTotal {
+  /** The Bot that dealt it, or null when no Bot did. */
+  readonly dealer: number | null;
+  readonly target: number;
+  readonly dealt: number;
+}
+
+/**
+ * What the Ticks before some Tick left behind, for a Spectator who joins at
+ * that Tick (v1.md section 8, Spectating): every Obstacle destroyed and Bot
+ * Disabled, as their events, and the damage to Bots per (dealer, target)
+ * pair. Its size is bounded by the Map and the Bots, however long the Game.
+ */
+export interface EarlierTicks {
+  /** The Ticks summarized are those before this one. */
+  readonly beforeTick: number;
+  /** In the order they happened. */
+  readonly obstaclesDestroyed: readonly ObstacleDestroyedEvent[];
+  /** In the order they happened. */
+  readonly disabled: readonly DisabledEvent[];
+  /** Pairs with no Hit Points removed are left out; in the order each pair first took damage. */
+  readonly damage: readonly DamageTotal[];
+}
+
+/** What `ticks` before Tick `beforeTick` left behind. */
+export function earlierTicks(ticks: readonly ReplayTick[], beforeTick: number): EarlierTicks {
+  const obstaclesDestroyed: ObstacleDestroyedEvent[] = [];
+  const disabled: DisabledEvent[] = [];
+  const damage = new Map<string, { dealer: number | null; target: number; dealt: number }>();
+  for (const t of ticks) {
+    if (t.tick >= beforeTick) continue;
+    for (const e of t.events) {
+      if (e.type === "obstacleDestroyed") obstaclesDestroyed.push(e);
+      else if (e.type === "disabled") disabled.push(e);
+      else if (e.type === "damage" && e.target.kind === "bot" && e.dealt > 0) {
+        const dealer = e.source.kind === "weapon" ? e.source.bot : e.source.with.kind === "bot" ? e.source.with.id : null;
+        const key = `${String(dealer)}>${String(e.target.id)}`;
+        const total = damage.get(key);
+        if (total === undefined) damage.set(key, { dealer, target: e.target.id, dealt: e.dealt });
+        else total.dealt += e.dealt;
+      }
+    }
+  }
+  return { beforeTick, obstaclesDestroyed, disabled, damage: [...damage.values()] };
 }

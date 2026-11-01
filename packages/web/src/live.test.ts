@@ -1,20 +1,24 @@
-import { replayGame, replayOf, type GameRecord, type Replay } from "@positrontanks/engine-r1";
+import { earlierTicks, replayGame, replayOf, type EarlierTicks, type GameRecord, type Replay } from "@positrontanks/engine-r1";
 import duelLastStanding from "@positrontanks/engine-r1/golden/duel-last-standing.json";
+import fourCornersTimeLimit from "@positrontanks/engine-r1/golden/four-corners-time-limit.json";
 import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { describe, expect, it } from "vitest";
 import { ApiError } from "./api/client.js";
 import { followGame, liveTime, LiveReplay, readEvents, RECONNECT_BACKOFF_MS, WAIT_POLL_MS, waitWhileRunning, type GameSnapshot, type StreamHandlers } from "./live.js";
 import { createServices, signUp } from "./services.js";
 import { fakeApi, memoryHistory, memoryStorage, sseEvent, testGame, type StreamOpening } from "./test-platform.js";
+import { botFigures } from "./viewer/figures.js";
 import { r1Viewer } from "./viewer/r1.js";
 
-const golden = JSON.parse(JSON.stringify(replayOf(replayGame(duelLastStanding.record as unknown as GameRecord, loadRuleset("r1"))))) as Replay;
+const replayOfGolden = (golden: { readonly record: unknown }): Replay =>
+  JSON.parse(JSON.stringify(replayOf(replayGame(golden.record as GameRecord, loadRuleset("r1"))))) as Replay;
+const golden = replayOfGolden(duelLastStanding);
 const running = testGame({ state: "running", startedAt: "2026-10-31T00:10:00.000Z" });
 const finished = { ...running, state: "finished" as const, endedAt: "2026-10-31T00:12:00.000Z" };
 
-/** A snapshot of the golden Game at Tick `tick`. */
-const snapshot = (tick: number): GameSnapshot =>
-  ({ game: running, replay: { ...golden, ticks: [golden.ticks[tick]], result: null } }) as unknown as GameSnapshot;
+/** A snapshot of a golden Game (the duel, unless given) at Tick `tick`. */
+const snapshot = (tick: number, of: Replay = golden): GameSnapshot =>
+  ({ game: running, replay: { ...of, ticks: [of.ticks[tick]], result: null }, earlier: earlierTicks(of.ticks, tick) }) as unknown as GameSnapshot;
 const tickEvent = (tick: number) => sseEvent("tick", golden.ticks[tick], tick);
 
 async function signedIn(streams: Readonly<Record<string, readonly StreamOpening[]>>, games = [running]) {
@@ -154,7 +158,7 @@ describe("assembling a live Replay", () => {
     expect(live.replay()).toBeUndefined();
     live.tick(golden.ticks[4]);
     expect(live.replay()).toBeUndefined();
-    live.snapshot(snapshot(5).replay);
+    live.snapshot(snapshot(5));
     live.tick(golden.ticks[6]);
     live.tick(golden.ticks[6]);
     live.tick(golden.ticks[3]);
@@ -164,17 +168,17 @@ describe("assembling a live Replay", () => {
 
   it("continues from a fresh snapshot that follows on, and starts again from one after missed Ticks", () => {
     const live = new LiveReplay();
-    live.snapshot(snapshot(5).replay);
-    live.snapshot(snapshot(6).replay);
-    live.snapshot(snapshot(6).replay);
+    live.snapshot(snapshot(5));
+    live.snapshot(snapshot(6));
+    live.snapshot(snapshot(6));
     expect(ticksOf(live)).toEqual([5, 6]);
-    live.snapshot(snapshot(9).replay);
+    live.snapshot(snapshot(9));
     expect(ticksOf(live)).toEqual([9]);
   });
 
   it("is watched through the Ruleset's viewer, from the moment of joining", () => {
     const live = new LiveReplay();
-    live.snapshot(snapshot(5).replay);
+    live.snapshot(snapshot(5));
     for (const t of [6, 7, 8]) live.tick(golden.ticks[t]);
     const replay = r1Viewer.load(live.replay());
     expect(replay.firstTick).toBe(5);
@@ -182,6 +186,36 @@ describe("assembling a live Replay", () => {
     const full = r1Viewer.load(golden);
     expect(replay.scene(0).bots).toEqual(full.scene(5).bots);
     expect(replay.scene(6.5).bots).toEqual(full.scene(6.5).bots);
+  });
+
+  it("keeps the summary of earlier Ticks from the snapshot it started from", () => {
+    const beforeTick = (live: LiveReplay) => (live.earlier() as EarlierTicks | undefined)?.beforeTick;
+    const live = new LiveReplay();
+    live.snapshot(snapshot(5));
+    live.snapshot(snapshot(6));
+    expect(beforeTick(live)).toBe(5);
+    live.snapshot(snapshot(9));
+    expect(beforeTick(live)).toBe(9);
+    live.tick(golden.ticks[12]);
+    expect(ticksOf(live)).toEqual([12]);
+    expect(live.earlier()).toBeUndefined();
+  });
+
+  it("shows what happened before joining as the whole Game does", () => {
+    // Four corners: damage from Tick 153, and a Bot Disabled in Tick 202.
+    const game = replayOfGolden(fourCornersTimeLimit);
+    const live = new LiveReplay();
+    live.snapshot(snapshot(210, game));
+    for (const t of [211, 212, 213]) live.tick(game.ticks[t]);
+    const replay = r1Viewer.load(live.replay(), live.earlier());
+    const full = r1Viewer.load(game);
+    expect(replay.disablements).toEqual(full.disablements.filter((d) => d.time <= 213));
+    expect(replay.disablements).toHaveLength(1);
+    const bots = game.entries.flatMap((e) => e.bots.map((b) => b.id));
+    for (const time of [210, 211.5, 213]) {
+      for (const bot of bots) expect(botFigures(replay, bot, time)).toEqual(botFigures(full, bot, time));
+    }
+    expect(bots.some((bot) => botFigures(replay, bot, 210).taken > 0)).toBe(true);
   });
 });
 

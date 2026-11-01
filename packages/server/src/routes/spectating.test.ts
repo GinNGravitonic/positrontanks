@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
-import type { Replay, ReplayTick } from "@positrontanks/engine-r1";
+import { earlierTicks, type EarlierTicks, type Replay, type ReplayTick } from "@positrontanks/engine-r1";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";
@@ -177,6 +177,7 @@ interface Game {
 interface Snapshot {
   game: Game;
   replay: Replay;
+  earlier: EarlierTicks;
 }
 
 interface Event {
@@ -273,6 +274,7 @@ describe("the event stream", () => {
     expect(events.map((e) => e.id)).toEqual(ticks.map((t) => String(t.tick)));
     const replay = await storedReplay(id);
     expect(snapshot.replay.ticks[0]).toEqual(replay.ticks[5]);
+    expect(snapshot.earlier).toEqual(earlierTicks(replay.ticks, 5));
     expect(ticks).toEqual(replay.ticks.slice(6));
     const header = (r: Replay) => ({ ruleset: r.ruleset, tickRate: r.tickRate, map: r.map, timeLimitTicks: r.timeLimitTicks, entries: r.entries });
     expect(header(snapshot.replay)).toEqual(header(replay));
@@ -324,7 +326,9 @@ describe("the event stream", () => {
 
     const events = await rest((await stream(server, p.carol, id)).events);
     expect(events.map((e) => e.event)).toEqual(["snapshot", "end"]);
-    expect((events[0]?.data as Snapshot).replay.ticks).toEqual(replay.ticks.slice(-1));
+    const snapshot = events[0]?.data as Snapshot;
+    expect(snapshot.replay.ticks).toEqual(replay.ticks.slice(-1));
+    expect(snapshot.earlier).toEqual(earlierTicks(replay.ticks, replay.ticks.at(-1)?.tick ?? 0));
     expect((events[1]?.data as { game: Game }).game.state).toBe("finished");
   });
 
@@ -371,6 +375,7 @@ describe("snapshots and Replays", () => {
     expect(live.status).toBe(200);
     expect((live.body as Snapshot).replay.ticks.map((t) => t.tick)).toEqual([5]);
     expect((live.body as Snapshot).replay.result).toBeNull();
+    expect((live.body as Snapshot).earlier.beforeTick).toBe(5);
     const early = await call(server, "GET", `/games/${id}/replay`, { token: p.carol });
     expect(early.status).toBe(409);
     expect(codeOf(early)).toBe("game_not_finished");
@@ -390,8 +395,28 @@ describe("snapshots and Replays", () => {
     const final = await call(server, "GET", `/games/${id}/snapshot`, { token: p.carol });
     expect((final.body as Snapshot).replay.ticks).toEqual(plain(replay.ticks.slice(-1)));
     expect((final.body as Snapshot).replay.result).toEqual(plain(replay.result));
+    // Joining at the end, what the Ticks before it left behind comes too.
+    const earlier = (final.body as Snapshot).earlier;
+    expect(earlier).toEqual(plain(earlierTicks(replay.ticks, replay.ticks.at(-1)?.tick ?? 0)));
 
     for (const response of [live, full, final]) expect(response.text).not.toContain(SECRET);
+  });
+
+  it("sums up the damage dealt before a snapshot's Tick", async () => {
+    // Each Game draws its own seed, so a Game may end before any shot lands; a few Games are as good as
+    // certain to show damage, and the first that does is enough.
+    const server = await boot();
+    const p = await setUp(server);
+    let damaged: EarlierTicks | undefined;
+    for (let game = 0; game < 5 && damaged === undefined; game++) {
+      const id = await playGame(server, p, "unthrottled");
+      await server.services.runner.idle();
+      const replay = await storedReplay(id);
+      const snapshot = (await call(server, "GET", `/games/${id}/snapshot`, { token: p.carol })).body as Snapshot;
+      expect(snapshot.earlier).toEqual(earlierTicks(replay.ticks, replay.ticks.at(-1)?.tick ?? 0));
+      if (snapshot.earlier.damage.length > 0) damaged = snapshot.earlier;
+    }
+    expect(damaged?.damage.every((d) => d.dealt > 0 && [1, 2].includes(d.target))).toBe(true);
   });
 
   it("has no Replay for Open or Cancelled Games", async () => {

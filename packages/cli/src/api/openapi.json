@@ -2320,7 +2320,7 @@
       "get": {
         "operationId": "getGameSnapshot",
         "summary": "Get the latest Tick of a Running or Finished Game",
-        "description": "The Game, and its Replay header with only the latest Tick played in `replay.ticks` (the last Tick, once Finished). Open Games answer 409 `game_not_started`, as do Running Games the server has not started playing yet; Cancelled Games answer 409 `game_cancelled`.",
+        "description": "The Game, and its Replay header with only the latest Tick played in `replay.ticks` (the last Tick, once Finished), and what the Ticks before it left behind in `earlier`. Open Games answer 409 `game_not_started`, as do Running Games the server has not started playing yet; Cancelled Games answer 409 `game_cancelled`.",
         "tags": [
           "Spectating"
         ],
@@ -5730,12 +5730,115 @@
           }
         }
       },
+      "EarlierTicks": {
+        "type": "object",
+        "description": "What the Ticks before a snapshot's Tick left behind, so a Spectator joining then sees the Game as it stands. Its size depends on the Map and the Bots, not on how long the Game has run. The shape is the Ruleset version's; this describes r1.",
+        "required": [
+          "beforeTick",
+          "obstaclesDestroyed",
+          "disabled",
+          "damage"
+        ],
+        "properties": {
+          "beforeTick": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The Ticks summarized are those before this one: the snapshot's Tick."
+          },
+          "obstaclesDestroyed": {
+            "type": "array",
+            "description": "Every `obstacleDestroyed` event of those Ticks, in order.",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "tick",
+                "obstacle"
+              ],
+              "properties": {
+                "type": {
+                  "const": "obstacleDestroyed"
+                },
+                "tick": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "obstacle": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "disabled": {
+            "type": "array",
+            "description": "Every `disabled` event of those Ticks, in order.",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "tick",
+                "bot",
+                "cause"
+              ],
+              "properties": {
+                "type": {
+                  "const": "disabled"
+                },
+                "tick": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "bot": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "cause": {
+                  "type": "string",
+                  "enum": [
+                    "destroyed",
+                    "programHalted"
+                  ]
+                }
+              }
+            }
+          },
+          "damage": {
+            "type": "array",
+            "description": "Hit Points removed from Bots (`damage` events' `dealt`) in those Ticks, summed per dealer and target, in the order each pair first took damage. A shot is dealt by the Bot that fired it, a ram by the other Bot; a ram into a wreck, an Obstacle or the boundary by no Bot (`dealer` null).",
+            "items": {
+              "type": "object",
+              "required": [
+                "dealer",
+                "target",
+                "dealt"
+              ],
+              "properties": {
+                "dealer": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "target": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "dealt": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
       "GameSnapshot": {
         "type": "object",
-        "description": "A Game and its Replay so far, with only the latest Tick in `replay.ticks`.",
+        "description": "A Game and its Replay so far, with only the latest Tick in `replay.ticks`, and what the Ticks before it left behind in `earlier`.",
         "required": [
           "game",
-          "replay"
+          "replay",
+          "earlier"
         ],
         "additionalProperties": false,
         "properties": {
@@ -5744,6 +5847,9 @@
           },
           "replay": {
             "$ref": "#/components/schemas/Replay"
+          },
+          "earlier": {
+            "$ref": "#/components/schemas/EarlierTicks"
           }
         }
       },

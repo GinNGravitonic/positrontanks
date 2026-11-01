@@ -171,7 +171,7 @@ function LiveGame({ game, onWatchAgain }: { readonly game: Game; readonly onWatc
     const show = () => {
       frame = 0;
       const json = live.replay();
-      if (json !== undefined) setReplay(viewer.load(json));
+      if (json !== undefined) setReplay(viewer.load(json, live.earlier()));
     };
     const changed = () => {
       if (frame === 0) frame = requestAnimationFrame(show);
@@ -181,7 +181,7 @@ function LiveGame({ game, onWatchAgain }: { readonly game: Game; readonly onWatc
       game.id,
       {
         onSnapshot: (snapshot) => {
-          live.snapshot(snapshot.replay);
+          live.snapshot(snapshot);
           setStatus("live");
           changed();
         },

@@ -47,7 +47,7 @@ Authoring stays with the CLI and the plugin's skills for now: the first version 
 
 What a Spectator can watch depends on the Game's Pace:
 
-- **Real time, Running**: watched live from `GET /games/{id}/stream`, read with a fetch-based SSE client that sends the `Authorization` header (native `EventSource` cannot). The stream starts with a snapshot, so a live view begins at the moment of joining and cannot rewind. A stream that closes without `end` is reopened for a fresh snapshot. When `end` arrives, Game Over is shown.
+- **Real time, Running**: watched live from `GET /games/{id}/stream`, read with a fetch-based SSE client that sends the `Authorization` header (native `EventSource` cannot). The stream starts with a snapshot, so a live view begins at the moment of joining and cannot rewind. What happened before joining comes with the snapshot as a summary (`earlier`, v1 spec, Spectating), which the viewer treats as having happened before its first Tick: Obstacles destroyed earlier stay destroyed, the Bot inset's damage figures count from the start of the Game, and a Bot Disabled earlier shows when and why. A stream that closes without `end` is reopened for a fresh snapshot; if Ticks were missed, the live Replay starts again from it, summary included. When `end` arrives, Game Over is shown.
 - **Unthrottled, Running**: not watched live. The page says the Game is being played and that its Replay comes when it is Finished, checks the Game every few seconds, and switches to the Replay by itself once it is.
 - **Finished**: the Replay (`GET /games/{id}/replay`), from Tick 0, with a "Skip to result" button. Game Over is shown when playback reaches the end.
 

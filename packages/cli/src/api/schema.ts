@@ -711,7 +711,7 @@ export interface paths {
         };
         /**
          * Get the latest Tick of a Running or Finished Game
-         * @description The Game, and its Replay header with only the latest Tick played in `replay.ticks` (the last Tick, once Finished). Open Games answer 409 `game_not_started`, as do Running Games the server has not started playing yet; Cancelled Games answer 409 `game_cancelled`.
+         * @description The Game, and its Replay header with only the latest Tick played in `replay.ticks` (the last Tick, once Finished), and what the Ticks before it left behind in `earlier`. Open Games answer 409 `game_not_started`, as do Running Games the server has not started playing yet; Cancelled Games answer 409 `game_cancelled`.
          */
         get: operations["getGameSnapshot"];
         put?: never;
@@ -1787,10 +1787,38 @@ export interface components {
                 }[];
             } | null;
         };
-        /** @description A Game and its Replay so far, with only the latest Tick in `replay.ticks`. */
+        /** @description What the Ticks before a snapshot's Tick left behind, so a Spectator joining then sees the Game as it stands. Its size depends on the Map and the Bots, not on how long the Game has run. The shape is the Ruleset version's; this describes r1. */
+        EarlierTicks: {
+            /** @description The Ticks summarized are those before this one: the snapshot's Tick. */
+            beforeTick: number;
+            /** @description Every `obstacleDestroyed` event of those Ticks, in order. */
+            obstaclesDestroyed: {
+                /** @constant */
+                type: "obstacleDestroyed";
+                tick: number;
+                obstacle: string;
+            }[];
+            /** @description Every `disabled` event of those Ticks, in order. */
+            disabled: {
+                /** @constant */
+                type: "disabled";
+                tick: number;
+                bot: number;
+                /** @enum {string} */
+                cause: "destroyed" | "programHalted";
+            }[];
+            /** @description Hit Points removed from Bots (`damage` events' `dealt`) in those Ticks, summed per dealer and target, in the order each pair first took damage. A shot is dealt by the Bot that fired it, a ram by the other Bot; a ram into a wreck, an Obstacle or the boundary by no Bot (`dealer` null). */
+            damage: {
+                dealer: number | null;
+                target: number;
+                dealt: number;
+            }[];
+        };
+        /** @description A Game and its Replay so far, with only the latest Tick in `replay.ticks`, and what the Ticks before it left behind in `earlier`. */
         GameSnapshot: {
             game: components["schemas"]["Game"];
             replay: components["schemas"]["Replay"];
+            earlier: components["schemas"]["EarlierTicks"];
         };
         GameReplay: {
             game: components["schemas"]["Game"];

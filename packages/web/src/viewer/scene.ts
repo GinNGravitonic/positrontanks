@@ -122,6 +122,11 @@ export interface ViewerReplay {
 
 /** The viewer for one engine's Replays. */
 export interface EngineViewer {
-  /** Reads a Replay as the API returns it; throws if it is not one of this engine's. */
-  load(replay: unknown): ViewerReplay;
+  /**
+   * Reads a Replay as the API returns it; throws if it is not one of this
+   * engine's. A Replay assembled from a live stream starts at the Tick of
+   * joining; `earlier`, the summary of the Ticks before it that came with
+   * the snapshot, is taken as having happened before its first Tick.
+   */
+  load(replay: unknown, earlier?: unknown): ViewerReplay;
 }

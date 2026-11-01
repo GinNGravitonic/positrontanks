@@ -154,27 +154,31 @@ interface Frame {
 
 /**
  * A Replay assembled from the stream (v1 spec, Spectating): a snapshot's
- * header and Ticks, then every Tick after them. A fresh snapshot after a
- * reconnect continues it when it follows on; when Ticks were missed it starts
- * the Replay again from that snapshot, since a viewer's Ticks must follow each
+ * header and Ticks, then every Tick after them, with the snapshot's summary
+ * of the Ticks before those. A fresh snapshot after a reconnect continues it
+ * when it follows on; when Ticks were missed it starts the Replay again from
+ * that snapshot, summary and all, since a viewer's Ticks must follow each
  * other.
  */
 export class LiveReplay {
   private header: Readonly<Record<string, unknown>> | undefined;
   private frames: Frame[] = [];
+  private summary: unknown;
 
   /** The last Tick so far, or -1 before the first snapshot. */
   get lastTick(): number {
     return this.frames.at(-1)?.tick ?? -1;
   }
 
-  /** Takes a snapshot's Replay: a header and its latest Ticks. */
-  snapshot(replay: unknown): void {
+  /** Takes a snapshot: its Replay's header and latest Ticks, and what the Ticks before those left behind. */
+  snapshot({ replay, earlier }: { readonly replay: unknown; readonly earlier: unknown }): void {
     const { ticks, ...header } = replay as { readonly ticks: readonly Frame[] };
     this.header = header;
     const fresh = ticks.filter((frame) => frame.tick > this.lastTick);
     const first = fresh[0];
-    if (first !== undefined && first.tick !== this.lastTick + 1) this.frames = [];
+    if (first === undefined) return;
+    if (first.tick !== this.lastTick + 1) this.frames = [];
+    if (this.frames.length === 0) this.summary = earlier;
     for (const frame of fresh) this.tick(frame);
   }
 
@@ -182,13 +186,22 @@ export class LiveReplay {
   tick(frame: unknown): void {
     const next = frame as Frame;
     if (this.header === undefined || next.tick <= this.lastTick) return;
-    if (this.frames.length > 0 && next.tick !== this.lastTick + 1) this.frames = [];
+    if (this.frames.length > 0 && next.tick !== this.lastTick + 1) {
+      // What came between is unknown, so what came before is too.
+      this.frames = [];
+      this.summary = undefined;
+    }
     this.frames.push(next);
   }
 
   /** The Replay so far, as the API sends Replays, or undefined before the first snapshot. */
   replay(): unknown {
     return this.header === undefined || this.frames.length === 0 ? undefined : { ...this.header, ticks: this.frames.slice() };
+  }
+
+  /** What the Ticks before the Replay's first left behind, as its snapshot gave it; undefined if unknown. */
+  earlier(): unknown {
+    return this.summary;
   }
 }
 
