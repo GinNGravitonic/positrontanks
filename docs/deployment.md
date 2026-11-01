@@ -83,3 +83,73 @@ Without `domainName` the server is plain HTTP on the load balancer's DNS name.
 Player Emblems and Bot Design Icons are objects in the objects bucket (`pulumi
 stack output objectsBucket`). To take one down, delete its object with `aws s3
 rm`; see [docs/images.md](images.md).
+
+## Tearing down
+
+`pulumi destroy` alone fails on the three resources that fill up while the
+server runs: the two S3 buckets (the Litestream replica is never empty) and
+the ECR repository (`pulumi up` pushed an image to it). Neither bucket sets
+`forceDestroy` and the repository does not set `forceDelete`, so the server's
+data cannot be lost by accident. The CloudWatch log group and the Secrets
+Manager secret (no recovery window) go with `pulumi destroy`.
+
+So stop the task, delete those three with their contents, then destroy the
+rest. In `packages/infra`, on the stack to remove, read the names from the
+stack's outputs:
+
+```bash
+OBJECTS=$(pulumi stack output objectsBucket)
+REPLICA=$(pulumi stack output litestreamBucket)
+REPOSITORY=$(pulumi stack output repositoryUrl | cut -d/ -f2)
+CLUSTER=$(pulumi stack output clusterName)
+SERVICE=$(pulumi stack output serviceName)
+REGION=$(pulumi config get aws:region)
+```
+
+Stop the task, so Litestream stops writing to the replica:
+
+```bash
+aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" --desired-count 0 --region "$REGION"
+aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE" --region "$REGION"
+```
+
+Delete both buckets and the repository, with their contents. The buckets
+are not versioned, so `--force` empties them completely.
+
+```bash
+aws s3 rb "s3://$OBJECTS" --force
+aws s3 rb "s3://$REPLICA" --force
+aws ecr delete-repository --repository-name "$REPOSITORY" --force --region "$REGION"
+```
+
+Then destroy the rest and remove the stack. `pulumi destroy` takes the three
+deleted resources as already gone.
+
+```bash
+pulumi destroy --yes
+```
+
+```bash
+pulumi stack rm <stack>
+```
+
+If `pulumi destroy` stops with a timeout or a dependency violation on a
+subnet or security group, run it again a minute later: the load balancer's
+and the task's network interfaces take a while to detach.
+
+Left behind:
+
+- ECS task definitions. Deregistered revisions stay as `INACTIVE` and cost
+  nothing. To remove them, pass the ARNs from
+  `aws ecs list-task-definitions --family-prefix positrontanks --status INACTIVE`
+  to `aws ecs delete-task-definitions --task-definitions ...`.
+- The Pulumi state backend. `pulumi stack rm` removes the stack from it; a
+  self-managed backend's bucket (`pulumi login s3://...`) is yours to delete.
+- The Docker images and build cache on the machine that ran `pulumi up`.
+
+To check that nothing tagged is left in the region (resources without tags
+do not show up here, so also look at S3, ECR and ECS):
+
+```bash
+aws resourcegroupstaggingapi get-resources --region "$REGION" --query "ResourceTagMappingList[?contains(ResourceARN, 'positrontanks')].ResourceARN"
+```
