@@ -59,7 +59,13 @@ describe("the Watch screen", () => {
   it("says why a Game that is not Finished has no Replay to show", () => {
     expect(render(testGame())).toContain("has not started yet");
     expect(render(testGame({ state: "cancelled", cancelReason: "initiator", endedAt: "2026-10-31T00:30:00.000Z" }))).toContain("It has no Replay");
-    expect(render(testGame({ state: "running" }))).toContain("positrontanks games watch g1");
+  });
+
+  it("joins a real-time Running Game live, and waits for an unthrottled one's Replay", () => {
+    expect(render(testGame({ state: "running" }))).toContain("Joining the Game…");
+    const waiting = render(testGame({ state: "running", pace: "unthrottled" }));
+    expect(waiting).toContain("cannot be watched live");
+    expect(waiting).toContain("shows the Replay as soon as it is");
   });
 
   it("starts on the signed-in Player's first Bot, or else the first Bot", async () => {

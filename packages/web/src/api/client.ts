@@ -80,6 +80,30 @@ export class ApiClient {
       throw new ApiError(response.status, "bad_response", `The server's answer to ${method} ${path} is not JSON.`);
     }
   }
+
+  /**
+   * Opens an event stream (`GET path`, as `text/event-stream`) and returns
+   * its body to read; throws ApiError as `request` does if it cannot. Native
+   * EventSource is not used because it cannot send the session token.
+   */
+  async openStream(path: string, options: { readonly signal?: AbortSignal; readonly lastEventId?: string } = {}): Promise<ReadableStream<Uint8Array>> {
+    const token = this.options.token();
+    const headers: Record<string, string> = { accept: "text/event-stream" };
+    if (token !== undefined) headers.authorization = `Bearer ${token}`;
+    if (options.lastEventId !== undefined) headers["last-event-id"] = options.lastEventId;
+
+    let response: Response;
+    try {
+      response = await this.options.fetch(path, { headers, ...(options.signal === undefined ? {} : { signal: options.signal }) });
+    } catch (error) {
+      if (options.signal?.aborted === true) throw error;
+      throw new ApiError(0, "network", "Cannot reach the server. Check your connection and try again.");
+    }
+    if (response.status === 401 && token !== undefined) this.options.onUnauthorized();
+    if (!response.ok) throw responseError(response.status, await response.text().catch(() => ""));
+    if (response.body === null) throw new ApiError(response.status, "bad_response", `The server answered GET ${path} without a body.`);
+    return response.body;
+  }
 }
 
 /** `path` with the query's defined values appended. */

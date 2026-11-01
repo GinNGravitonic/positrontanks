@@ -144,7 +144,8 @@ table.entries td {
   margin: 0;
 }
 
-.game .state {
+.game .state,
+.viewer .state {
   font-size: 0.8em;
   font-weight: normal;
   padding: 0.1rem 0.5rem;

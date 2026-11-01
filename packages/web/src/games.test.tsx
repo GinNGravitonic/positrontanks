@@ -183,7 +183,7 @@ describe("the Game page", () => {
     expect(view(testGame({ state: "running", startedAt: "2026-10-31T00:10:00.000Z" }))).toContain('href="/play/games/g1/watch"');
     const unthrottled = view(testGame({ state: "running", pace: "unthrottled" }));
     expect(unthrottled).toContain("Replay comes when it is Finished");
-    expect(unthrottled).not.toContain("/watch");
+    expect(unthrottled).toContain(">Wait for the Replay</a>");
   });
 
   it("shows a Finished Game's result with a link to its Replay", () => {

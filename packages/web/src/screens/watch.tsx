@@ -1,15 +1,18 @@
 /**
- * Watching a Game (frontend spec sections 6 and 7): a Finished Game's
- * Replay in the viewer, from Tick 0, with its time controls; a Game of a
- * Ruleset without a viewer says so instead. The main view pans by dragging
- * and zooms with the wheel or its buttons; the overview moves it by a click
- * or a drag. Clicking a Bot selects it and opens its inset, whose Follow
- * button follows it until the Spectator pans. Game Over is shown over the
- * final frame when playback reaches the end.
+ * Watching a Game (frontend spec sections 6 and 7): a real-time Running Game
+ * live from its stream, from the moment of joining and with no time
+ * controls; an unthrottled Running Game's waiting page, which switches to the
+ * Replay once the Game is Finished; a Finished Game's Replay from Tick 0, with
+ * its time controls. A Game of a Ruleset without a viewer says so instead.
+ * The main view pans by dragging and zooms with the wheel or its buttons; the
+ * overview moves it by a click or a drag. Clicking a Bot selects it and opens
+ * its inset, whose Follow button follows it until the Spectator pans. Game
+ * Over is shown over the final frame when a Replay's playback reaches the
+ * end, or when a live Game ends.
  */
 
 import type { Point } from "@positrontanks/ruleset-data";
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { ApiError } from "../api/client.js";
 import { botParts, botReach, type Catalog } from "../draw/bot.js";
 import { fitView, screenToMap, type View } from "../draw/geometry.js";
@@ -17,13 +20,14 @@ import { mapBounds } from "../draw/map.js";
 import { Canvas } from "../draw/preview.js";
 import { cancelReasonText, getGame, problemText, type Game } from "../games.js";
 import { Link, useLoad, useServices, useSession } from "../hooks.js";
-import { loadReplay } from "../replays.js";
+import { followGame, liveTime, LiveReplay, WAIT_POLL_MS, waitWhileRunning } from "../live.js";
+import { getPartsCatalog, loadReplay, type LoadedReplay } from "../replays.js";
 import { centerOn, defaultView, panBy, resizeView, zoomAt } from "../viewer/camera.js";
 import { drawMainView, drawOverview, type BotLooks } from "../viewer/draw-scene.js";
 import { botAt, follow, followStep, zoomFollowing, type Camera } from "../viewer/follow.js";
 import { advance, clockText, seek, skipToEnd, SPEEDS, START, togglePlaying, type Playback } from "../viewer/playback.js";
-import type { ViewerReplay } from "../viewer/scene.js";
-import { unsupportedText } from "../viewer/viewers.js";
+import type { Time, ViewerReplay } from "../viewer/scene.js";
+import { unsupportedText, viewerFor } from "../viewer/viewers.js";
 import { BotInset } from "./bot-inset.js";
 import { GameOver } from "./game-over.js";
 import { gameRoute } from "./game.js";
@@ -39,28 +43,32 @@ export function WatchScreen({ id }: { readonly id: string }) {
       </p>
     );
   }
-  return <WatchGame game={game.value} />;
+  return <WatchGame key={id} game={game.value} />;
 }
 
-/** What there is to watch of `game`, by its state. */
-export function WatchGame({ game }: { readonly game: Game }) {
-  const back = (
-    <p>
-      <Link to={gameRoute(game.id)}>Back to the Game</Link>
-    </p>
-  );
+/**
+ * What there is to watch of `game`, by its state. A Game watched live or
+ * waited for here moves on to its Replay once it is Finished.
+ */
+export function WatchGame({ game: first }: { readonly game: Game }) {
+  const [game, setGame] = useState(first);
+  /** The Finished Game's Replay, when it was already loaded on the way here. */
+  const [loaded, setLoaded] = useState<LoadedReplay>();
+  const back = <BackToGame id={game.id} />;
   switch (game.state) {
     case "finished":
-      return <FinishedGame game={game} />;
+      return <FinishedGame game={game} {...(loaded === undefined ? {} : { loaded })} />;
     case "running":
-      return (
-        <>
-          <h2>Watch Game</h2>
-          <p>
-            Watching Running Games is not in the web client yet. Meanwhile, use the CLI: <code>{`positrontanks games watch ${game.id}`}</code>
-          </p>
-          {back}
-        </>
+      return game.pace === "realtime" ? (
+        <LiveGame
+          game={game}
+          onWatchAgain={(finished, replay) => {
+            setLoaded(replay);
+            setGame(finished);
+          }}
+        />
+      ) : (
+        <WaitingGame game={game} onChanged={setGame} />
       );
     case "open":
       return (
@@ -81,9 +89,201 @@ export function WatchGame({ game }: { readonly game: Game }) {
   }
 }
 
-function FinishedGame({ game }: { readonly game: Game }) {
+function BackToGame({ id }: { readonly id: string }) {
+  return (
+    <p>
+      <Link to={gameRoute(id)}>Back to the Game</Link>
+    </p>
+  );
+}
+
+export interface WaitingGameProps {
+  readonly game: Game;
+  /** Called with the Game once it is no longer Running. */
+  readonly onChanged: (game: Game) => void;
+}
+
+/** An unthrottled Running Game: says its Replay comes when it is Finished, and checks every few seconds until it is no longer Running. */
+export function WaitingGame({ game, onChanged }: WaitingGameProps) {
   const { api } = useServices();
-  const loaded = useLoad(() => loadReplay(api, game), game.id);
+  const [problem, setProblem] = useState<string>();
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
+  useEffect(() => {
+    const controller = new AbortController();
+    waitWhileRunning(api, game.id, { signal: controller.signal }).then(
+      (now) => {
+        changed.current(now);
+      },
+      (error: unknown) => {
+        if (!controller.signal.aborted) setProblem(problemText(error));
+      },
+    );
+    return () => {
+      controller.abort();
+    };
+  }, [api, game.id]);
+  return (
+    <>
+      <h2>
+        {game.map.name} <span className="state running">Being played</span>
+      </h2>
+      <p>
+        This Game is being played at unthrottled Pace, so it cannot be watched live. Its Replay comes when it is Finished; this page checks every{" "}
+        {String(WAIT_POLL_MS / 1000)} seconds and shows the Replay as soon as it is.
+      </p>
+      {problem === undefined ? null : (
+        <p className="error" role="alert">
+          {problem}
+        </p>
+      )}
+      <BackToGame id={game.id} />
+    </>
+  );
+}
+
+/** How the live stream is going. */
+type LiveStatus = "joining" | "live" | "reconnecting";
+
+/**
+ * A real-time Running Game, live from its stream. When the Game ends, its
+ * Replay is loaded and Game Over shown over the final frame; watching again
+ * moves on to the Replay.
+ */
+function LiveGame({ game, onWatchAgain }: { readonly game: Game; readonly onWatchAgain: (finished: Game, replay: LoadedReplay) => void }) {
+  const { api } = useServices();
+  const viewer = viewerFor(game.rulesetVersion);
+  const catalog = useLoad(() => getPartsCatalog(api, game.rulesetVersion), game.rulesetVersion);
+  const [replay, setReplay] = useState<ViewerReplay>();
+  const [status, setStatus] = useState<LiveStatus>("joining");
+  const [time, setTime] = useState<Time>();
+  const [ended, setEnded] = useState<{ readonly game: Game; readonly replay?: LoadedReplay }>();
+  const [problem, setProblem] = useState<unknown>();
+  const latest = useRef(replay);
+  latest.current = replay;
+
+  useEffect(() => {
+    if (viewer === undefined) return;
+    const controller = new AbortController();
+    const live = new LiveReplay();
+    // The Replay so far is read for the viewer at most once a frame, however fast Ticks come.
+    let frame = 0;
+    const show = () => {
+      frame = 0;
+      const json = live.replay();
+      if (json !== undefined) setReplay(viewer.load(json));
+    };
+    const changed = () => {
+      if (frame === 0) frame = requestAnimationFrame(show);
+    };
+    followGame(
+      api,
+      game.id,
+      {
+        onSnapshot: (snapshot) => {
+          live.snapshot(snapshot.replay);
+          setStatus("live");
+          changed();
+        },
+        onTick: (tick) => {
+          live.tick(tick);
+          changed();
+        },
+        onReconnecting: () => {
+          setStatus("reconnecting");
+        },
+      },
+      { signal: controller.signal },
+    )
+      .then(async (finished) => {
+        cancelAnimationFrame(frame);
+        show();
+        setEnded({ game: finished });
+        const full = await loadReplay(api, finished);
+        if (!controller.signal.aborted) setEnded({ game: finished, replay: full });
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setProblem(error);
+      });
+    return () => {
+      controller.abort();
+      cancelAnimationFrame(frame);
+    };
+  }, [api, game.id, viewer]);
+
+  // The live clock runs at the Game's pace, just behind the latest Tick.
+  const started = replay !== undefined;
+  useEffect(() => {
+    if (!started) return;
+    let last = performance.now();
+    let frame = requestAnimationFrame(function step(now) {
+      const seconds = Math.min((now - last) / 1000, MAX_FRAME_SECONDS);
+      last = now;
+      const r = latest.current;
+      if (r !== undefined) setTime((t) => liveTime(t ?? r.lastTick, seconds, r.tickRate, r.lastTick));
+      frame = requestAnimationFrame(step);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [started]);
+
+  if (viewer === undefined) {
+    return (
+      <>
+        <h2>{game.map.name}</h2>
+        <p>{unsupportedText(game.rulesetVersion)}</p>
+        <BackToGame id={game.id} />
+      </>
+    );
+  }
+  if (problem !== undefined || catalog.status === "failed") {
+    return (
+      <>
+        <p className="error" role="alert">
+          {problemText(catalog.status === "failed" ? catalog.error : problem)}
+        </p>
+        <BackToGame id={game.id} />
+      </>
+    );
+  }
+  if (replay === undefined || catalog.status === "loading") return <p>Joining the Game…</p>;
+
+  // Once the Game has ended and its Replay is loaded, the final frame is the Replay's, and Game Over shows over it.
+  const final = ended?.replay?.kind === "replay" ? ended.replay : undefined;
+  const result = ended?.game.result ?? null;
+  const badge =
+    ended !== undefined ? (
+      <span className="state finished">Game over</span>
+    ) : (
+      <span className="state running">{status === "reconnecting" ? "Live, reconnecting…" : "Live"}</span>
+    );
+  return (
+    <Viewer
+      game={ended?.game ?? game}
+      replay={final?.replay ?? replay}
+      catalog={final?.catalog ?? catalog.value}
+      time={final === undefined ? Math.min(time ?? replay.lastTick, replay.lastTick) : final.replay.lastTick}
+      badge={badge}
+      overlay={
+        ended !== undefined && final !== undefined && result !== null ? (
+          <GameOver
+            result={result}
+            replay={final.replay}
+            usernames={usernamesOf(ended.game)}
+            onWatchAgain={() => {
+              onWatchAgain(ended.game, final);
+            }}
+          />
+        ) : null
+      }
+    />
+  );
+}
+
+function FinishedGame({ game, loaded: given }: { readonly game: Game; readonly loaded?: LoadedReplay }) {
+  const { api } = useServices();
+  const loaded = useLoad(() => (given === undefined ? loadReplay(api, game) : Promise.resolve(given)), game.id);
   if (loaded.status === "loading") return <p>Loading the Replay…</p>;
   if (loaded.status === "failed") {
     return (
@@ -97,9 +297,7 @@ function FinishedGame({ game }: { readonly game: Game }) {
       <>
         <h2>{game.map.name}</h2>
         <p>{unsupportedText(loaded.value.version)}</p>
-        <p>
-          <Link to={gameRoute(game.id)}>Back to the Game</Link>
-        </p>
+        <BackToGame id={game.id} />
       </>
     );
   }
@@ -107,7 +305,7 @@ function FinishedGame({ game }: { readonly game: Game }) {
 }
 
 /** Each Bot's name and drawn parts, by Bot id. */
-export function botLooks(replay: ViewerReplay, catalog: Catalog): Map<number, BotLooks> {
+export function botLooks(replay: Pick<ViewerReplay, "entries">, catalog: Catalog): Map<number, BotLooks> {
   return new Map(replay.entries.flatMap((entry) => entry.bots.map((bot) => [bot.id, { name: bot.name, parts: botParts(catalog, bot.build) }] as const)));
 }
 
@@ -115,6 +313,11 @@ export function botLooks(replay: ViewerReplay, catalog: Catalog): Map<number, Bo
 export function startingBot(replay: ViewerReplay, playerId: string | undefined): number | undefined {
   const own = replay.entries.find((entry) => entry.player === playerId);
   return (own ?? replay.entries[0])?.bots[0]?.id;
+}
+
+/** Each Player's username, by Player id. */
+function usernamesOf(game: Game): Map<string, string> {
+  return new Map(game.entries.map((entry) => [entry.player.id, entry.player.username]));
 }
 
 const OVERVIEW_SIZE = 200;
@@ -128,22 +331,91 @@ const ZOOM_STEP = 1.25;
 /** The longest real-time step played at once, so a hidden tab does not jump ahead when shown again. */
 const MAX_FRAME_SECONDS = 0.25;
 
+/** A Finished Game's Replay, played from Tick 0 with its time controls; Game Over at the end. */
 function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly replay: ViewerReplay; readonly catalog: Catalog }) {
-  const playerId = useSession()?.player.id;
-  const looks = useMemo(() => botLooks(replay, catalog), [replay, catalog]);
-  const bounds = useMemo(() => mapBounds(replay.map), [replay]);
   const [playback, setPlayback] = useState<Playback>(START);
+  const usernames = useMemo(() => usernamesOf(game), [game]);
+
+  useEffect(() => {
+    if (!playback.playing) return;
+    let last = performance.now();
+    let frame = requestAnimationFrame(function step(now) {
+      const seconds = Math.min((now - last) / 1000, MAX_FRAME_SECONDS);
+      last = now;
+      setPlayback((p) => advance(p, seconds, replay.tickRate, replay.lastTick));
+      frame = requestAnimationFrame(step);
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [playback.playing, replay]);
+
+  const atEnd = playback.time >= replay.lastTick;
+  return (
+    <Viewer
+      game={game}
+      replay={replay}
+      catalog={catalog}
+      time={playback.time}
+      badge={<span className="state finished">Replay</span>}
+      overlay={
+        atEnd && game.result !== null ? (
+          <GameOver
+            result={game.result}
+            replay={replay}
+            usernames={usernames}
+            onWatchAgain={() => {
+              setPlayback((p) => ({ ...seek(p, 0, replay.lastTick), playing: true }));
+            }}
+          />
+        ) : null
+      }
+      controls={
+        <ReplayControls
+          playback={playback}
+          tickRate={replay.tickRate}
+          lastTick={replay.lastTick}
+          onChange={(change) => {
+            setPlayback((p) => change(p));
+          }}
+        />
+      }
+    />
+  );
+}
+
+interface ViewerProps {
+  readonly game: Game;
+  readonly replay: ViewerReplay;
+  readonly catalog: Catalog;
+  /** The moment shown. */
+  readonly time: Time;
+  /** Shown beside the Map's name. */
+  readonly badge: ReactNode;
+  /** Shown over the main view, such as Game Over. */
+  readonly overlay?: ReactNode;
+  /** Shown under the views, such as the time controls. */
+  readonly controls?: ReactNode;
+}
+
+/** The main view and the overview of `replay` at `time`, with the Bot inset and following. */
+function Viewer({ game, replay, catalog, time, badge, overlay, controls }: ViewerProps) {
+  const playerId = useSession()?.player.id;
+  // A live Replay is read again with every Tick, keeping its Map and Entries.
+  const { map, entries } = replay;
+  const looks = useMemo(() => botLooks({ entries }, catalog), [entries, catalog]);
+  const bounds = useMemo(() => mapBounds(map), [map]);
   const [camera, setCamera] = useState<Camera>();
   /** The Bot whose inset is open. */
   const [selected, setSelected] = useState<number>();
-  const usernames = useMemo(() => new Map(game.entries.map((entry) => [entry.player.id, entry.player.username])), [game]);
+  const usernames = useMemo(() => usernamesOf(game), [game]);
   const view = camera?.view;
   const area = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLCanvasElement>(null);
   /** A press on the main view: where it started, where it is now, and whether it has become a drag. */
   const press = useRef<{ readonly start: Point; readonly at: Point; readonly dragging: boolean }>(undefined);
-  const time = useRef(playback.time);
-  time.current = playback.time;
+  const latest = useRef({ replay, time });
+  latest.current = { replay, time };
   /** Moves the view by hand, which stops following. */
   const moveView = (change: (view: View) => View) => {
     setCamera((c) => (c === undefined ? c : { view: change(c.view) }));
@@ -161,8 +433,9 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
           const { view: v } = current;
           return v.width === width && v.height === height ? current : { ...current, view: resizeView(v, bounds, width, height) };
         }
-        const first = startingBot(replay, playerId);
-        const bot = replay.scene(0).bots.find((b) => b.id === first);
+        const r = latest.current.replay;
+        const first = startingBot(r, playerId);
+        const bot = r.scene(r.firstTick).bots.find((b) => b.id === first);
         return { view: defaultView(bounds, width, height, bot) };
       });
     };
@@ -172,21 +445,7 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
     return () => {
       observer.disconnect();
     };
-  }, [bounds, replay, playerId]);
-
-  useEffect(() => {
-    if (!playback.playing) return;
-    let last = performance.now();
-    let frame = requestAnimationFrame(function step(now) {
-      const seconds = Math.min((now - last) / 1000, MAX_FRAME_SECONDS);
-      last = now;
-      setPlayback((p) => advance(p, seconds, replay.tickRate, replay.lastTick));
-      frame = requestAnimationFrame(step);
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-    };
-  }, [playback.playing, replay]);
+  }, [bounds, playerId]);
 
   // While following, the camera tracks the followed Bot every frame, paused or not.
   const followed = camera?.following?.bot;
@@ -196,14 +455,15 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
     let frame = requestAnimationFrame(function step(now) {
       const seconds = Math.min((now - last) / 1000, MAX_FRAME_SECONDS);
       last = now;
-      const scene = replay.scene(time.current);
-      setCamera((c) => (c === undefined ? c : followStep(c, bounds, scene, replay.hits, replay.tickRate, seconds)));
+      const { replay: r, time: t } = latest.current;
+      const scene = r.scene(t);
+      setCamera((c) => (c === undefined ? c : followStep(c, bounds, scene, r.hits, r.tickRate, seconds)));
       frame = requestAnimationFrame(step);
     });
     return () => {
       cancelAnimationFrame(frame);
     };
-  }, [followed, replay, bounds]);
+  }, [followed, bounds]);
 
   // The wheel zooms the main view; React's wheel listeners cannot stop the page from scrolling.
   const shown = view !== undefined;
@@ -223,11 +483,10 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
     };
   }, [bounds, shown]);
 
-  const scene = replay.scene(playback.time);
-  const atEnd = playback.time >= replay.lastTick;
-  const overviewScale = OVERVIEW_SIZE / Math.max(replay.map.width, replay.map.height);
-  const overviewWidth = Math.round(replay.map.width * overviewScale);
-  const overviewHeight = Math.round(replay.map.height * overviewScale);
+  const scene = replay.scene(time);
+  const overviewScale = OVERVIEW_SIZE / Math.max(map.width, map.height);
+  const overviewWidth = Math.round(map.width * overviewScale);
+  const overviewHeight = Math.round(map.height * overviewScale);
   const overviewView = fitView(bounds, overviewWidth, overviewHeight, 1 / overviewScale);
 
   const point = (event: PointerEvent<HTMLCanvasElement>) => {
@@ -255,7 +514,7 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
   return (
     <section className="viewer">
       <h2>
-        {game.map.name} <span className="state finished">Replay</span>
+        {game.map.name} {badge}
       </h2>
       <div className="viewer-views">
         <div className="viewer-main" ref={area}>
@@ -308,16 +567,7 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
               }}
             />
           )}
-          {atEnd && game.result !== null ? (
-            <GameOver
-              result={game.result}
-              replay={replay}
-              usernames={usernames}
-              onWatchAgain={() => {
-                setPlayback((p) => ({ ...seek(p, 0, replay.lastTick), playing: true }));
-              }}
-            />
-          ) : null}
+          {overlay}
           <div className="viewer-zoom">
             <button type="button" aria-label="Zoom in" onClick={() => {
               zoomBy(ZOOM_STEP);
@@ -369,17 +619,8 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
           </p>
         </div>
       </div>
-      <ReplayControls
-        playback={playback}
-        tickRate={replay.tickRate}
-        lastTick={replay.lastTick}
-        onChange={(change) => {
-          setPlayback((p) => change(p));
-        }}
-      />
-      <p>
-        <Link to={gameRoute(game.id)}>Back to the Game</Link>
-      </p>
+      {controls}
+      <BackToGame id={game.id} />
     </section>
   );
 }

@@ -7,6 +7,9 @@
  * Bot that fired it. What changes at once in the engine (Hit Points, being
  * Disabled, an Obstacle destroyed) changes halfway through its Tick, which is
  * also when that Tick's events are drawn as effects.
+ *
+ * A Replay assembled from a live stream starts at the Tick of joining rather
+ * than Tick 0; its Ticks are numbered on from there.
  */
 
 import type { BotFrame, ImpactEvent, ProjectileFrame, Replay, ReplayTick, TickEvent } from "@positrontanks/engine-r1";
@@ -36,9 +39,10 @@ export function loadR1Replay(json: unknown): ViewerReplay {
   if (!isR1Replay(json)) throw new Error("not an r1 Replay");
   const replay = json;
   const ticks = replay.ticks;
+  const first = ticks[0];
   const last = ticks.at(-1);
-  if (last === undefined) throw new Error("the Replay has no Ticks");
-  if (ticks.some((t, i) => t.tick !== i)) throw new Error("the Replay's Ticks are not numbered from 0 in order");
+  if (first === undefined || last === undefined) throw new Error("the Replay has no Ticks");
+  if (ticks.some((t, i) => t.tick !== first.tick + i)) throw new Error("the Replay's Ticks are not numbered in order");
 
   const entryOf = new Map<number, number>();
   replay.entries.forEach((entry, i) => {
@@ -59,6 +63,7 @@ export function loadR1Replay(json: unknown): ViewerReplay {
     tickRate: replay.tickRate,
     map: replay.map,
     entries: replay.entries,
+    firstTick: first.tick,
     lastTick: last.tick,
     hits: ticks.flatMap((t) => t.events.flatMap((e) => hitsOf(e, eventTime(t.tick)))),
     damage: ticks.flatMap((t) => t.events.flatMap((e) => damageOf(e, eventTime(t.tick)))),
@@ -66,10 +71,10 @@ export function loadR1Replay(json: unknown): ViewerReplay {
       t.events.flatMap((e): Disablement[] => (e.type === "disabled" ? [{ time: eventTime(t.tick), bot: e.bot, cause: e.cause }] : [])),
     ),
     scene(time: Time): Scene {
-      const t = Math.min(Math.max(time, 0), last.tick);
+      const t = Math.min(Math.max(time, first.tick), last.tick);
       const i = Math.floor(t);
-      const a = ticks[i] ?? last;
-      const b = ticks[i + 1] ?? a;
+      const a = ticks[i - first.tick] ?? last;
+      const b = ticks[i + 1 - first.tick] ?? a;
       const f = b === a ? 0 : t - i;
       const destroyed = new Set<string>();
       for (const [id, tick] of destroyedAt) if (t >= eventTime(tick)) destroyed.add(id);
@@ -77,7 +82,7 @@ export function loadR1Replay(json: unknown): ViewerReplay {
         time: t,
         bots: interpolateBots(a.bots, b.bots, f, entryOf),
         projectiles: interpolateProjectiles(a, b, f),
-        effects: effectsAt(ticks, t, effectTicks, obstacleCenters),
+        effects: effectsAt(ticks, first.tick, t, effectTicks, obstacleCenters),
         destroyedObstacles: destroyed,
       };
     },
@@ -159,13 +164,13 @@ export function interpolateProjectiles(a: ReplayTick, b: ReplayTick, f: number):
   });
 }
 
-/** The effects of every event recent enough at `t` to still show. */
-function effectsAt(ticks: readonly ReplayTick[], t: Time, effectTicks: number, obstacleCenters: ReadonlyMap<string, Point>): Effect[] {
+/** The effects of every event recent enough at `t` to still show; `ticks` start at Tick `firstTick`. */
+function effectsAt(ticks: readonly ReplayTick[], firstTick: number, t: Time, effectTicks: number, obstacleCenters: ReadonlyMap<string, Point>): Effect[] {
   const effects: Effect[] = [];
-  const first = Math.max(0, Math.ceil(t + 0.5 - effectTicks));
-  const lastShown = Math.min(ticks.length - 1, Math.floor(t + 0.5));
+  const first = Math.max(firstTick, Math.ceil(t + 0.5 - effectTicks));
+  const lastShown = Math.min(firstTick + ticks.length - 1, Math.floor(t + 0.5));
   for (let k = first; k <= lastShown; k++) {
-    const tick = ticks[k];
+    const tick = ticks[k - firstTick];
     if (tick === undefined) continue;
     const age = (t - eventTime(k)) / effectTicks;
     if (age < 0 || age >= 1) continue;

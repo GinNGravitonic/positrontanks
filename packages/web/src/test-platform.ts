@@ -3,8 +3,8 @@
  * a fake API with the accounts endpoints the client signs in with, the
  * Games endpoints of the Games screen and Game page, the Rulesets and
  * Maps the Create Game screen chooses from, and the Bot Designs and Entries
- * of the Enter Game screen, and the Replays and Parts Catalog the viewer
- * loads.
+ * of the Enter Game screen, and the Replays, Parts Catalog and event streams
+ * the viewer loads.
  */
 
 import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
@@ -68,6 +68,14 @@ export interface FakeApi {
   readonly games: Game[];
   /** Ends every session, as if they had all expired. */
   expireSessions(): void;
+}
+
+/** One opening of a Game's event stream: the body's text, or null if the server cannot be reached. */
+export type StreamOpening = string | null;
+
+/** A `text/event-stream` event, as the server writes it. */
+export function sseEvent(event: string, data: unknown, id?: number): string {
+  return `event: ${event}\n${id === undefined ? "" : `id: ${String(id)}\n`}data: ${JSON.stringify(data)}\n\n`;
 }
 
 const json = (status: number, body: unknown) =>
@@ -148,7 +156,9 @@ export function mapSummary(map: Schema<"Map">): MapSummary {
  * A fake of the API's accounts, Games, Rulesets, Maps, Bot Designs and
  * Replays endpoints, all but signing up and logging in needing a session.
  * Every Player has the same `designs`; a Finished Game's Replay is in
- * `replays`, by Game id; the Parts Catalog is r1's.
+ * `replays`, by Game id; the Parts Catalog is r1's. Each opening of a
+ * Running Game's stream takes the next of its `streams`, by Game id; once
+ * they run out, the server is unavailable.
  */
 export function fakeApi(
   options: {
@@ -156,6 +166,7 @@ export function fakeApi(
     readonly maps?: readonly Schema<"Map">[];
     readonly designs?: readonly BotDesignSummary[];
     readonly replays?: Readonly<Record<string, unknown>>;
+    readonly streams?: Readonly<Record<string, readonly StreamOpening[]>>;
   } = {},
 ): FakeApi {
   const games = [...(options.games ?? [])];
@@ -164,6 +175,7 @@ export function fakeApi(
   const passwords = new Map<string, string>();
   const sessions = new Map<string, string>();
   const requests: string[] = [];
+  const openings = new Map(Object.entries(options.streams ?? {}).map(([id, list]) => [id, [...list]]));
   let next = 1;
 
   const page = (list: readonly Game[], query: URLSearchParams) => {
@@ -265,7 +277,7 @@ export function fakeApi(
       games.unshift(game);
       return json(201, game);
     }
-    const match = /^\/games\/([^/]+)(\/cancel|\/replay|\/entries|\/entries\/([^/]+))?$/.exec(path);
+    const match = /^\/games\/([^/]+)(\/cancel|\/replay|\/stream|\/entries|\/entries\/([^/]+))?$/.exec(path);
     const game = match?.[1] === undefined ? undefined : games.find((g) => g.id === decodeURIComponent(match[1] ?? ""));
     if (match === null || game === undefined) return error(404, "not_found", "Not found");
     const index = games.indexOf(game);
@@ -273,6 +285,13 @@ export function fakeApi(
     if (method === "GET" && match[2] === "/replay") {
       if (game.state !== "finished") return error(409, "game_not_finished", `Game ${game.id} is ${game.state}; its Replay comes once it is Finished`);
       return json(200, { game, replay: options.replays?.[game.id] });
+    }
+    if (method === "GET" && match[2] === "/stream") {
+      if (game.state === "open") return error(409, "game_not_started", `Game ${game.id} has not started`);
+      const opening = openings.get(game.id)?.shift();
+      if (opening === undefined) return error(503, "unavailable", "The server is unavailable");
+      if (opening === null) throw new TypeError("Failed to fetch");
+      return new Response(opening, { status: 200, headers: { "content-type": "text/event-stream" } });
     }
     if (method === "POST" && match[2] === "/cancel") {
       if (game.initiator.id !== me) return error(403, "forbidden", "Only the Game's Initiator may cancel it");
@@ -332,7 +351,11 @@ export function fakeApi(
       const url = new URL(target, "http://api.test");
       const headers = new Headers(init?.headers);
       const body = typeof init?.body === "string" ? (JSON.parse(init.body) as unknown) : undefined;
-      return Promise.resolve(handle(method, url.pathname, url.searchParams, headers.get("authorization"), body));
+      try {
+        return Promise.resolve(handle(method, url.pathname, url.searchParams, headers.get("authorization"), body));
+      } catch (e) {
+        return Promise.reject(e instanceof Error ? e : new Error(String(e)));
+      }
     },
   };
 }

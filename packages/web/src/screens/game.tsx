@@ -218,6 +218,7 @@ function StatePanel({ game, playerId, busy, onCancel, onWithdraw, onRefresh }: O
       ) : (
         <p>
           This Game is being played at unthrottled Pace, so it cannot be watched live; its Replay comes when it is Finished.{" "}
+          <Link to={gameRoute(game.id, "watch")}>Wait for the Replay</Link>{" "}
           <button type="button" onClick={onRefresh}>
             Check again
           </button>

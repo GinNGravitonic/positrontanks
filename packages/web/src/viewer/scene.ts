@@ -106,6 +106,8 @@ export interface ViewerReplay {
   readonly map: MapFormat1;
   /** In Entry order. */
   readonly entries: readonly ViewerEntry[];
+  /** The first Tick in the Replay: 0, or later for a Game watched live from the moment of joining. */
+  readonly firstTick: number;
   /** The last Tick in the Replay; its Scene is the final frame. */
   readonly lastTick: number;
   /** Every hit between two different Bots, in time order. */
@@ -114,7 +116,7 @@ export interface ViewerReplay {
   readonly damage: readonly Damage[];
   /** Every Bot Disabled, in time order. */
   readonly disablements: readonly Disablement[];
-  /** The Scene at `time`, which is kept within [0, lastTick]. */
+  /** The Scene at `time`, which is kept within [firstTick, lastTick]. */
   scene(time: Time): Scene;
 }
 

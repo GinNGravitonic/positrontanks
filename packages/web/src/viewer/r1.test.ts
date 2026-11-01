@@ -137,7 +137,16 @@ describe("an r1 Replay's Scenes", () => {
   it("refuses what is not an r1 Replay", () => {
     expect(() => loadR1Replay({ ruleset: "r1" })).toThrow("not an r1 Replay");
     expect(() => loadR1Replay(replay([]))).toThrow("no Ticks");
-    expect(() => loadR1Replay(replay([tick(1, [])]))).toThrow("numbered from 0");
+    expect(() => loadR1Replay(replay([tick(1, []), tick(3, [])]))).toThrow("not numbered in order");
+  });
+
+  it("reads a Replay that starts later than Tick 0, as one assembled live does", () => {
+    const later = loadR1Replay(replay([tick(7, [bot(1, { x: 10 })]), tick(8, [bot(1, { x: 12 })], [{ type: "fired", tick: 8, bot: 1, weapon: "gun", category: "beam", projectile: null, from: { x: 12, y: 10 }, absBearing: 0 }])]));
+    expect(later.firstTick).toBe(7);
+    expect(later.lastTick).toBe(8);
+    expect(later.scene(0)).toMatchObject({ time: 7, bots: [{ x: 10 }] });
+    expect(later.scene(7.5).bots[0]?.x).toBe(11);
+    expect(later.scene(7.5).effects).toEqual([{ kind: "muzzle", at: { x: 12, y: 10 }, heading: 0, age: 0 }]);
   });
 });
 
