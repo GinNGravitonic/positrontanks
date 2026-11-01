@@ -7,6 +7,7 @@
     { "path": "packages/server" },
     { "path": "packages/cli" },
     { "path": "packages/infra" },
-    { "path": "packages/web" }
+    { "path": "packages/web" },
+    { "path": "packages/web/e2e" }
   ]
 }

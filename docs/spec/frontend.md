@@ -111,7 +111,7 @@ Emblems do not exist yet: v1 only reserved them, and image uploads are out of v1
 ## 9. Testing
 
 - Vitest unit tests for the logic-heavy parts: camera fitting, engagement tracking, interpolation, and per-Bot figures from events.
-- One Playwright smoke test against a local server: sign in, open a Finished Game's Replay, and reach Game Over.
+- One Playwright smoke test against a local server: sign in, open a Finished Game's Replay, and reach Game Over. It is `packages/web/e2e/smoke.spec.ts`, run by `pnpm test:e2e`.
 - The Ruleset coverage test from section 3.
 
 ## 10. Not in the first version

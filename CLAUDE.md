@@ -67,7 +67,10 @@ pnpm install
 pnpm build   # tsc -b over all project references, then vite build of packages/web
 pnpm lint    # eslint, typescript-eslint strictTypeChecked
 pnpm test    # vitest; tests are packages/*/src/**/*.test.{ts,tsx}
+pnpm test:e2e  # pnpm build, then the web client's Playwright smoke test (packages/web/e2e)
 ```
+
+The smoke test starts its own in-process server on a free port and drives Chromium; the first run on a machine needs `pnpm --filter @positrontanks/web exec playwright install chromium`.
 
 TypeScript is pinned to 6.0.x because typescript-eslint does not yet support TS >= 6.1.
 
