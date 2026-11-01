@@ -84,7 +84,7 @@ The Spectator can follow a Bot, so the main view tracks it without manual pannin
 
 Clicking a Bot in the main view selects it and opens an inset with:
 
-- its Bot Name, Player and Emblem;
+- its Icon, Bot Name, Player and Emblem;
 - its Chassis and its Components by Slot;
 - its Hit Points as a current/max bar, its Armor on each side, and its speed;
 - its status: live, or Disabled and why;
@@ -99,18 +99,26 @@ Shown over the final frame when a Game ends (live) or its Replay reaches the end
 
 - the Winner, or a Draw, and how the Game was decided: last standing, damage dealt to Foes, or remaining Hit Points;
 - one row per Entry: Emblem, Player, damage dealt to Foes, remaining Hit Points, and whether any of its Bots is still standing;
-- under each Entry, its Bots: Bot Name, damage dealt and taken, and, if Disabled, the Tick and cause;
+- under each Entry, its Bots: Icon, Bot Name, damage dealt and taken, and, if Disabled, the Tick and cause;
 - "Watch again" (the Replay, from Tick 0, once the Game is Finished) and "Back to Games".
 
 Per-Bot figures come from the Replay's events; per-Player figures from the Game's result.
 
-## 8. Emblems
+## 8. Emblems and Icons
+
+### Emblems
 
 A Player's Emblem appears in the Bot inset and in Game Over. Every Player reference in the API carries `emblem`, the content hash of the Player's current Emblem, or null. For a Player with one, the client fetches `GET /players/{playerId}/emblem/{hash}` with the session token (an `<img>` cannot send it), decodes it with `createImageBitmap` and draws it, square, on a canvas. Each Emblem is fetched once per page, by Player and hash, and kept until the page is closed; an Emblem never changes for a given hash.
 
 Until it has loaded, and whenever there is none to draw, the client draws a placeholder instead: the Player's initials on a disc in their Entry color. That covers a Player with no Emblem, and one whose Emblem cannot be fetched or decoded, such as one taken down since the Game was loaded (404). A failure is kept like an image, so it is not asked for again, except when the server could not be reached.
 
 The header does not show the signed-in Player's Emblem: the session's Player reference dates from log-in, so its hash would go stale when the Player changes their Emblem. The client has no upload form; Players set their Emblem with the CLI (`players emblem set`).
+
+### Icons
+
+A Bot Design's Icon appears next to the design's name in the Garage (its list and each design's page) and the Enter Game picker, and next to the Bot Name in the Bot inset and under each Entry in Game Over. It is not drawn on the Map. Bot Design responses carry `icon`, the content hash of the design's current Icon, or null, and so does each Bot in a Game's Entries once its Build is shown (from Running onward). For a design with one, the client fetches `GET /icons/{hash}` with the session token and draws it, square, as for Emblems, and keeps it the same way: once per page, by hash, failures included.
+
+There is no placeholder: until it has loaded, and whenever there is none to draw (no Icon, or one that cannot be fetched or decoded, such as one taken down, 404), the client draws nothing and the name stands alone. Players set an Icon with the CLI (`designs icon set`); the client has no upload form.
 
 ## 9. Testing
 
@@ -120,4 +128,4 @@ The header does not show the signed-in Player's Emblem: the session's Player ref
 
 ## 10. Not in the first version
 
-Bot Design, Map and Program editors · uploading Emblems and other images · real artwork · signed-out spectating · rewinding live Games · watching unthrottled Games live · Program logs in the client · API key management · a phone layout for the viewer.
+Bot Design, Map and Program editors · uploading Emblems, Icons and other images · real artwork · signed-out spectating · rewinding live Games · watching unthrottled Games live · Program logs in the client · API key management · a phone layout for the viewer.
