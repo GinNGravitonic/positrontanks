@@ -82,6 +82,8 @@ docker run -d --name positrontanks -p 8080:8080 -v positrontanks-data:/data -e P
 
 `docker stop positrontanks` stops it and `docker start positrontanks` brings it back with the same data.
 
+In WSL with Docker Desktop, `docker build` can fail with `docker-credential-desktop.exe: exec format error` when WSL cannot run Windows programs. Build with an empty Docker config instead: `mkdir -p /tmp/dockercfg && echo '{}' > /tmp/dockercfg/config.json`, then `DOCKER_CONFIG=/tmp/dockercfg docker build -t positrontanks-server .`.
+
 **Without Docker**, run the built server from the clone, with its data in a fixed folder. The server's defaults put the data under `./data`, relative to wherever it is started. Run it in the background or in a terminal of its own, since it keeps running:
 
 ```bash
@@ -127,11 +129,10 @@ Follow the improve-by-self-play skill for each design, on the Maps, Point Budget
 Then bring the work folder up to date with each design's champion, its latest Revision:
 
 ```bash
-positrontanks designs show <DESIGN_ID> --json --program-out designs/<name>/program.ptk > designs/<name>/design.json
-node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));fs.writeFileSync(process.argv[2],JSON.stringify(j.latestRevision.build,null,2)+'\n');console.log(j.rulesetVersion)" designs/<name>/design.json designs/<name>/build.json
+positrontanks designs show <DESIGN_ID> --program-out designs/<name>/program.ptk --build-out designs/<name>/build.json
 ```
 
-The second command writes the latest Revision's `build` and prints the design's Ruleset, needed in step 7. For a Map, `positrontanks maps show <MAP_ID> --out maps/<name>.map.json` writes the latest Revision's file.
+It writes the latest Revision's Program and Build, and its `Ruleset:` line is the design's Ruleset, needed in step 7. Let the CLI write files rather than redirecting its output with `>`: in PowerShell, `>` adds a byte order mark (or writes UTF-16), which JSON readers reject. For a Map, `positrontanks maps show <MAP_ID> --out maps/<name>.map.json` writes the latest Revision's file.
 
 Done when every design has beaten its earlier Revisions locally, and the work folder holds each Map's and design's latest files.
 
@@ -160,6 +161,8 @@ The remote account is the player's own, on a shared server. There the player has
 - **Has an account**: only `auth login`. If `auth signup` refuses with `username_taken`, the player most likely has an account already. Ask before trying another name.
 
 `auth login` stores an API key in the `remote` profile. You need no password from then on. If the player already has an API key, `positrontanks auth use-key --profile remote` stores it instead; the player pastes it at the prompt.
+
+Both commands end with `on <server>`: check with the player that it is the remote URL. If it says `http://localhost:8080`, the player's terminal is not reading the config file you set the `remote` profile in. This happens when your commands run in a sandbox that keeps its own copy of the user's config folder (`%APPDATA%` or `~/.config`). Then run every command that needs the `remote` profile, from `config use remote` on, in a terminal the player also uses (in Claude Desktop, its Terminal panel), and have the player sign up and log in there. A Player signed up on the local server by mistake does no harm.
 
 Done when `positrontanks auth whoami --profile remote` names the player's remote Player.
 

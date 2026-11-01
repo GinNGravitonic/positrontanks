@@ -60,7 +60,7 @@ Done when both profiles answer `positrontanks auth whoami` and you have the Map'
 Keep everything for the run in one folder:
 
 - `<map>.map.json`: the Map.
-- `r<N>.build.json` and `r<N>.ptk` for each Revision played, pulled with `positrontanks designs revision <DESIGN_ID> <N> --json --program-out r<N>.ptk` (save the JSON's `build` as `r<N>.build.json`).
+- `r<N>.build.json` and `r<N>.ptk` for each Revision played, pulled with `positrontanks designs revision <DESIGN_ID> <N> --program-out r<N>.ptk --build-out r<N>.build.json`.
 - `r<N>.entry.json`: one Entry file per Revision, with a Player name and a Bot Name that both say which Revision it is:
 
   ```json

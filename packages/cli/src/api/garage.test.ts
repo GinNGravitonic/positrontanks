@@ -103,9 +103,10 @@ describe("designs", () => {
     expect(show.out).toContain(`Program:      3 lines, ${String(PROGRAM.length)} characters (save it with --program-out FILE)`);
     expect(show.out).not.toContain("throttle");
 
-    const pulled = await cli("designs", "show", design.id, "--program-out", at("pulled.ptk"), "--json");
+    const pulled = await cli("designs", "show", design.id, "--program-out", at("pulled.ptk"), "--build-out", at("pulled.build.json"), "--json");
     expect(body(pulled)).toEqual(await client.request("GET", `/bot-designs/${design.id}`));
     expect(await readFile(at("pulled.ptk"), "utf8")).toBe(PROGRAM);
+    expect(JSON.parse(await readFile(at("pulled.build.json"), "utf8"))).toEqual(BUILD);
   });
 
   it("revises one half, keeping the latest Revision's other half", async () => {
@@ -133,9 +134,11 @@ describe("designs", () => {
     expect(revisions.err).toMatch(/^More: --cursor \S+ \(or --all\)$/);
     expect(json("BotDesignRevisionList", await cli("designs", "revisions", design.id, "--limit", "1", "--all", "--json")).revisions).toHaveLength(2);
 
-    const one = await cli("designs", "revision", design.id, "1", "--program-out", at("one.ptk"));
+    const one = await cli("designs", "revision", design.id, "1", "--program-out", at("one.ptk"), "--build-out", at("one.build.json"));
     expect(one.out).toContain(`written to ${at("one.ptk")}`);
+    expect(one.out).toContain(`${JSON.stringify(BUILD)}, written to ${at("one.build.json")}`);
     expect(await readFile(at("one.ptk"), "utf8")).toBe(PROGRAM);
+    expect(JSON.parse(await readFile(at("one.build.json"), "utf8"))).toEqual(BUILD);
     expect((await cli("designs", "revision", design.id, "one")).code).toBe(2);
 
     expect((await cli("designs", "update", design.id, "--name", "Stalker")).out).toBe(`Updated Bot Design ${design.id} ("Stalker").`);

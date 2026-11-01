@@ -219,7 +219,17 @@ describe("errors and exit codes", () => {
   it("exits 4 when the server cannot be reached", async () => {
     const run = await cli("server", "health", "--server", "http://127.0.0.1:9");
     expect(run).toMatchObject({ code: 4, out: "" });
-    expect(run.err).toMatch(/^positrontanks: network: cannot reach http:\/\/127\.0\.0\.1:9/);
+    expect(run.err).toMatch(/^positrontanks: network: cannot reach http:\/\/127\.0\.0\.1:9: \S/);
+  });
+
+  it("says why localhost cannot be reached, though it resolves to more than one address", async () => {
+    const closed = createServer();
+    await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+    const { port } = closed.address() as AddressInfo;
+    await new Promise((resolve) => closed.close(resolve));
+    const run = await cli("server", "health", "--server", `http://localhost:${String(port)}`);
+    expect(run).toMatchObject({ code: 4, out: "" });
+    expect(run.err).toMatch(new RegExp(`^positrontanks: network: cannot reach http://localhost:${String(port)}: \\S`));
   });
 
   describe("against a server that is not Positron Tanks", () => {

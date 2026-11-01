@@ -141,7 +141,7 @@ export class ApiClient {
   }
 
   private unreachable(e: unknown): CliError {
-    const cause = e instanceof Error && e.cause instanceof Error ? e.cause.message : String(e);
+    const cause = e instanceof Error && e.cause instanceof Error ? describeCause(e.cause) : String(e);
     return new CliError(EXIT.server, "network", `cannot reach ${this.server}: ${cause}`);
   }
 
@@ -151,6 +151,21 @@ export class ApiClient {
     if (response.status === 204 || response.text === "") return {} as T;
     return parseJson(response.text, `${method} ${path}`) as T;
   }
+}
+
+/**
+ * A fetch failure's cause as text. Connecting to `localhost`, which resolves
+ * to both `::1` and `127.0.0.1`, fails with an AggregateError whose own
+ * message is empty, so its errors' messages are used instead.
+ */
+function describeCause(cause: Error): string {
+  if (cause.message !== "") return cause.message;
+  if (cause instanceof AggregateError) {
+    const inner = cause.errors.map((e: unknown) => (e instanceof Error ? e.message : String(e))).filter((m) => m !== "");
+    if (inner.length > 0) return inner.join("; ");
+  }
+  const code = (cause as { code?: unknown }).code;
+  return typeof code === "string" ? code : cause.name;
 }
 
 /** The query's parameters, in order, leaving out undefined values. */

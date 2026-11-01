@@ -131,7 +131,7 @@ To change a design you own, add a Revision instead. Revisions are immutable, and
 positrontanks designs revise <DESIGN_ID> --build <name>.build.json --notes "<what changed>" --json
 ```
 
-To edit an existing design's Build, read it from `positrontanks designs show <DESIGN_ID> --json` (`latestRevision.build`).
+To edit an existing design's Build, pull it with `positrontanks designs show <DESIGN_ID> --build-out <name>.build.json`.
 
 A rejection exits 1 with every problem on stderr, one `path: message` per line: fix them all, rerun step 4, and save again. Exit code 3 means you are not signed in to that server.
 

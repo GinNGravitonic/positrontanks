@@ -67,11 +67,11 @@ The server checks the Emblem (a square PNG, 32 to 256 pixels a side, at most 64 
 | --- | --- |
 | `designs create --name NAME --build FILE --program FILE [--ruleset VERSION] [--description TEXT] [--notes TEXT]` | `POST /bot-designs` |
 | `designs list [--include-archived]` | `GET /bot-designs` |
-| `designs show DESIGN_ID [--program-out FILE]` | `GET /bot-designs/{designId}` |
+| `designs show DESIGN_ID [--program-out FILE] [--build-out FILE]` | `GET /bot-designs/{designId}` |
 | `designs update DESIGN_ID [--name NAME] [--description TEXT]` | `PATCH /bot-designs/{designId}` |
 | `designs revise DESIGN_ID [--build FILE] [--program FILE] [--notes TEXT]` | `POST /bot-designs/{designId}/revisions` |
 | `designs revisions DESIGN_ID` | `GET /bot-designs/{designId}/revisions` |
-| `designs revision DESIGN_ID N [--program-out FILE]` | `GET /bot-designs/{designId}/revisions/{revision}` |
+| `designs revision DESIGN_ID N [--program-out FILE] [--build-out FILE]` | `GET /bot-designs/{designId}/revisions/{revision}` |
 | `designs delete-revision DESIGN_ID N` | `DELETE /bot-designs/{designId}/revisions/{revision}` |
 | `designs copy DESIGN_ID --ruleset VERSION [--revision N] [--name NAME] [--notes TEXT] [--dry-run]` | `POST /bot-designs/{designId}/copies` |
 | `designs archive DESIGN_ID` | `DELETE /bot-designs/{designId}` |
@@ -82,7 +82,7 @@ The server checks the Emblem (a square PNG, 32 to 256 pixels a side, at most 64 
 - `--build FILE` is a Build as JSON, the shape the server takes (and an [Entry file](cli-runner.md#entry-file)'s `bots[].build`). `--program FILE` is Program source, conventionally `.ptk`. Either may be `-` for stdin (at most one per command).
 - `designs revise` sends the latest Revision's Build or Program for the half not given, so changing only the Program is `designs revise ID --program hunter.ptk`. Giving neither is a usage error.
 - `--ruleset` defaults to the latest Ruleset the server hosts (the last of `GET /rulesets`).
-- `--program-out FILE` writes the Program source to a file, so a design can be pulled, edited and revised. Human output otherwise shows the Build and the Program's length, not its source.
+- `--program-out FILE` writes the Program source to a file and `--build-out FILE` the Build as JSON, so a design can be pulled, edited and revised. Human output otherwise shows the Build and the Program's length, not its source.
 - `designs icon set` sends the file as is; the server checks it (the same limits as an Emblem: a square PNG, 32 to 256 pixels a side, at most 64 KB) and answers `validation_failed` for any other file. The Icon belongs to the design, not a Revision, so setting it adds no Revision, and archived designs can be changed too. Clearing an Icon the design does not have is not an error.
 - `designs tick-cost` answers `410 feature_disabled` on servers without the feature; the error message points to `positrontanks tick-cost --entry FILE`, the offline equivalent.
 

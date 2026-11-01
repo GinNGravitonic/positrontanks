@@ -24,10 +24,10 @@ Done when you know the design (or Build) and can state its role in a sentence.
 Fetch the design and its current Program:
 
 ```bash
-positrontanks designs show <DESIGN_ID> --json --program-out current.ptk
+positrontanks designs show <DESIGN_ID> --program-out current.ptk --build-out <name>.build.json
 ```
 
-From the JSON, save `latestRevision.build` as `<name>.build.json` and note `rulesetVersion`. Then list from the Build what the Program can use:
+This writes the latest Revision's Program and Build; note its `Ruleset:` line. Then list from the Build what the Program can use:
 
 - **Weapons**: each weapon's **Slot id** (such as `gun`, `leftGun`, `prow`), which is what `fire` takes, and its kind. Slot direction matters: a fixed weapon only fires within its Firing Arc around the Slot's direction (forward unless the Slot faces left, right or rear), so the Bot turns to aim; a turret (`cannonTurret`, `beamTurret`) fires in any direction.
 - **Sensors**: a Radar makes `scan()` return contacts; a `rangefinder` needs `rangefind("<its Slot id>")`; a `detector` makes `incoming()` return Projectiles. With no Radar, `scan()` is always empty.

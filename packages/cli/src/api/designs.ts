@@ -5,8 +5,9 @@
  * `--build FILE` is a Build as JSON and `--program FILE` Program source;
  * either may be `-` for stdin. `designs revise` sends the latest Revision's
  * half for the one not given. `--program-out FILE` writes a Revision's
- * Program source, so a design can be pulled, edited and revised; human
- * output otherwise shows the Build and the Program's length.
+ * Program source and `--build-out FILE` its Build as JSON, so a design can be
+ * pulled, edited and revised; human output otherwise shows the Build and the
+ * Program's length.
  *
  * `icon set` sends the file as is; the server checks it (the same limits as
  * an Emblem) and strips its metadata, so the CLI does not check it first.
@@ -60,11 +61,11 @@ function lines(text: string): number {
   return text === "" ? 0 : text.split("\n").length - (text.endsWith("\n") ? 1 : 0);
 }
 
-function revisionLines(r: Revision, programOut: string | undefined): string[][] {
+function revisionLines(r: Revision, { programOut, buildOut }: Saved): string[][] {
   return [
     ["Revision:", `${String(r.number)}, ${String(r.cost)} points, created ${ago(r.createdAt)}`],
     ...(r.notes === "" ? [] : [["notes:", r.notes]]),
-    ["Build:", JSON.stringify(r.build)],
+    ["Build:", `${JSON.stringify(r.build)}${buildOut === undefined ? "" : `, written to ${buildOut}`}`],
     [
       "Program:",
       `${String(lines(r.program))} lines, ${String(r.program.length)} characters${programOut === undefined ? " (save it with --program-out FILE)" : `, written to ${programOut}`}`,
@@ -72,7 +73,7 @@ function revisionLines(r: Revision, programOut: string | undefined): string[][] 
   ];
 }
 
-function designLines(d: BotDesign, programOut: string | undefined): string[] {
+function designLines(d: BotDesign, saved: Saved): string[] {
   return table(
     [
       ["id:", d.id],
@@ -83,16 +84,27 @@ function designLines(d: BotDesign, programOut: string | undefined): string[] {
       ["Icon:", d.icon ?? "none"],
       ["updated:", ago(d.updatedAt)],
       ...(d.archivedAt === null ? [] : [["archived:", ago(d.archivedAt)]]),
-      ...revisionLines(d.latestRevision, programOut),
+      ...revisionLines(d.latestRevision, saved),
     ],
     "",
   );
 }
 
-async function saveProgram(values: Values, revision: Revision): Promise<string | undefined> {
-  const out = str(values, "program-out");
-  if (out !== undefined) await writeOutput(out, revision.program);
-  return out;
+/** The files `--program-out` and `--build-out` wrote, each undefined when not given. */
+interface Saved {
+  programOut?: string | undefined;
+  buildOut?: string | undefined;
+}
+
+const SAVE_OPTIONS = { "program-out": { type: "string" }, "build-out": { type: "string" } } as const;
+
+async function saveRevision(values: Values, revision: Revision): Promise<Saved> {
+  const programOut = str(values, "program-out");
+  const buildOut = str(values, "build-out");
+  if (programOut !== undefined) await writeOutput(programOut, revision.program);
+  if (buildOut !== undefined) await writeOutput(buildOut, `${JSON.stringify(revision.build, null, 2)}
+`);
+  return { programOut, buildOut };
 }
 
 function copyReportLines(report: CopyReport): string[] {
@@ -181,14 +193,14 @@ export const designsCommands: Group = {
   },
 
   show: {
-    synopsis: "DESIGN_ID [--program-out FILE]",
+    synopsis: "DESIGN_ID [--program-out FILE] [--build-out FILE]",
     summary: "Show a Bot Design and its latest Revision (GET /bot-designs/{designId})",
     args: ["DESIGN_ID"],
-    options: { "program-out": { type: "string" } },
+    options: SAVE_OPTIONS,
     run: async (context, [id = ""], values) => {
       const design = await context.client.request<BotDesign>("GET", designPath(id), { auth: true });
-      const out = await saveProgram(values, design.latestRevision);
-      emit(context, design, () => designLines(design, out));
+      const saved = await saveRevision(values, design.latestRevision);
+      emit(context, design, () => designLines(design, saved));
     },
   },
 
@@ -244,14 +256,14 @@ export const designsCommands: Group = {
   },
 
   revision: {
-    synopsis: "DESIGN_ID N [--program-out FILE]",
+    synopsis: "DESIGN_ID N [--program-out FILE] [--build-out FILE]",
     summary: "Show one Revision of a Bot Design (GET /bot-designs/{designId}/revisions/{revision})",
     args: ["DESIGN_ID", "N"],
-    options: { "program-out": { type: "string" } },
+    options: SAVE_OPTIONS,
     run: async (context, [id = "", n = ""], values) => {
       const revision = await context.client.request<Revision>("GET", revisionPath(id, wholeNumber("N", n)), { auth: true });
-      const out = await saveProgram(values, revision);
-      emit(context, revision, () => table([["design:", revision.designId], ...revisionLines(revision, out)], ""));
+      const saved = await saveRevision(values, revision);
+      emit(context, revision, () => table([["design:", revision.designId], ...revisionLines(revision, saved)], ""));
     },
   },
 
