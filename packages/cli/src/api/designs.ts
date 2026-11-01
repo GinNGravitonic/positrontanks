@@ -7,6 +7,9 @@
  * half for the one not given. `--program-out FILE` writes a Revision's
  * Program source, so a design can be pulled, edited and revised; human
  * output otherwise shows the Build and the Program's length.
+ *
+ * `icon set` sends the file as is; the server checks it (the same limits as
+ * an Emblem) and strips its metadata, so the CLI does not check it first.
  */
 
 import { CliError, fetchList, usageError, type Schema } from "./client.js";
@@ -18,6 +21,7 @@ import {
   optionalNumber,
   PAGE_OPTIONS,
   pageOptions,
+  readBinaryInput,
   readInput,
   readJsonInput,
   rulesetOrLatest,
@@ -76,6 +80,7 @@ function designLines(d: BotDesign, programOut: string | undefined): string[] {
       ...(d.description === "" ? [] : [["description:", d.description]]),
       ["Ruleset:", d.rulesetVersion],
       ...(d.copiedFrom === null ? [] : [["copied from:", `${d.copiedFrom.designId} Revision ${String(d.copiedFrom.revision)}`]]),
+      ["Icon:", d.icon ?? "none"],
       ["updated:", ago(d.updatedAt)],
       ...(d.archivedAt === null ? [] : [["archived:", ago(d.archivedAt)]]),
       ...revisionLines(d.latestRevision, programOut),
@@ -293,6 +298,27 @@ export const designsCommands: Group = {
     run: async (context, [id = ""]) => {
       await context.client.request("DELETE", designPath(id), { auth: true });
       emit(context, {}, () => [`Archived Bot Design ${id}.`]);
+    },
+  },
+
+  "icon set": {
+    synopsis: "DESIGN_ID FILE",
+    summary: "Set or replace a Bot Design's Icon from a PNG file (PUT /bot-designs/{designId}/icon)",
+    args: ["DESIGN_ID", "FILE"],
+    run: async (context, [id = "", file = ""]) => {
+      const content = await readBinaryInput(file);
+      const design = await context.client.request<BotDesign>("PUT", `${designPath(id)}/icon`, { auth: true, bytes: { type: "image/png", content } });
+      emit(context, design, () => [`Set the Icon of Bot Design ${design.id} ("${design.name}") (Icon ${design.icon ?? "none"}).`]);
+    },
+  },
+
+  "icon clear": {
+    synopsis: "DESIGN_ID",
+    summary: "Remove a Bot Design's Icon (DELETE /bot-designs/{designId}/icon)",
+    args: ["DESIGN_ID"],
+    run: async (context, [id = ""]) => {
+      await context.client.request("DELETE", `${designPath(id)}/icon`, { auth: true });
+      emit(context, {}, () => [`Removed the Icon of Bot Design ${id}.`]);
     },
   },
 

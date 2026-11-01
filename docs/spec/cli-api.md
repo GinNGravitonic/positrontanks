@@ -76,11 +76,14 @@ The server checks the Emblem (a square PNG, 32 to 256 pixels a side, at most 64 
 | `designs copy DESIGN_ID --ruleset VERSION [--revision N] [--name NAME] [--notes TEXT] [--dry-run]` | `POST /bot-designs/{designId}/copies` |
 | `designs archive DESIGN_ID` | `DELETE /bot-designs/{designId}` |
 | `designs tick-cost DESIGN_ID [--revision N] [--ticks N] [--seed N]` | `POST /bot-designs/{designId}/tick-cost-checks` |
+| `designs icon set DESIGN_ID FILE` | `PUT /bot-designs/{designId}/icon`, with the file as a raw `image/png` body |
+| `designs icon clear DESIGN_ID` | `DELETE /bot-designs/{designId}/icon` |
 
 - `--build FILE` is a Build as JSON, the shape the server takes (and an [Entry file](cli-runner.md#entry-file)'s `bots[].build`). `--program FILE` is Program source, conventionally `.ptk`. Either may be `-` for stdin (at most one per command).
 - `designs revise` sends the latest Revision's Build or Program for the half not given, so changing only the Program is `designs revise ID --program hunter.ptk`. Giving neither is a usage error.
 - `--ruleset` defaults to the latest Ruleset the server hosts (the last of `GET /rulesets`).
 - `--program-out FILE` writes the Program source to a file, so a design can be pulled, edited and revised. Human output otherwise shows the Build and the Program's length, not its source.
+- `designs icon set` sends the file as is; the server checks it (the same limits as an Emblem: a square PNG, 32 to 256 pixels a side, at most 64 KB) and answers `validation_failed` for any other file. The Icon belongs to the design, not a Revision, so setting it adds no Revision, and archived designs can be changed too. Clearing an Icon the design does not have is not an error.
 - `designs tick-cost` answers `410 feature_disabled` on servers without the feature; the error message points to `positrontanks tick-cost --entry FILE`, the offline equivalent.
 
 The ad hoc check `POST /tick-cost-checks` (a Build and Program that are not a design) is `positrontanks tick-cost --entry FILE --remote`: the same input and output as the offline command, run on the server instead. Without `--remote`, `tick-cost` stays offline.

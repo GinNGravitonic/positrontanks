@@ -137,6 +137,7 @@ export function testDesign(fields: Partial<BotDesignSummary> & { readonly cost?:
     rulesetVersion: "r1",
     latestRevision: { number: 1, cost, notes: "", createdAt: "2026-10-31T00:00:00.000Z" },
     copiedFrom: null,
+    icon: null,
     createdAt: "2026-10-31T00:00:00.000Z",
     updatedAt: "2026-10-31T00:00:00.000Z",
     archivedAt: null,
