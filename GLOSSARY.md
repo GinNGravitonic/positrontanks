@@ -25,7 +25,7 @@ An immutable snapshot of a Bot Design or Map; editing creates a new Revision, an
 _Avoid_: Version (reserved for Rulesets), snapshot
 
 **Emblem**:
-A Player's image, displayed alongside all of that Player's Bots.
+A Player's optional image, displayed alongside all of that Player's Bots; always the Player's current one, also when rewatching earlier Games.
 _Avoid_: Team icon, logo, avatar
 
 **Program**:
