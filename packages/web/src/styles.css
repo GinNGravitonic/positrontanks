@@ -400,8 +400,78 @@ table.designs td {
   cursor: crosshair;
 }
 
-.viewer-result {
-  font-weight: bold;
+.game-over {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(40rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  background: light-dark(rgb(255 255 255 / 0.94), rgb(30 30 30 / 0.94));
+  box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.3);
+  font-size: 0.875rem;
+}
+
+.game-over h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.game-over table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.game-over th,
+.game-over td {
+  padding: 0.2rem 0.4rem;
+  text-align: right;
+}
+
+.game-over :is(th, td):first-child,
+.game-over :is(th, td):last-child {
+  text-align: left;
+}
+
+.game-over thead th {
+  font-size: 0.75rem;
+  vertical-align: bottom;
+}
+
+.game-over-entry {
+  border-top: 1px solid light-dark(#ccc, #555);
+}
+
+.game-over-entry th {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.game-over-bot th {
+  padding-left: 2.2rem;
+  font-weight: normal;
+}
+
+.game-over-winner .game-over-entry {
+  background: light-dark(rgb(255 215 0 / 0.2), rgb(255 215 0 / 0.12));
+}
+
+.game-over-badge {
+  padding: 0 0.35rem;
+  border-radius: 0.25rem;
+  background: #fdd835;
+  color: #000;
+  font-size: 0.75rem;
+}
+
+.game-over-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin: 0.75rem 0 0;
 }
 
 .replay-controls {

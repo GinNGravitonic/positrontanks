@@ -35,6 +35,38 @@ export function botFigures(replay: Pick<ViewerReplay, "entries" | "damage" | "di
   return disabled === undefined ? { dealtToFoes, taken } : { dealtToFoes, taken, disabled };
 }
 
+/**
+ * An Entry's figures at the end of the Game (frontend spec section 7, Game
+ * Over), as the engine counts them for the result: the damage its Bots dealt
+ * to Foes, the Hit Points of those not Disabled, and whether any is.
+ */
+export interface EntryFigures {
+  readonly player: string;
+  readonly dealtToFoes: number;
+  readonly hitPoints: number;
+  readonly standing: boolean;
+}
+
+/** Each Entry's figures in the final frame, in Entry order. */
+export function entryFigures(replay: Pick<ViewerReplay, "entries" | "damage" | "disablements" | "lastTick" | "scene">): EntryFigures[] {
+  const final = replay.scene(replay.lastTick);
+  return replay.entries.map((entry) => {
+    const bots = new Set(entry.bots.map((b) => b.id));
+    const live = final.bots.filter((b) => bots.has(b.id) && !b.disabled);
+    return {
+      player: entry.player,
+      dealtToFoes: entry.bots.reduce((sum, b) => sum + botFigures(replay, b.id, replay.lastTick).dealtToFoes, 0),
+      hitPoints: live.reduce((sum, b) => sum + b.hitPoints, 0),
+      standing: live.length > 0,
+    };
+  });
+}
+
+/** The Tick in which a Bot was Disabled. */
+export function disabledTick(disablement: Disablement): number {
+  return Math.ceil(disablement.time);
+}
+
 /** Why a Bot was Disabled, in words. */
 export function disabledCauseText(cause: string): string {
   switch (cause) {

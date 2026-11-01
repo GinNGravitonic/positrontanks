@@ -4,7 +4,8 @@
  * Ruleset without a viewer says so instead. The main view pans by dragging
  * and zooms with the wheel or its buttons; the overview moves it by a click
  * or a drag. Clicking a Bot selects it and opens its inset, whose Follow
- * button follows it until the Spectator pans.
+ * button follows it until the Spectator pans. Game Over is shown over the
+ * final frame when playback reaches the end.
  */
 
 import type { Point } from "@positrontanks/ruleset-data";
@@ -14,7 +15,7 @@ import { botParts, botReach, type Catalog } from "../draw/bot.js";
 import { fitView, screenToMap, type View } from "../draw/geometry.js";
 import { mapBounds } from "../draw/map.js";
 import { Canvas } from "../draw/preview.js";
-import { cancelReasonText, getGame, problemText, resultText, type Game } from "../games.js";
+import { cancelReasonText, getGame, problemText, type Game } from "../games.js";
 import { Link, useLoad, useServices, useSession } from "../hooks.js";
 import { loadReplay } from "../replays.js";
 import { centerOn, defaultView, panBy, resizeView, zoomAt } from "../viewer/camera.js";
@@ -24,6 +25,7 @@ import { advance, clockText, seek, skipToEnd, SPEEDS, START, togglePlaying, type
 import type { ViewerReplay } from "../viewer/scene.js";
 import { unsupportedText } from "../viewer/viewers.js";
 import { BotInset } from "./bot-inset.js";
+import { GameOver } from "./game-over.js";
 import { gameRoute } from "./game.js";
 
 export function WatchScreen({ id }: { readonly id: string }) {
@@ -306,6 +308,16 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
               }}
             />
           )}
+          {atEnd && game.result !== null ? (
+            <GameOver
+              result={game.result}
+              replay={replay}
+              usernames={usernames}
+              onWatchAgain={() => {
+                setPlayback((p) => ({ ...seek(p, 0, replay.lastTick), playing: true }));
+              }}
+            />
+          ) : null}
           <div className="viewer-zoom">
             <button type="button" aria-label="Zoom in" onClick={() => {
               zoomBy(ZOOM_STEP);
@@ -355,7 +367,6 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
               </>
             )}
           </p>
-          {atEnd && game.result !== null ? <p className="viewer-result">{resultText(game.result)}.</p> : null}
         </div>
       </div>
       <ReplayControls
