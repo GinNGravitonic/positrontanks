@@ -13,3 +13,6 @@ dist/
 
 # Pulumi stack config (per deployer: AWS profile, encrypted secrets)
 Pulumi.*.yaml
+
+# Local dev server objects (.claude/launch.json)
+.dev/

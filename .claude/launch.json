@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "packages/server/dist/main.js"
+      ],
+      "env": {
+        "POSITRONTANKS_DATABASE_PATH": ":memory:",
+        "POSITRONTANKS_HOST": "127.0.0.1",
+        "POSITRONTANKS_PORT": "8080",
+        "POSITRONTANKS_STORAGE_DIRECTORY": ".dev/objects"
+      },
+      "port": 8080
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@positrontanks/web",
+        "dev",
+        "--port",
+        "5173",
+        "--strictPort"
+      ],
+      "port": 5173
+    }
+  ]
+}
