@@ -13,9 +13,15 @@
 
 import type { DatabaseSync } from "node:sqlite";
 
-export interface PlayerRecord {
+/** How other records refer to a Player: enough to show who it is. */
+export interface PlayerRef {
   readonly id: string;
   readonly username: string;
+  /** The content hash of the Player's current Emblem, or null if it has none. */
+  readonly emblem: string | null;
+}
+
+export interface PlayerRecord extends PlayerRef {
   readonly createdAt: string;
 }
 
@@ -39,6 +45,7 @@ export interface NewApiKey {
 interface PlayerRow {
   id: string;
   username: string;
+  emblem: string | null;
   created_at: string;
 }
 
@@ -50,7 +57,12 @@ interface ApiKeyRow {
   last_used_at: string | null;
 }
 
-const toPlayer = (row: PlayerRow): PlayerRecord => ({ id: row.id, username: row.username, createdAt: row.created_at });
+const toPlayer = (row: PlayerRow): PlayerRecord => ({
+  id: row.id,
+  username: row.username,
+  emblem: row.emblem,
+  createdAt: row.created_at,
+});
 
 const toApiKey = (row: ApiKeyRow): ApiKeyRecord => ({
   id: row.id,
@@ -84,7 +96,7 @@ export class AccountStore {
       this.#db
         .prepare("INSERT INTO password_credentials (player_id, password_hash, updated_at) VALUES (?, ?, ?)")
         .run(id, passwordHash, at);
-      return { id, username, createdAt: at };
+      return { id, username, emblem: null, createdAt: at };
     });
   }
 
@@ -92,7 +104,7 @@ export class AccountStore {
   findPasswordCredential(username: string): { player: PlayerRecord; passwordHash: string } | undefined {
     const row = this.#db
       .prepare(
-        `SELECT p.id, p.username, p.created_at, c.password_hash
+        `SELECT p.id, p.username, p.emblem, p.created_at, c.password_hash
          FROM players p JOIN password_credentials c ON c.player_id = p.id
          WHERE p.username_key = ?`,
       )
@@ -101,10 +113,24 @@ export class AccountStore {
   }
 
   getPlayer(id: string): PlayerRecord | undefined {
-    const row = this.#db.prepare("SELECT id, username, created_at FROM players WHERE id = ?").get(id) as
+    const row = this.#db.prepare("SELECT id, username, emblem, created_at FROM players WHERE id = ?").get(id) as
       | PlayerRow
       | undefined;
     return row === undefined ? undefined : toPlayer(row);
+  }
+
+  /**
+   * Sets or clears the Player's Emblem and returns the hash it replaced (null
+   * if it had none), so the caller can delete the old stored image.
+   */
+  setEmblem(playerId: string, emblem: string | null): string | null {
+    return this.#transaction(() => {
+      const row = this.#db.prepare("SELECT emblem FROM players WHERE id = ?").get(playerId) as
+        | { emblem: string | null }
+        | undefined;
+      this.#db.prepare("UPDATE players SET emblem = ? WHERE id = ?").run(emblem, playerId);
+      return row?.emblem ?? null;
+    });
   }
 
   createSession(tokenHash: string, playerId: string, now: Date, expiresAt: Date): void {
@@ -117,7 +143,7 @@ export class AccountStore {
   findSessionPlayer(tokenHash: string, now: Date): PlayerRecord | undefined {
     const row = this.#db
       .prepare(
-        `SELECT p.id, p.username, p.created_at
+        `SELECT p.id, p.username, p.emblem, p.created_at
          FROM sessions s JOIN players p ON p.id = s.player_id
          WHERE s.token_hash = ? AND s.expires_at > ?`,
       )
@@ -160,7 +186,7 @@ export class AccountStore {
   useApiKey(tokenHash: string, now: Date): { player: PlayerRecord; keyId: string } | undefined {
     const row = this.#db
       .prepare(
-        `SELECT k.id AS key_id, p.id, p.username, p.created_at
+        `SELECT k.id AS key_id, p.id, p.username, p.emblem, p.created_at
          FROM api_keys k JOIN players p ON p.id = k.player_id
          WHERE k.token_hash = ? AND k.revoked_at IS NULL`,
       )

@@ -28,7 +28,7 @@
 import { randomUUID } from "node:crypto";
 import { validateMap, type MapFormat1 } from "@positrontanks/ruleset-data";
 import { authenticate } from "../accounts/auth.js";
-import { USERNAME_PATTERN } from "./accounts.js";
+import { playerRefJson, playerRefSchema, USERNAME_PATTERN } from "./accounts.js";
 import type { MapRecord, MapRevisionRecord, MapRevisionSummary } from "../db/maps.js";
 import {
   ApiError,
@@ -171,12 +171,7 @@ const schemas: Record<string, Json> = {
       createdAt: timestamp,
     },
   },
-  MapCreator: {
-    type: "object",
-    required: ["id", "username"],
-    additionalProperties: false,
-    properties: { id: { type: "string" }, username: { type: "string" } },
-  },
+  MapCreator: playerRefSchema,
   MapSummary: {
     type: "object",
     required: ["id", "name", "description", "creator", "latestRevision", "createdAt", "updatedAt", "archivedAt"],
@@ -319,7 +314,7 @@ const mapFields = (m: MapRecord): Record<string, Json> => ({
   id: m.id,
   name: m.name,
   description: m.description,
-  creator: { id: m.creator.id, username: m.creator.username },
+  creator: playerRefJson(m.creator),
   createdAt: m.createdAt,
   updatedAt: m.updatedAt,
   archivedAt: m.archivedAt,

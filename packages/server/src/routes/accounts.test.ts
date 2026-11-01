@@ -63,7 +63,8 @@ describe("sign up", () => {
     const response = await signUp();
     expect(response.status).toBe(201);
     const player = response.body as Record<string, unknown>;
-    expect(Object.keys(player).sort()).toEqual(["createdAt", "id", "username"]);
+    expect(Object.keys(player).sort()).toEqual(["createdAt", "emblem", "id", "username"]);
+    expect(player.emblem).toBeNull();
     expect(player.username).toBe("Ada_Bot");
     expect(typeof player.id).toBe("string");
     expect(Number.isNaN(Date.parse(String(player.createdAt)))).toBe(false);

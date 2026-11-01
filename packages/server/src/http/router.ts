@@ -57,6 +57,8 @@ export interface RequestContext {
   readonly services: Services;
   /** Reads and parses a JSON body, enforcing the content type and size limit. */
   readonly readJson: () => Promise<unknown>;
+  /** Reads a raw body of one media type, of at most `maxBytes`. */
+  readonly readBytes: (mediaType: string, maxBytes: number) => Promise<Uint8Array>;
 }
 
 export interface Reply {

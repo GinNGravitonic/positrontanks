@@ -20,7 +20,7 @@ import {
   verifyDummyPassword,
   verifyPassword,
 } from "../accounts/secrets.js";
-import type { ApiKeyRecord, PlayerRecord } from "../db/accounts.js";
+import type { ApiKeyRecord, PlayerRecord, PlayerRef } from "../db/accounts.js";
 import { ApiError, badRequest, notFound, validationFailed, type ErrorDetail } from "../http/errors.js";
 import type { ApiModule, Json } from "../http/router.js";
 
@@ -45,14 +45,32 @@ const usernameSchema: Json = {
   examples: ["ada_bot"],
 };
 
+/** The `emblem` field of every Player reference. */
+export const emblemProperty: Json = {
+  type: ["string", "null"],
+  pattern: "^[0-9a-f]{64}$",
+  description:
+    "The content hash of the Player's current Emblem, or null if it has none. Fetch the image with `getEmblem`; " +
+    "the hash changes whenever the Emblem does.",
+};
+
+/** The schema of a Player reference: who a Game, Entry or Map belongs to. */
+export const playerRefSchema: Json = {
+  type: "object",
+  required: ["id", "username", "emblem"],
+  additionalProperties: false,
+  properties: { id: { type: "string" }, username: { type: "string" }, emblem: emblemProperty },
+};
+
 const schemas: Record<string, Json> = {
   Player: {
     type: "object",
-    required: ["id", "username", "createdAt"],
+    required: ["id", "username", "emblem", "createdAt"],
     additionalProperties: false,
     properties: {
       id: { type: "string" },
       username: { type: "string" },
+      emblem: emblemProperty,
       createdAt: { type: "string", format: "date-time" },
     },
   },
@@ -140,7 +158,14 @@ function checkPassword(password: string, details: ErrorDetail[]): void {
   }
 }
 
-const playerJson = (p: PlayerRecord): Json => ({ id: p.id, username: p.username, createdAt: p.createdAt });
+export const playerRefJson = (p: PlayerRef): Json => ({ id: p.id, username: p.username, emblem: p.emblem });
+
+export const playerJson = (p: PlayerRecord): Json => ({
+  id: p.id,
+  username: p.username,
+  emblem: p.emblem,
+  createdAt: p.createdAt,
+});
 
 const apiKeyJson = (k: ApiKeyRecord): Json => ({
   id: k.id,

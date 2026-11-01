@@ -15,13 +15,14 @@ import type { AddressInfo } from "node:net";
 import type { ServerConfig } from "./config.js";
 import { Database } from "./db/database.js";
 import { GameRunner, type Pacing } from "./games/runner.js";
-import { readJsonBody } from "./http/body.js";
+import { readBytesBody, readJsonBody } from "./http/body.js";
 import { ApiError, notFound } from "./http/errors.js";
 import { formatEvent, SSE_HEARTBEAT_MS, type EventStream } from "./http/events.js";
 import { buildOpenApiDocument } from "./http/openapi.js";
 import { Router, type ApiModule, type Json, type Reply, type Services } from "./http/router.js";
 import { isWebClientPath, serveWebClient } from "./http/web-client.js";
 import { accountsModule } from "./routes/accounts.js";
+import { emblemsModule } from "./routes/emblems.js";
 import { gamesModule } from "./routes/games.js";
 import { garageModule } from "./routes/garage.js";
 import { mapsModule } from "./routes/maps.js";
@@ -36,6 +37,7 @@ import type { ObjectStore } from "./storage/object-store.js";
 /** The feature areas served in production, besides the system endpoints. */
 export const apiModules: readonly ApiModule[] = [
   accountsModule,
+  emblemsModule,
   garageModule,
   tickCostModule,
   mapsModule,
@@ -105,6 +107,7 @@ export function createApp(services: Services, options: AppOptions = {}): Request
       params: match.params,
       services,
       readJson: () => readJsonBody(request, services.config.limits.maxRequestBodyBytes),
+      readBytes: (mediaType, maxBytes) => readBytesBody(request, mediaType, maxBytes),
     });
   };
 

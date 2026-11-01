@@ -167,6 +167,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/players/me/emblem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set or replace the authenticated Player's Emblem
+         * @description The body is the PNG file itself: square, 32 to 256 pixels a side, at most 65536 bytes. Only the chunks needed to draw it are kept (IHDR, PLTE, tRNS, IDAT, IEND); metadata such as text and EXIF is dropped. Replacing an Emblem deletes the old one.
+         */
+        put: operations["setEmblem"];
+        post?: never;
+        /**
+         * Remove the authenticated Player's Emblem
+         * @description Removing an Emblem the Player does not have is not an error.
+         */
+        delete: operations["clearEmblem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/players/{playerId}/emblem/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a Player's Emblem image
+         * @description `hash` is the `emblem` field of a Player reference. The image never changes for a given hash, so it may be cached. 404 when the Player has no such Emblem, including one that was replaced or taken down.
+         */
+        get: operations["getEmblem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/bot-designs": {
         parameters: {
             query?: never;
@@ -820,6 +864,8 @@ export interface components {
         Player: {
             id: string;
             username: string;
+            /** @description The content hash of the Player's current Emblem, or null if it has none. Fetch the image with `getEmblem`; the hash changes whenever the Emblem does. */
+            emblem: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -1207,6 +1253,8 @@ export interface components {
         MapCreator: {
             id: string;
             username: string;
+            /** @description The content hash of the Player's current Emblem, or null if it has none. Fetch the image with `getEmblem`; the hash changes whenever the Emblem does. */
+            emblem: string | null;
         };
         MapSummary: {
             id: string;
@@ -1542,6 +1590,8 @@ export interface components {
         GamePlayer: {
             id: string;
             username: string;
+            /** @description The content hash of the Player's current Emblem, or null if it has none. Fetch the image with `getEmblem`; the hash changes whenever the Emblem does. */
+            emblem: string | null;
         };
         /** @description The Map Revision the Game is played on. */
         GameMap: {
@@ -2107,6 +2157,81 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setEmblem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+            };
+        };
+        responses: {
+            /** @description The Player with its new Emblem. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Player"];
+                };
+            };
+            401: components["responses"]["Error"];
+            413: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    clearEmblem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Player has no Emblem. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getEmblem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                playerId: string;
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Emblem. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];

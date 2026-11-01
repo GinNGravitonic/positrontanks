@@ -24,9 +24,9 @@ import { createServices, signUp } from "./services.js";
 import { SESSION_STORAGE_KEY } from "./session.js";
 import { fakeApi, memoryHistory, memoryStorage, testGame } from "./test-platform.js";
 
-const ada = { id: "p-ada_bot", username: "ada_bot" };
-const bob = { id: "p-bob_bot", username: "bob_bot" };
-const entry = (id: string, player: { id: string; username: string }, bots: string[], cost?: number): Game["entries"][number] => ({
+const ada = { id: "p-ada_bot", username: "ada_bot", emblem: null };
+const bob = { id: "p-bob_bot", username: "bob_bot", emblem: null };
+const entry = (id: string, player: { id: string; username: string; emblem: string | null }, bots: string[], cost?: number): Game["entries"][number] => ({
   id,
   player,
   createdAt: "2026-10-31T00:05:00.000Z",

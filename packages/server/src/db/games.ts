@@ -24,6 +24,7 @@
 
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import type { Build } from "@positrontanks/ruleset-data";
+import type { PlayerRef } from "./accounts.js";
 import { FIRST_PAGE, queryPage, type Page, type PageRequest } from "./paging.js";
 
 export const GAME_STATES = ["open", "running", "finished", "cancelled"] as const;
@@ -53,7 +54,7 @@ export interface GameResultRecord {
   readonly tick: number;
   readonly end: GameEnd;
   /** Null for a Draw. */
-  readonly winner: { readonly id: string; readonly username: string } | null;
+  readonly winner: PlayerRef | null;
   /** Null for a Draw. */
   readonly decidedBy: DecidedBy | null;
 }
@@ -69,7 +70,7 @@ export interface NewGameResult {
 
 export interface GameRecord {
   readonly id: string;
-  readonly initiator: { readonly id: string; readonly username: string };
+  readonly initiator: PlayerRef;
   readonly rulesetVersion: string;
   readonly map: { readonly id: string; readonly name: string; readonly revision: number };
   readonly playerCount: number;
@@ -117,7 +118,7 @@ export interface EntryBotRecord {
 export interface EntryRecord {
   readonly id: string;
   readonly gameId: string;
-  readonly player: { readonly id: string; readonly username: string };
+  readonly player: PlayerRef;
   /** The combined cost of the Entry's Bots. */
   readonly cost: number;
   readonly createdAt: string;
@@ -161,6 +162,7 @@ interface GameRow {
   id: string;
   initiator_id: string;
   username: string;
+  emblem: string | null;
   ruleset_version: string;
   map_id: string;
   map_name: string;
@@ -181,6 +183,7 @@ interface GameRow {
   result_end: GameEnd | null;
   winner_id: string | null;
   winner_username: string | null;
+  winner_emblem: string | null;
   decided_by: DecidedBy | null;
   failed_attempts: number;
 }
@@ -190,6 +193,7 @@ interface EntryBotRow {
   game_id: string;
   player_id: string;
   username: string;
+  emblem: string | null;
   entry_cost: number;
   entry_created_at: string;
   name: string;
@@ -200,11 +204,11 @@ interface EntryBotRow {
 }
 
 const GAME_COLUMNS = `
-  g.id, g.initiator_id, p.username, g.ruleset_version, g.map_id, m.name AS map_name, g.map_revision,
+  g.id, g.initiator_id, p.username, p.emblem, g.ruleset_version, g.map_id, m.name AS map_name, g.map_revision,
   g.player_count, g.point_budget, g.time_limit_seconds, g.pace, g.fill_timeout_seconds, g.state,
   g.created_at, g.fill_deadline, g.started_at, g.ended_at, g.cancel_reason,
   (SELECT count(*) FROM game_entries e WHERE e.game_id = g.id) AS entry_count,
-  g.last_tick, g.result_end, g.winner_id, w.username AS winner_username, g.decided_by,
+  g.last_tick, g.result_end, g.winner_id, w.username AS winner_username, w.emblem AS winner_emblem, g.decided_by,
   g.failed_attempts
   FROM games g
   JOIN players p ON p.id = g.initiator_id
@@ -213,7 +217,7 @@ const GAME_COLUMNS = `
 
 const toGame = (row: GameRow): GameRecord => ({
   id: row.id,
-  initiator: { id: row.initiator_id, username: row.username },
+  initiator: { id: row.initiator_id, username: row.username, emblem: row.emblem },
   rulesetVersion: row.ruleset_version,
   map: { id: row.map_id, name: row.map_name, revision: row.map_revision },
   playerCount: row.player_count,
@@ -235,7 +239,10 @@ const toGame = (row: GameRow): GameRecord => ({
       : {
           tick: row.last_tick ?? 0,
           end: row.result_end,
-          winner: row.winner_id === null ? null : { id: row.winner_id, username: row.winner_username ?? "" },
+          winner:
+            row.winner_id === null
+              ? null
+              : { id: row.winner_id, username: row.winner_username ?? "", emblem: row.winner_emblem },
           decidedBy: row.decided_by,
         },
   failedAttempts: row.failed_attempts,
@@ -348,7 +355,7 @@ export class GameStore {
   listEntries(gameId: string): EntryRecord[] {
     const rows = this.#db
       .prepare(
-        `SELECT e.id AS entry_id, e.game_id, e.player_id, p.username, e.cost AS entry_cost,
+        `SELECT e.id AS entry_id, e.game_id, e.player_id, p.username, p.emblem, e.cost AS entry_cost,
            e.created_at AS entry_created_at, b.name, b.design_id, b.design_revision, r.cost, r.build
          FROM game_entries e
          JOIN players p ON p.id = e.player_id
@@ -366,7 +373,7 @@ export class GameStore {
           record: {
             id: row.entry_id,
             gameId: row.game_id,
-            player: { id: row.player_id, username: row.username },
+            player: { id: row.player_id, username: row.username, emblem: row.emblem },
             cost: row.entry_cost,
             createdAt: row.entry_created_at,
           },

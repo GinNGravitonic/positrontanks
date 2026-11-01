@@ -63,6 +63,7 @@ import {
 import { nextCursor, nextCursorSchema, pageParameters, readPage } from "../http/paging.js";
 import type { ApiModule, Json, RequestContext } from "../http/router.js";
 import type { HostedRuleset } from "../rulesets/catalog.js";
+import { playerRefJson, playerRefSchema } from "./accounts.js";
 
 export const BOT_NAME_MAX_LENGTH = 32;
 
@@ -114,12 +115,7 @@ const gameProperties: Record<string, Json> = {
 const gameRequired = Object.keys(gameProperties);
 
 const schemas: Record<string, Json> = {
-  GamePlayer: {
-    type: "object",
-    required: ["id", "username"],
-    additionalProperties: false,
-    properties: { id: { type: "string" }, username: { type: "string" } },
-  },
+  GamePlayer: playerRefSchema,
   GameMap: {
     type: "object",
     description: "The Map Revision the Game is played on.",
@@ -400,7 +396,7 @@ const buildsVisible = (game: GameRecord): boolean => game.state === "running" ||
 const gameFields = (g: GameRecord): Record<string, Json> => ({
   id: g.id,
   state: g.state,
-  initiator: { id: g.initiator.id, username: g.initiator.username },
+  initiator: playerRefJson(g.initiator),
   rulesetVersion: g.rulesetVersion,
   map: { id: g.map.id, name: g.map.name, revision: g.map.revision },
   playerCount: g.playerCount,
@@ -420,7 +416,7 @@ const gameFields = (g: GameRecord): Record<string, Json> => ({
       : {
           tick: g.result.tick,
           end: g.result.end,
-          winner: g.result.winner === null ? null : { id: g.result.winner.id, username: g.result.winner.username },
+          winner: g.result.winner === null ? null : playerRefJson(g.result.winner),
           decidedBy: g.result.decidedBy,
         },
 });
@@ -431,7 +427,7 @@ function entryJson(entry: EntryRecord, game: GameRecord, viewerId: string): Json
   const visible = own || buildsVisible(game);
   return {
     id: entry.id,
-    player: { id: entry.player.id, username: entry.player.username },
+    player: playerRefJson(entry.player),
     createdAt: entry.createdAt,
     ...(visible ? { cost: entry.cost } : {}),
     bots: entry.bots.map((bot) => ({

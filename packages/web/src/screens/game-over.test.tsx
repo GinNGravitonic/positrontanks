@@ -36,7 +36,7 @@ function apiResult(r1: Replay): GameResult {
   return {
     tick: result.tick,
     end: ends[result.end],
-    winner: result.winner === null ? null : { id: result.winner, username: usernameOf(result.winner) },
+    winner: result.winner === null ? null : { id: result.winner, username: usernameOf(result.winner), emblem: null },
     decidedBy: result.decidedBy === null ? null : decided[result.decidedBy],
   };
 }
@@ -70,7 +70,7 @@ describe("each Entry's figures at the end", () => {
 });
 
 describe("the outcome", () => {
-  const winner = { id: "p-ada", username: "ada_bot" };
+  const winner = { id: "p-ada", username: "ada_bot", emblem: null };
   it("names the Winner and how the Game was decided", () => {
     expect(outcomeText({ tick: 812, end: "last_standing", winner, decidedBy: "survival" })).toEqual({
       title: "ada_bot wins",

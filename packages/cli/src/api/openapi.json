@@ -15,6 +15,10 @@
       "description": "Signing up, logging in, and API keys."
     },
     {
+      "name": "Emblems",
+      "description": "Player Emblems: a small square PNG shown wherever the Player appears."
+    },
+    {
       "name": "Garage",
       "description": "Your private Bot Designs and their immutable Revisions. Programs are visible only to their owner; other Players' designs are indistinguishable from missing ones."
     },
@@ -356,6 +360,139 @@
         "responses": {
           "204": {
             "description": "Revoked."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/players/me/emblem": {
+      "put": {
+        "operationId": "setEmblem",
+        "summary": "Set or replace the authenticated Player's Emblem",
+        "description": "The body is the PNG file itself: square, 32 to 256 pixels a side, at most 65536 bytes. Only the chunks needed to draw it are kept (IHDR, PLTE, tRNS, IDAT, IEND); metadata such as text and EXIF is dropped. Replacing an Emblem deletes the old one.",
+        "tags": [
+          "Emblems"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The Player with its new Emblem.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Player"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearEmblem",
+        "summary": "Remove the authenticated Player's Emblem",
+        "description": "Removing an Emblem the Player does not have is not an error.",
+        "tags": [
+          "Emblems"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The Player has no Emblem."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/players/{playerId}/emblem/{hash}": {
+      "get": {
+        "operationId": "getEmblem",
+        "summary": "Get a Player's Emblem image",
+        "description": "`hash` is the `emblem` field of a Player reference. The image never changes for a given hash, so it may be cached. 404 when the Player has no such Emblem, including one that was replaced or taken down.",
+        "tags": [
+          "Emblems"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "playerId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Emblem.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Error"
@@ -2636,6 +2773,7 @@
         "required": [
           "id",
           "username",
+          "emblem",
           "createdAt"
         ],
         "additionalProperties": false,
@@ -2645,6 +2783,14 @@
           },
           "username": {
             "type": "string"
+          },
+          "emblem": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The content hash of the Player's current Emblem, or null if it has none. Fetch the image with `getEmblem`; the hash changes whenever the Emblem does."
           },
           "createdAt": {
             "type": "string",
@@ -3864,7 +4010,8 @@
         "type": "object",
         "required": [
           "id",
-          "username"
+          "username",
+          "emblem"
         ],
         "additionalProperties": false,
         "properties": {
@@ -3873,6 +4020,14 @@
           },
           "username": {
             "type": "string"
+          },
+          "emblem": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The content hash of the Player's current Emblem, or null if it has none. Fetch the image with `getEmblem`; the hash changes whenever the Emblem does."
           }
         }
       },
@@ -4921,7 +5076,8 @@
         "type": "object",
         "required": [
           "id",
-          "username"
+          "username",
+          "emblem"
         ],
         "additionalProperties": false,
         "properties": {
@@ -4930,6 +5086,14 @@
           },
           "username": {
             "type": "string"
+          },
+          "emblem": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The content hash of the Player's current Emblem, or null if it has none. Fetch the image with `getEmblem`; the hash changes whenever the Emblem does."
           }
         }
       },

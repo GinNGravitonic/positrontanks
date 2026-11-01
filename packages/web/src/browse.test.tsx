@@ -105,7 +105,7 @@ describe("loading through the API", () => {
   });
 
   it("lists Maps, only one creator's if asked, and loads a Map at a Revision", async () => {
-    const maps = [testMap(), testMap({ id: "m2", name: "Other", creator: { id: "p-bob_bot", username: "bob_bot" } })];
+    const maps = [testMap(), testMap({ id: "m2", name: "Other", creator: { id: "p-bob_bot", username: "bob_bot", emblem: null } })];
     const api = fakeApi({ maps: maps.map((m) => (m.id === "m1" ? { ...m, latestRevision: { ...m.latestRevision, number: 2 } } : m)) });
     const services = await signedIn(api);
     expect((await listMaps(services.api, undefined)).maps.map((m) => m.id)).toEqual(["m1", "m2"]);

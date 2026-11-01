@@ -25,7 +25,7 @@ const designs = [hunter, tank];
 const bot = (key: number, designId: string, name: string): EntryBotFields => ({ key, designId, name });
 const rival = {
   id: "e-rival",
-  player: { id: "p-grace", username: "grace" },
+  player: { id: "p-grace", username: "grace", emblem: null },
   createdAt: "2026-10-31T00:05:00.000Z",
   bots: [{ name: "Hunter" }],
 };
@@ -171,7 +171,7 @@ describe("the Enter Game screen", () => {
   it("explains why a Game cannot be entered", () => {
     expect(cannotEnter(testGame(), "p-ada_bot")).toBeUndefined();
     expect(cannotEnter(testGame({ state: "running" }), "p-ada_bot")).toBe("This Game is Running, so it takes no more Entries.");
-    expect(cannotEnter(testGame({ entries: [{ ...rival, player: { id: "p-ada_bot", username: "ada_bot" } }] }), "p-ada_bot")).toBe(
+    expect(cannotEnter(testGame({ entries: [{ ...rival, player: { id: "p-ada_bot", username: "ada_bot", emblem: null } }] }), "p-ada_bot")).toBe(
       "You have already entered this Game.",
     );
     expect(cannotEnter(testGame({ playerCount: 1, entries: [rival] }), "p-ada_bot")).toBe("This Game is full.");

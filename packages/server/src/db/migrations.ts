@@ -299,6 +299,15 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE map_revisions ADD COLUMN notes TEXT NOT NULL DEFAULT '' CHECK (length(notes) <= 500);
     `,
   },
+  {
+    version: 10,
+    name: "emblems",
+    // A Player's optional Emblem: the SHA-256 hex hash of the stored PNG,
+    // whose bytes live in object storage. Only the current one is kept.
+    sql: `
+      ALTER TABLE players ADD COLUMN emblem TEXT CHECK (emblem GLOB '[0-9a-f]*' AND length(emblem) = 64);
+    `,
+  },
 ];
 
 export class MigrationError extends Error {

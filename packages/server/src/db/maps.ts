@@ -12,7 +12,7 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import type { MapFormat1 } from "@positrontanks/ruleset-data";
-import { usernameKey } from "./accounts.js";
+import { usernameKey, type PlayerRef } from "./accounts.js";
 import { FIRST_PAGE, queryPage, type Page, type PageRequest } from "./paging.js";
 
 export interface MapRevisionRecord {
@@ -39,7 +39,7 @@ export interface MapRevisionSummary {
 
 export interface MapRecord {
   readonly id: string;
-  readonly creator: { readonly id: string; readonly username: string };
+  readonly creator: PlayerRef;
   readonly name: string;
   /** Free text, public like the rest of the Map; empty if none. */
   readonly description: string;
@@ -76,6 +76,7 @@ interface MapRow {
   id: string;
   player_id: string;
   username: string;
+  emblem: string | null;
   name: string;
   description: string;
   latest_revision: number;
@@ -109,7 +110,7 @@ interface SummaryRow {
 }
 
 const MAP_COLUMNS = `
-  m.id, m.player_id, p.username, m.name, m.description, m.latest_revision, m.created_at, m.updated_at, m.archived_at,
+  m.id, m.player_id, p.username, p.emblem, m.name, m.description, m.latest_revision, m.created_at, m.updated_at, m.archived_at,
   r.format, r.width, r.height, r.spawn_zones, r.notes, r.created_at AS revision_created_at
   FROM maps m
   JOIN players p ON p.id = m.player_id
@@ -127,7 +128,7 @@ const toSummary = (row: SummaryRow): MapRevisionSummary => ({
 
 const toMap = (row: MapRow): MapRecord => ({
   id: row.id,
-  creator: { id: row.player_id, username: row.username },
+  creator: { id: row.player_id, username: row.username, emblem: row.emblem },
   name: row.name,
   description: row.description,
   latestRevision: toSummary({ ...row, number: row.latest_revision, created_at: row.revision_created_at }),

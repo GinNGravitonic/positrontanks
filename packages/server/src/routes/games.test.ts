@@ -342,7 +342,7 @@ describe("Entries", () => {
     ]);
     expect(first.entry).toEqual({
       id: first.entry.id,
-      player: { id: expect.any(String) as string, username: "bob" },
+      player: { id: expect.any(String) as string, username: "bob", emblem: null },
       createdAt: START.toISOString(),
       cost: 128,
       bots: [

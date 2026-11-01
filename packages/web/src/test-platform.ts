@@ -89,7 +89,7 @@ export function testGame(fields: Partial<Game> = {}): Game {
   return {
     id: "g1",
     state: "open",
-    initiator: { id: "p-ada_bot", username: "ada_bot" },
+    initiator: { id: "p-ada_bot", username: "ada_bot", emblem: null },
     rulesetVersion: "r1",
     map: { id: "m1", name: "Crossroads", revision: 2 },
     playerCount: 2,
@@ -118,7 +118,7 @@ export function testMap(fields: Partial<Schema<"Map">> = {}): Schema<"Map"> {
     id: "m1",
     name: "Duel",
     description: "Two Players, face to face.",
-    creator: { id: "p-ada_bot", username: "ada_bot" },
+    creator: { id: "p-ada_bot", username: "ada_bot", emblem: null },
     latestRevision: { mapId: fields.id ?? "m1", number: 1, map, notes: "", createdAt: "2026-10-31T00:00:00.000Z" },
     createdAt: "2026-10-31T00:00:00.000Z",
     updatedAt: "2026-10-31T00:00:00.000Z",
@@ -213,7 +213,7 @@ export function fakeApi(
   };
 
   const handle = (method: string, path: string, query: URLSearchParams, auth: string | null, body: unknown): Response => {
-    const player = (username: string) => ({ id: `p-${username}`, username, createdAt: "2026-10-31T00:00:00.000Z" });
+    const player = (username: string) => ({ id: `p-${username}`, username, emblem: null, createdAt: "2026-10-31T00:00:00.000Z" });
     const credentials = body as { username: string; password: string };
     const token = auth?.replace(/^Bearer /, "");
     const signedIn = token === undefined ? undefined : sessions.get(token);
@@ -317,7 +317,7 @@ export function fakeApi(
       if (details.length > 0) return error(422, "validation_failed", "The request is invalid", details);
       const game = testGame({
         id: `g${String(next++)}`,
-        initiator: { id: me, username: signedIn },
+        initiator: { id: me, username: signedIn, emblem: null },
         rulesetVersion: created.rulesetVersion,
         map: { id: created.mapId, name: map?.name ?? "", revision: map?.latestRevision.number ?? 1 },
         playerCount: created.playerCount,
@@ -369,7 +369,7 @@ export function fakeApi(
       if (details.length > 0) return error(422, "validation_failed", "The request is invalid", details);
       const entry = {
         id: `e${String(next++)}`,
-        player: { id: me, username: signedIn },
+        player: { id: me, username: signedIn, emblem: null },
         createdAt: "2026-10-31T00:10:00.000Z",
         cost,
         bots: bots.map((bot) => ({ name: bot.name, design: { designId: bot.designId, revision: bot.revision ?? 1 } })),
