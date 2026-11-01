@@ -77,3 +77,9 @@ Object-valued keys are set with `--path`, for example
 `pulumi config set --secret --path 'secretEnvironment.SOME_TOKEN' ...`.
 
 Without `domainName` the server is plain HTTP on the load balancer's DNS name.
+
+## Taking down an Emblem
+
+Player Emblems are objects in the objects bucket (`pulumi stack output
+objectsBucket`). To take one down, delete its object with `aws s3 rm`; see
+[docs/emblems.md](emblems.md).

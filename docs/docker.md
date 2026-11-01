@@ -52,6 +52,9 @@ Invalid configuration makes the server exit at startup listing every problem. Wi
 `POSITRONTANKS_STORAGE=local` it also creates the storage directory and probes a
 write there at startup, exiting with an error naming the directory if that fails.
 
+Player Emblems are objects in that storage; to take one down, delete its
+object ([docs/emblems.md](emblems.md)).
+
 ### Tick cost check
 
 The tick cost check (`POST /tick-cost-checks`,
