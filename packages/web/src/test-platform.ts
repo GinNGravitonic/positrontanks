@@ -3,8 +3,8 @@
  * a fake API with the accounts endpoints the client signs in with, the
  * Games endpoints of the Games screen and Game page, the Rulesets and
  * Maps the Create Game screen chooses from, and the Bot Designs and Entries
- * of the Enter Game screen, and the Replays, Parts Catalog and event streams
- * the viewer loads.
+ * of the Enter Game screen and the Garage, Map Revisions, and the Replays,
+ * Parts Catalog and event streams the viewer loads.
  */
 
 import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
@@ -144,6 +144,28 @@ export function testDesign(fields: Partial<BotDesignSummary> & { readonly cost?:
   };
 }
 
+/** The Build every test Bot Design has: an r1 Scout with a Pellet Gun, Radar and Wheels, and light front Armor. */
+export const TEST_BUILD: Schema<"Build"> = {
+  chassis: "scout",
+  components: { gun: "pelletGun", eye: "radar", drive: "wheels" },
+  armor: { front: "lightPlate", left: null, right: null, rear: null },
+};
+
+/** Revision `number` of a test Bot Design: notes `Revision n`, and Revision 1's cost less 10 points for each later one. */
+export function testDesignRevision(design: BotDesignSummary, number: number): Schema<"BotDesignRevision"> {
+  const latest = design.latestRevision;
+  return {
+    designId: design.id,
+    number,
+    build: TEST_BUILD,
+    program: `-- ${design.name}, Revision ${String(number)}
+`,
+    cost: number === latest.number ? latest.cost : latest.cost - 10 * (latest.number - number),
+    notes: number === latest.number ? latest.notes : `Revision ${String(number)}`,
+    createdAt: latest.createdAt,
+  };
+}
+
 export function mapSummary(map: Schema<"Map">): MapSummary {
   const { map: format, ...revision } = map.latestRevision;
   return {
@@ -247,11 +269,41 @@ export function fakeApi(
       const ruleset = query.get("rulesetVersion");
       return json(200, { botDesigns: designs.filter((d) => ruleset === null || d.rulesetVersion === ruleset), nextCursor: null });
     }
-    if (method === "GET" && path === "/maps") return json(200, { maps: maps.map(mapSummary), nextCursor: null });
-    const mapMatch = /^\/maps\/([^/]+)$/.exec(path);
+    const designMatch = /^\/bot-designs\/([^/]+)(\/revisions(?:\/(\d+))?)?$/.exec(path);
+    if (method === "GET" && designMatch !== null) {
+      const design = designs.find((d) => d.id === decodeURIComponent(designMatch[1] ?? ""));
+      if (design === undefined) return error(404, "not_found", "Not found");
+      const numbers = Array.from({ length: design.latestRevision.number }, (_, i) => design.latestRevision.number - i);
+      if (designMatch[2] === undefined) return json(200, { ...design, latestRevision: testDesignRevision(design, design.latestRevision.number) });
+      if (designMatch[3] === undefined) {
+        const revisions = numbers.map((n) => {
+          const { number, cost, notes, createdAt } = testDesignRevision(design, n);
+          return { number, cost, notes, createdAt };
+        });
+        return json(200, { revisions, nextCursor: null });
+      }
+      const number = Number(designMatch[3]);
+      return numbers.includes(number) ? json(200, testDesignRevision(design, number)) : error(404, "not_found", "Not found");
+    }
+    if (method === "GET" && path === "/maps") {
+      const creator = query.get("creator");
+      return json(200, { maps: maps.filter((m) => creator === null || m.creator.username === creator).map(mapSummary), nextCursor: null });
+    }
+    const mapMatch = /^\/maps\/([^/]+)(\/revisions(?:\/(\d+))?)?$/.exec(path);
     if (method === "GET" && mapMatch !== null) {
       const map = maps.find((m) => m.id === decodeURIComponent(mapMatch[1] ?? ""));
-      return map === undefined ? error(404, "not_found", "Not found") : json(200, map);
+      if (map === undefined) return error(404, "not_found", "Not found");
+      if (mapMatch[2] === undefined) return json(200, map);
+      // Every earlier Revision of a test Map is the same as its latest but for its notes.
+      const latest = map.latestRevision;
+      const numbers = Array.from({ length: latest.number }, (_, i) => latest.number - i);
+      const revision = (n: number) => ({ ...latest, number: n, notes: n === latest.number ? latest.notes : `Revision ${String(n)}` });
+      if (mapMatch[3] === undefined) {
+        const revisions = numbers.map((n) => mapSummary({ ...map, latestRevision: revision(n) }).latestRevision);
+        return json(200, { revisions, nextCursor: null });
+      }
+      const number = Number(mapMatch[3]);
+      return numbers.includes(number) ? json(200, revision(number)) : error(404, "not_found", "Not found");
     }
     if (method === "POST" && path === "/games") {
       const created = body as NewGame;

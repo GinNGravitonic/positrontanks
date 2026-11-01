@@ -7,11 +7,15 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { Link, Redirect, ServicesProvider, useRoute, useServices, useSession } from "./hooks.js";
 import { logInRoute, safeNext, type Route } from "./router.js";
+import { matchItemRoute, GARAGE_ROUTE, MAPS_ROUTE, PARTS_ROUTE } from "./browse.js";
 import { LogInScreen, SignUpScreen } from "./screens/auth.js";
 import { CREATE_GAME_ROUTE, CreateGameScreen } from "./screens/create-game.js";
 import { EnterGameScreen } from "./screens/enter-game.js";
 import { GamePage } from "./screens/game.js";
 import { GamesScreen } from "./screens/games.js";
+import { DesignScreen, GarageScreen } from "./screens/garage.js";
+import { MapScreen, MapsScreen } from "./screens/maps.js";
+import { PartsScreen } from "./screens/parts.js";
 import { WatchScreen } from "./screens/watch.js";
 import { logOut, SIGNED_OUT_ROUTES, type Services } from "./services.js";
 
@@ -80,6 +84,23 @@ function Routes() {
     );
   }
 
+  const designId = matchItemRoute(GARAGE_ROUTE, route.path);
+  if (designId !== undefined) {
+    return (
+      <Shell>
+        <DesignScreen key={designId} id={designId} />
+      </Shell>
+    );
+  }
+  const mapId = matchItemRoute(MAPS_ROUTE, route.path);
+  if (mapId !== undefined) {
+    return (
+      <Shell>
+        <MapScreen key={mapId} id={mapId} />
+      </Shell>
+    );
+  }
+
   if (DrawingGallery !== undefined && route.path === "/dev/drawing") {
     return (
       <Shell>
@@ -99,6 +120,24 @@ function Routes() {
       return (
         <Shell>
           <GamesScreen />
+        </Shell>
+      );
+    case GARAGE_ROUTE:
+      return (
+        <Shell>
+          <GarageScreen />
+        </Shell>
+      );
+    case MAPS_ROUTE:
+      return (
+        <Shell>
+          <MapsScreen />
+        </Shell>
+      );
+    case PARTS_ROUTE:
+      return (
+        <Shell>
+          <PartsScreen />
         </Shell>
       );
     default:
@@ -126,6 +165,9 @@ function Shell({ children }: { readonly children: ReactNode }) {
         <nav>
           <Link to="/">Games</Link>
           <Link to={CREATE_GAME_ROUTE}>Create Game</Link>
+          <Link to={GARAGE_ROUTE}>Garage</Link>
+          <Link to={MAPS_ROUTE}>Maps</Link>
+          <Link to={PARTS_ROUTE}>Parts Catalog</Link>
         </nav>
         <span className="player">{session?.player.username}</span>
         <button

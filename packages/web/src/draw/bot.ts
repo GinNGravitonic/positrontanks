@@ -148,6 +148,16 @@ export function drawBot(ctx: Context, view: View, bot: DrawnBot, artwork: Artwor
   }
 }
 
+/** One Slot-mounted Component on its own, at the origin of the Map frame, pointing up, as on a Slot facing forward. */
+export function drawLoneComponent(ctx: Context, view: View, component: Component, artwork: Artwork = () => undefined): void {
+  ctx.save();
+  transform(ctx, viewMatrix(view));
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 1 / view.scale;
+  drawComponent(ctx, { slot: { id: "", type: "", x: 0, y: 0, direction: 0 }, component }, artwork);
+  ctx.restore();
+}
+
 function drawComponent(ctx: Context, mounted: MountedComponent, artwork: Artwork): void {
   const { slot, component } = mounted;
   const box = componentBox(component);

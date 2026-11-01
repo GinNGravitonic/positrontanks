@@ -30,7 +30,8 @@ main {
 .shell nav {
   flex: 1;
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0 1rem;
 }
 
 .auth {
@@ -490,4 +491,148 @@ table.designs td {
 
 .replay-controls .clock {
   font-variant-numeric: tabular-nums;
+}
+
+/* The Garage, Maps and Parts Catalog browsers (spec section 5). */
+.muted {
+  opacity: 0.7;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.cards li {
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.cards canvas,
+.drawing-placeholder {
+  display: block;
+  margin: 0 auto 0.5rem;
+}
+
+.drawing-placeholder {
+  width: 120px;
+  height: 120px;
+}
+
+.cards h3,
+.cards h4,
+.cards p {
+  margin: 0.25rem 0;
+}
+
+.item-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem 2rem;
+}
+
+.item-summary canvas {
+  display: block;
+  max-width: 100%;
+}
+
+.item dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 1rem;
+  margin: 0;
+}
+
+.item dt {
+  font-weight: bold;
+}
+
+.item dd {
+  margin: 0;
+}
+
+table.list {
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+table.list th,
+table.list td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.25rem 0.75rem 0.25rem 0;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+
+table.list tr.current {
+  font-weight: bold;
+}
+
+pre.program {
+  padding: 0.75rem;
+  overflow-x: auto;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+
+dl.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.75rem;
+  margin: 0.25rem 0;
+  font-size: 0.85em;
+}
+
+dl.stats div {
+  display: flex;
+  gap: 0.25rem;
+}
+
+dl.stats dt {
+  opacity: 0.7;
+}
+
+dl.stats dd {
+  margin: 0;
+}
+
+@media (max-width: 40rem) {
+  table.list {
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* On a phone each Component's row is stacked, its cells labelled. */
+  table.parts tbody,
+  table.parts tr,
+  table.parts td {
+    display: block;
+  }
+
+  table.parts thead {
+    display: none;
+  }
+
+  table.parts tr {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  }
+
+  table.parts td {
+    padding: 0.1rem 0;
+    border: none;
+  }
+
+  table.parts td[data-label]::before {
+    content: attr(data-label) ": ";
+    opacity: 0.7;
+  }
 }

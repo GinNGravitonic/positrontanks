@@ -4,9 +4,9 @@
  * works in CSS pixels and stays sharp.
  */
 
-import type { MapFormat1 } from "@positrontanks/ruleset-data";
+import type { Component, MapFormat1 } from "@positrontanks/ruleset-data";
 import { useEffect, useRef, type PointerEvent, type RefObject } from "react";
-import { botBounds, drawBot, type BotParts } from "./bot.js";
+import { botBounds, componentBox, drawBot, drawLoneComponent, type BotParts } from "./bot.js";
 import { entryColor } from "./colors.js";
 import type { Artwork, Context } from "./context.js";
 import { fitView } from "./geometry.js";
@@ -98,6 +98,30 @@ export function BotPreview({
       draw={(ctx, w, h) => {
         const view = fitView(botBounds(parts), w, h, 0.1);
         drawBot(ctx, view, { parts, pose: { x: 0, y: 0, heading: 0 }, color }, artwork);
+      }}
+    />
+  );
+}
+
+/** One Slot-mounted Component, pointing up, filling a `size` x `size` box. */
+export function ComponentPreview({
+  component,
+  size = 60,
+  artwork,
+  label = `${component.name} preview`,
+}: {
+  readonly component: Component;
+  readonly size?: number;
+  readonly artwork?: Artwork;
+  readonly label?: string;
+}) {
+  return (
+    <Canvas
+      width={size}
+      height={size}
+      label={label}
+      draw={(ctx, w, h) => {
+        drawLoneComponent(ctx, fitView(componentBox(component), w, h, 0.05), component, artwork);
       }}
     />
   );
