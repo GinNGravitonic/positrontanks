@@ -106,14 +106,18 @@ Per-Bot figures come from the Replay's events; per-Player figures from the Game'
 
 ## 8. Emblems
 
-Emblems do not exist yet: v1 only reserved them, and image uploads are out of v1. Until they exist the client draws a placeholder Emblem, the Player's initials on a disc in their Entry color, wherever an Emblem appears (Bot inset, Game Over). Real Emblems (an API field, uploads, storage) are a separate task.
+A Player's Emblem appears in the Bot inset and in Game Over. Every Player reference in the API carries `emblem`, the content hash of the Player's current Emblem, or null. For a Player with one, the client fetches `GET /players/{playerId}/emblem/{hash}` with the session token (an `<img>` cannot send it), decodes it with `createImageBitmap` and draws it, square, on a canvas. Each Emblem is fetched once per page, by Player and hash, and kept until the page is closed; an Emblem never changes for a given hash.
+
+Until it has loaded, and whenever there is none to draw, the client draws a placeholder instead: the Player's initials on a disc in their Entry color. That covers a Player with no Emblem, and one whose Emblem cannot be fetched or decoded, such as one taken down since the Game was loaded (404). A failure is kept like an image, so it is not asked for again, except when the server could not be reached.
+
+The header does not show the signed-in Player's Emblem: the session's Player reference dates from log-in, so its hash would go stale when the Player changes their Emblem. The client has no upload form; Players set their Emblem with the CLI (`players emblem set`).
 
 ## 9. Testing
 
 - Vitest unit tests for the logic-heavy parts: camera fitting, engagement tracking, interpolation, and per-Bot figures from events.
-- One Playwright smoke test against a local server: sign in, open a Finished Game's Replay, and reach Game Over. It is `packages/web/e2e/smoke.spec.ts`, run by `pnpm test:e2e`.
+- One Playwright smoke test against a local server: sign in, open a Finished Game's Replay, and reach Game Over, where one Player's uploaded Emblem is drawn and the other's placeholder. It is `packages/web/e2e/smoke.spec.ts`, run by `pnpm test:e2e`.
 - The Ruleset coverage test from section 3.
 
 ## 10. Not in the first version
 
-Bot Design, Map and Program editors · real Emblems and other image uploads · real artwork · signed-out spectating · rewinding live Games · watching unthrottled Games live · Program logs in the client · API key management · a phone layout for the viewer.
+Bot Design, Map and Program editors · uploading Emblems and other images · real artwork · signed-out spectating · rewinding live Games · watching unthrottled Games live · Program logs in the client · API key management · a phone layout for the viewer.

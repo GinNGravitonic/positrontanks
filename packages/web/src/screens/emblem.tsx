@@ -1,8 +1,16 @@
 /**
- * The placeholder Emblem (frontend spec section 8): Emblems do not exist yet,
- * so a Player's is drawn as their initials on a disc in their Entry's color,
- * wherever an Emblem appears.
+ * A Player's Emblem (frontend spec section 8), wherever one appears: their
+ * own image when they have one and it loads, otherwise a placeholder, their
+ * initials on a disc in their Entry's color.
  */
+
+import { useEffect, useSyncExternalStore } from "react";
+import type { Schema } from "../api/client.js";
+import { Canvas } from "../draw/preview.js";
+import { useServices } from "../hooks.js";
+
+/** The Player an Emblem is for, as any Player reference in the API gives them. */
+export type EmblemOwner = Pick<Schema<"GamePlayer">, "id" | "username" | "emblem">;
 
 /**
  * Up to two initials of a Player's username: the first letters of its first
@@ -32,12 +40,38 @@ export function textColorOn(color: string): string {
   return luminance > 0.179 ? "#000000" : "#ffffff";
 }
 
-export function Emblem({ username, color, size = 32 }: { readonly username: string; readonly color: string; readonly size?: number }) {
+/** The Player's Emblem image once loaded, starting the load if needed; undefined while loading or when there is none to draw. */
+export function useEmblem({ id, emblem }: Pick<EmblemOwner, "id" | "emblem">): ImageBitmap | undefined {
+  const { emblems } = useServices();
+  const read = () => (emblem === null ? undefined : (emblems.get(id, emblem) ?? undefined));
+  const image = useSyncExternalStore(emblems.subscribe, read, read);
+  useEffect(() => {
+    if (emblem !== null) void emblems.load(id, emblem);
+  }, [emblems, id, emblem]);
+  return image;
+}
+
+export function Emblem({ player, color, size = 32 }: { readonly player: EmblemOwner; readonly color: string; readonly size?: number }) {
+  const image = useEmblem(player);
+  const label = `${player.username}'s Emblem`;
+  if (image !== undefined) {
+    return (
+      <Canvas
+        className="emblem"
+        width={size}
+        height={size}
+        label={label}
+        draw={(ctx, width, height) => {
+          ctx.drawImage(image, 0, 0, width, height);
+        }}
+      />
+    );
+  }
   return (
-    <svg className="emblem" width={size} height={size} viewBox="0 0 32 32" role="img" aria-label={`${username}'s Emblem`}>
+    <svg className="emblem" width={size} height={size} viewBox="0 0 32 32" role="img" aria-label={label}>
       <circle cx={16} cy={16} r={16} fill={color} />
       <text x={16} y={16} dy="0.35em" textAnchor="middle" fontSize={14} fontWeight="bold" fill={textColorOn(color)}>
-        {initials(username)}
+        {initials(player.username)}
       </text>
     </svg>
   );

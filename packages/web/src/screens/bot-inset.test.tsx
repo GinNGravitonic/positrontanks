@@ -3,6 +3,9 @@ import duelLastStanding from "@positrontanks/engine-r1/golden/duel-last-standing
 import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { ServicesProvider } from "../hooks.js";
+import { createServices } from "../services.js";
+import { fakeApi, memoryHistory, memoryStorage } from "../test-platform.js";
 import { botFigures } from "../viewer/figures.js";
 import { clockText } from "../viewer/playback.js";
 import { loadR1Replay } from "../viewer/r1.js";
@@ -13,24 +16,27 @@ const ruleset = loadRuleset("r1");
 const replay = loadR1Replay(JSON.parse(JSON.stringify(replayOf(replayGame(duelLastStanding.record as unknown as GameRecord, ruleset)))));
 const looks = botLooks(replay, ruleset);
 const [first, second] = replay.entries;
-const usernames = new Map([[first?.player ?? "", "ada_bot"]]);
+const players = new Map([[first?.player ?? "", { id: first?.player ?? "", username: "ada_bot", emblem: null }]]);
+const services = createServices({ fetch: fakeApi().fetch, storage: memoryStorage(), history: memoryHistory("/play/") });
 const disabled = replay.disablements[0];
 if (disabled === undefined) throw new Error("expected a Bot Disabled in the golden Game");
 
 function render(bot: number, time: number, following = false) {
   return renderToString(
-    <BotInset
-      replay={replay}
-      catalog={ruleset}
-      scene={replay.scene(time)}
-      bot={bot}
-      looks={looks.get(bot)}
-      usernames={usernames}
-      following={following}
-      onFollow={() => undefined}
-      onStopFollowing={() => undefined}
-      onClose={() => undefined}
-    />,
+    <ServicesProvider services={services}>
+      <BotInset
+        replay={replay}
+        catalog={ruleset}
+        scene={replay.scene(time)}
+        bot={bot}
+        looks={looks.get(bot)}
+        players={players}
+        following={following}
+        onFollow={() => undefined}
+        onStopFollowing={() => undefined}
+        onClose={() => undefined}
+      />
+    </ServicesProvider>,
   );
 }
 

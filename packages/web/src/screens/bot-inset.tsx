@@ -13,7 +13,7 @@ import type { BotLooks } from "../viewer/draw-scene.js";
 import { botFigures, disabledCauseText } from "../viewer/figures.js";
 import { clockText } from "../viewer/playback.js";
 import type { Scene, ViewerReplay } from "../viewer/scene.js";
-import { Emblem } from "./emblem.js";
+import { Emblem, type EmblemOwner } from "./emblem.js";
 
 export interface BotInsetProps {
   readonly replay: ViewerReplay;
@@ -21,8 +21,8 @@ export interface BotInsetProps {
   readonly scene: Scene;
   readonly bot: number;
   readonly looks: BotLooks | undefined;
-  /** Each Player's username, by Player id. */
-  readonly usernames: ReadonlyMap<string, string>;
+  /** Each Player, by Player id. */
+  readonly players: ReadonlyMap<string, EmblemOwner>;
   /** Whether the main view is following this Bot. */
   readonly following: boolean;
   readonly onFollow: () => void;
@@ -35,13 +35,13 @@ export function figureText(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-export function BotInset({ replay, catalog, scene, bot, looks, usernames, following, onFollow, onStopFollowing, onClose }: BotInsetProps) {
+export function BotInset({ replay, catalog, scene, bot, looks, players, following, onFollow, onStopFollowing, onClose }: BotInsetProps) {
   const entryIndex = replay.entries.findIndex((entry) => entry.bots.some((b) => b.id === bot));
   const entry = replay.entries[entryIndex];
   const design = entry?.bots.find((b) => b.id === bot);
   const now = scene.bots.find((b) => b.id === bot);
   if (entry === undefined || design === undefined || now === undefined) return null;
-  const username = usernames.get(entry.player) ?? entry.player;
+  const player = players.get(entry.player) ?? { id: entry.player, username: entry.player, emblem: null };
   const color = entryColor(entryIndex);
   const parts = looks?.parts;
   const maxHitPoints = parts?.chassis.stats.hitPoints;
@@ -56,10 +56,10 @@ export function BotInset({ replay, catalog, scene, bot, looks, usernames, follow
   return (
     <aside className="bot-inset" aria-label={`Bot ${design.name}`} style={{ borderColor: color }}>
       <header>
-        <Emblem username={username} color={color} />
+        <Emblem player={player} color={color} />
         <div>
           <h3>{design.name}</h3>
-          <p>{username}</p>
+          <p>{player.username}</p>
         </div>
         <button type="button" className="bot-inset-close" aria-label="Close" onClick={onClose}>
           ×

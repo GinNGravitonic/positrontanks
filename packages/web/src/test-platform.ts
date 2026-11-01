@@ -4,7 +4,7 @@
  * Games endpoints of the Games screen and Game page, the Rulesets and
  * Maps the Create Game screen chooses from, and the Bot Designs and Entries
  * of the Enter Game screen and the Garage, Map Revisions, and the Replays,
- * Parts Catalog and event streams the viewer loads.
+ * Parts Catalog, event streams and Emblems the viewer loads.
  */
 
 import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
@@ -176,9 +176,10 @@ export function mapSummary(map: Schema<"Map">): MapSummary {
 
 /**
  * A fake of the API's accounts, Games, Rulesets, Maps, Bot Designs and
- * Replays endpoints, all but signing up and logging in needing a session.
- * Every Player has the same `designs`; a Finished Game's Replay is in
- * `replays`, by Game id; the Parts Catalog is r1's. Each opening of a
+ * Replays endpoints and Emblem images, all but signing up and logging in
+ * needing a session. Every Player has the same `designs`; a Finished Game's
+ * Replay is in `replays`, by Game id; Emblems are in `emblems`; the Parts
+ * Catalog is r1's. Each opening of a
  * Running Game's stream takes the next of its `streams`, by Game id; once
  * they run out, the server is unavailable.
  */
@@ -189,6 +190,8 @@ export function fakeApi(
     readonly designs?: readonly BotDesignSummary[];
     readonly replays?: Readonly<Record<string, unknown>>;
     readonly streams?: Readonly<Record<string, readonly StreamOpening[]>>;
+    /** Emblem images, by "playerId/hash". */
+    readonly emblems?: Readonly<Record<string, Uint8Array<ArrayBuffer>>>;
   } = {},
 ): FakeApi {
   const games = [...(options.games ?? [])];
@@ -259,6 +262,12 @@ export function fakeApi(
       const states = query.get("state")?.split(",");
       const mine = games.filter((g) => g.initiator.id === me || g.entries.some((e) => e.player.id === me));
       return page(states === undefined ? mine : mine.filter((g) => states.includes(g.state)), query);
+    }
+    const emblemMatch = /^\/players\/([^/]+)\/emblem\/([^/]+)$/.exec(path);
+    if (method === "GET" && emblemMatch !== null) {
+      const image = options.emblems?.[`${decodeURIComponent(emblemMatch[1] ?? "")}/${decodeURIComponent(emblemMatch[2] ?? "")}`];
+      if (image === undefined) return error(404, "not_found", "Not found");
+      return new Response(image, { status: 200, headers: { "content-type": "image/png" } });
     }
     if (method === "GET" && path === "/rulesets") return json(200, { rulesets: TEST_RULESETS });
     if (method === "GET" && path === "/rulesets/r1/parts") {

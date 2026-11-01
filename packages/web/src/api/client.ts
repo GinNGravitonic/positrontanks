@@ -81,6 +81,25 @@ export class ApiClient {
     }
   }
 
+  /** Fetches an image (`GET path`) and returns its body; throws ApiError as `request` does if it cannot. */
+  async image(path: string): Promise<Blob> {
+    const token = this.options.token();
+    const headers: Record<string, string> = { accept: "image/png" };
+    if (token !== undefined) headers.authorization = `Bearer ${token}`;
+
+    let response: Response;
+    let body: Blob;
+    try {
+      response = await this.options.fetch(path, { headers });
+      body = await response.blob();
+    } catch {
+      throw new ApiError(0, "network", "Cannot reach the server. Check your connection and try again.");
+    }
+    if (response.status === 401 && token !== undefined) this.options.onUnauthorized();
+    if (!response.ok) throw responseError(response.status, await body.text().catch(() => ""));
+    return body;
+  }
+
   /**
    * Opens an event stream (`GET path`, as `text/event-stream`) and returns
    * its body to read; throws ApiError as `request` does if it cannot. Native

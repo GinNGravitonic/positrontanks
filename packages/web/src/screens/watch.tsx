@@ -29,6 +29,7 @@ import { advance, clockText, seek, skipToEnd, SPEEDS, START, togglePlaying, type
 import type { Time, ViewerReplay } from "../viewer/scene.js";
 import { unsupportedText, viewerFor } from "../viewer/viewers.js";
 import { BotInset } from "./bot-inset.js";
+import type { EmblemOwner } from "./emblem.js";
 import { GameOver } from "./game-over.js";
 import { gameRoute } from "./game.js";
 
@@ -270,7 +271,7 @@ function LiveGame({ game, onWatchAgain }: { readonly game: Game; readonly onWatc
           <GameOver
             result={result}
             replay={final.replay}
-            usernames={usernamesOf(ended.game)}
+            players={playersOf(ended.game)}
             onWatchAgain={() => {
               onWatchAgain(ended.game, final);
             }}
@@ -315,9 +316,9 @@ export function startingBot(replay: ViewerReplay, playerId: string | undefined):
   return (own ?? replay.entries[0])?.bots[0]?.id;
 }
 
-/** Each Player's username, by Player id. */
-function usernamesOf(game: Game): Map<string, string> {
-  return new Map(game.entries.map((entry) => [entry.player.id, entry.player.username]));
+/** Each Player of the Game, by Player id. */
+function playersOf(game: Game): Map<string, EmblemOwner> {
+  return new Map(game.entries.map((entry) => [entry.player.id, entry.player]));
 }
 
 const OVERVIEW_SIZE = 200;
@@ -334,7 +335,7 @@ const MAX_FRAME_SECONDS = 0.25;
 /** A Finished Game's Replay, played from Tick 0 with its time controls; Game Over at the end. */
 function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly replay: ViewerReplay; readonly catalog: Catalog }) {
   const [playback, setPlayback] = useState<Playback>(START);
-  const usernames = useMemo(() => usernamesOf(game), [game]);
+  const players = useMemo(() => playersOf(game), [game]);
 
   useEffect(() => {
     if (!playback.playing) return;
@@ -363,7 +364,7 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
           <GameOver
             result={game.result}
             replay={replay}
-            usernames={usernames}
+            players={players}
             onWatchAgain={() => {
               setPlayback((p) => ({ ...seek(p, 0, replay.lastTick), playing: true }));
             }}
@@ -408,7 +409,7 @@ function Viewer({ game, replay, catalog, time, badge, overlay, controls }: Viewe
   const [camera, setCamera] = useState<Camera>();
   /** The Bot whose inset is open. */
   const [selected, setSelected] = useState<number>();
-  const usernames = useMemo(() => usernamesOf(game), [game]);
+  const players = useMemo(() => playersOf(game), [game]);
   const view = camera?.view;
   const area = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLCanvasElement>(null);
@@ -554,7 +555,7 @@ function Viewer({ game, replay, catalog, time, badge, overlay, controls }: Viewe
               scene={scene}
               bot={selected}
               looks={looks.get(selected)}
-              usernames={usernames}
+              players={players}
               following={followed === selected}
               onFollow={() => {
                 setCamera((c) => (c === undefined ? c : follow(c, selected)));

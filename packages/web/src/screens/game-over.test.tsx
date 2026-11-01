@@ -43,10 +43,10 @@ function apiResult(r1: Replay): GameResult {
 
 function render(golden: { readonly record: unknown }) {
   const { r1, replay } = played(golden);
-  const usernames = new Map(replay.entries.map((entry) => [entry.player, usernameOf(entry.player)]));
+  const players = new Map(replay.entries.map((entry) => [entry.player, { id: entry.player, username: usernameOf(entry.player), emblem: null }]));
   const html = renderToString(
     <ServicesProvider services={services}>
-      <GameOver result={apiResult(r1)} replay={replay} usernames={usernames} onWatchAgain={() => undefined} />
+      <GameOver result={apiResult(r1)} replay={replay} players={players} onWatchAgain={() => undefined} />
     </ServicesProvider>,
   );
   return { r1, replay, html };

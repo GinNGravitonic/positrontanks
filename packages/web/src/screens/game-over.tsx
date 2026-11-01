@@ -14,7 +14,7 @@ import { botFigures, disabledCauseText, disabledTick, entryFigures } from "../vi
 import { clockText } from "../viewer/playback.js";
 import type { ViewerReplay } from "../viewer/scene.js";
 import { figureText } from "./bot-inset.js";
-import { Emblem } from "./emblem.js";
+import { Emblem, type EmblemOwner } from "./emblem.js";
 
 export type GameResult = NonNullable<Game["result"]>;
 
@@ -50,13 +50,13 @@ function capitalized(text: string): string {
 export interface GameOverProps {
   readonly result: GameResult;
   readonly replay: ViewerReplay;
-  /** Each Player's username, by Player id. */
-  readonly usernames: ReadonlyMap<string, string>;
+  /** Each Player, by Player id. */
+  readonly players: ReadonlyMap<string, EmblemOwner>;
   /** Watches the Replay again from Tick 0. */
   readonly onWatchAgain: () => void;
 }
 
-export function GameOver({ result, replay, usernames, onWatchAgain }: GameOverProps) {
+export function GameOver({ result, replay, players, onWatchAgain }: GameOverProps) {
   const { title, how } = outcomeText(result);
   const figures = entryFigures(replay);
   const final = replay.scene(replay.lastTick);
@@ -77,14 +77,14 @@ export function GameOver({ result, replay, usernames, onWatchAgain }: GameOverPr
           </tr>
         </thead>
         {replay.entries.map((entry, i) => {
-          const username = usernames.get(entry.player) ?? entry.player;
+          const player = players.get(entry.player) ?? { id: entry.player, username: entry.player, emblem: null };
           const totals = figures[i];
           const won = result.winner?.id === entry.player;
           return (
             <tbody key={entry.player} className={won ? "game-over-winner" : undefined}>
               <tr className="game-over-entry">
                 <th scope="row">
-                  <Emblem username={username} color={entryColor(i)} size={24} /> {username}
+                  <Emblem player={player} color={entryColor(i)} size={24} /> {player.username}
                   {won ? <span className="game-over-badge">Winner</span> : null}
                 </th>
                 <td>{figureText(totals?.dealtToFoes ?? 0)}</td>

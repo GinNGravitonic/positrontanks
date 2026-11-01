@@ -1,11 +1,12 @@
 /**
- * The client's services, made once per page: the API client, the session
- * and the router, wired so that a 401 ends the session and returns to
+ * The client's services, made once per page: the API client, the session,
+ * the router and the Emblem cache, wired so that a 401 ends the session and returns to
  * log-in, and log-in returns to the page the Player was on (frontend spec
  * section 4). Also signing up, logging in and logging out.
  */
 
 import { ApiClient, type Schema } from "./api/client.js";
+import { EmblemCache, type DecodeImage } from "./emblems.js";
 import { logInRoute, Router, safeNext, type HistoryLike } from "./router.js";
 import { SessionStore, type Session, type SessionStorage } from "./session.js";
 
@@ -15,12 +16,21 @@ export interface Services {
   readonly api: ApiClient;
   readonly session: SessionStore;
   readonly router: Router;
+  readonly emblems: EmblemCache;
 }
 
 /** Routes a signed-out visitor may see; every other route is signed-in only. */
 export const SIGNED_OUT_ROUTES: readonly string[] = ["/login", "/signup"];
 
-export function createServices(platform: { readonly fetch: typeof fetch; readonly storage: SessionStorage; readonly history: HistoryLike }): Services {
+export interface Platform {
+  readonly fetch: typeof fetch;
+  readonly storage: SessionStorage;
+  readonly history: HistoryLike;
+  /** Decodes Emblems; `createImageBitmap` when not given. */
+  readonly decodeImage?: DecodeImage;
+}
+
+export function createServices(platform: Platform): Services {
   const session = new SessionStore(platform.storage);
   const router = new Router(platform.history);
   const api = new ApiClient({
@@ -31,7 +41,8 @@ export function createServices(platform: { readonly fetch: typeof fetch; readonl
       if (!SIGNED_OUT_ROUTES.includes(router.current().path)) router.navigate(logInRoute(router.here()), { replace: true });
     },
   });
-  return { api, session, router };
+  const emblems = new EmblemCache(api, platform.decodeImage ?? ((image) => createImageBitmap(image)));
+  return { api, session, router, emblems };
 }
 
 /** Logs in (`POST /sessions`) and goes to `next`, the page that sent the Player to log-in. */
