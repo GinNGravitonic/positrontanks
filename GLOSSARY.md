@@ -28,6 +28,10 @@ _Avoid_: Version (reserved for Rulesets), snapshot
 A Player's optional image, displayed alongside all of that Player's Bots; always the Player's current one, also when rewatching earlier Games.
 _Avoid_: Team icon, logo, avatar
 
+**Icon**:
+A Bot Design's optional image, displayed alongside every Bot built from it; belongs to the Bot Design rather than a Revision, so it is always the current one, and others see it once a Game the design is in is Running.
+_Avoid_: Bot image, avatar, portrait, logo
+
 **Program**:
 The code, written in the Positron Tanks language, that controls every Bot built from a Bot Design; visible only to its owner.
 _Avoid_: Script, AI, brain
