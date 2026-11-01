@@ -56,6 +56,8 @@ export interface RequestOptions {
   readonly query?: Query;
   /** Sent as JSON. */
   readonly body?: unknown;
+  /** Sent as is, with this content type, instead of a JSON body (an Emblem's PNG). */
+  readonly bytes?: { readonly type: string; readonly content: Uint8Array };
   /** Fail with exit code 3, before sending, when there is no credential. */
   readonly auth?: boolean;
   /** A credential for this request instead of the client's API key (`auth login`'s session token). */
@@ -93,6 +95,8 @@ export class ApiClient {
     const headers: Record<string, string> = { accept: "application/json" };
     if (token !== undefined) headers.authorization = `Bearer ${token}`;
     if (options.body !== undefined) headers["content-type"] = "application/json";
+    if (options.bytes !== undefined) headers["content-type"] = options.bytes.type;
+    const body = options.bytes !== undefined ? options.bytes.content : options.body === undefined ? undefined : JSON.stringify(options.body);
 
     let response: Response;
     let text: string;
@@ -101,7 +105,7 @@ export class ApiClient {
         method,
         headers,
         signal: AbortSignal.timeout(this.timeoutMs),
-        ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+        ...(body === undefined ? {} : { body }),
       });
       text = await response.text();
     } catch (e) {

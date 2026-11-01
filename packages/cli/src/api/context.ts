@@ -118,6 +118,15 @@ export async function readInput(context: Context, path: string, option: string):
   }
 }
 
+/** A local binary file; an unreadable file is an `input` error (exit code 1). */
+export async function readBinaryInput(path: string): Promise<Uint8Array> {
+  try {
+    return await readFile(path);
+  } catch (e) {
+    throw inputError(`cannot read ${path}: ${(e as Error).message}`);
+  }
+}
+
 /** A local JSON file, or stdin for `-`; malformed JSON is an `input` error. */
 export async function readJsonInput(context: Context, path: string, option: string): Promise<unknown> {
   const text = await readInput(context, path, option);

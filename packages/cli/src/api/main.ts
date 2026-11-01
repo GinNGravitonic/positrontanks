@@ -16,6 +16,7 @@ import { createContext, flag, stdinReader, str, type Command, type Group, type O
 import { designsCommands } from "./designs.js";
 import { gamesCommands } from "./games.js";
 import { mapsCommands } from "./maps.js";
+import { playersCommands } from "./players.js";
 import { rulesetsCommands } from "./rulesets.js";
 import { apiCommand, configCommands, serverCommands } from "./system.js";
 import { remoteTickCostCommand } from "./tick-cost-remote.js";
@@ -24,6 +25,7 @@ const GROUPS: Readonly<Record<string, Group>> = {
   server: serverCommands,
   auth: authCommands,
   keys: keysCommands,
+  players: playersCommands,
   rulesets: rulesetsCommands,
   designs: designsCommands,
   maps: mapsCommands,
@@ -71,8 +73,10 @@ export function serverUsage(group?: string): string {
 /** Runs `positrontanks <group> ...`, where `group` is one of SERVER_COMMANDS, and returns the exit code. */
 export async function serverMain(group: string, argv: readonly string[], io: Io): Promise<number> {
   if (group === "api") return runCommand(apiCommand, "api", argv, io, group);
-  const [verb, ...rest] = argv;
   const commands = GROUPS[group] ?? {};
+  // A verb may be two words, as `players emblem set` is.
+  const twoWords = argv.length >= 2 ? `${argv[0] ?? ""} ${argv[1] ?? ""}` : undefined;
+  const [verb, ...rest] = twoWords !== undefined && twoWords in commands ? [twoWords, ...argv.slice(2)] : argv;
   if (verb === "-h" || verb === "--help") {
     io.out(serverUsage(group));
     return EXIT.ok;

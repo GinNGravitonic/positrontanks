@@ -38,6 +38,15 @@ A password is never taken as an option (it would show in the process list and sh
 | `keys list` | `GET /api-keys` |
 | `keys revoke KEY_ID` | `DELETE /api-keys/{apiKeyId}` |
 
+### players: your Player
+
+| Command | Endpoint |
+| --- | --- |
+| `players emblem set FILE` | `PUT /players/me/emblem`, with the file as a raw `image/png` body |
+| `players emblem clear` | `DELETE /players/me/emblem` |
+
+The server checks the Emblem (a square PNG, 32 to 256 pixels a side, at most 64 KB) and answers `validation_failed` for any other file; the CLI sends the file as is. Clearing an Emblem you do not have is not an error.
+
 ### rulesets
 
 | Command | Endpoint |
@@ -234,4 +243,4 @@ Command tests run the CLI's `main` (as `cli.test.ts` does) against an in-process
 - Interactive prompts beyond the password prompt. Every command can run unattended.
 - Watching more than one Game, or `games mine --watch`. An agent runs several `games watch` processes.
 - Shell completion.
-- Emblems and webhooks, which the v1 server does not have.
+- Webhooks, which the v1 server does not have.
