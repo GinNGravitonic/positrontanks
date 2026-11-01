@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { checkEmblemPng, EMBLEM_MAX_BYTES } from "./png.js";
+import { checkImagePng, IMAGE_MAX_BYTES } from "./png.js";
 import { ihdr, png, pngChunk, rgbaIdat, samplePng, textChunk } from "./sample-png.js";
 
 const problemOf = (bytes: Uint8Array): string | undefined => {
-  const result = checkEmblemPng(bytes);
+  const result = checkImagePng(bytes);
   return "problem" in result ? result.problem : undefined;
 };
 
-describe("checkEmblemPng", () => {
+describe("checkImagePng", () => {
   it("accepts a square PNG of 32 to 256 pixels unchanged", () => {
     for (const size of [32, 64, 256]) {
       const file = samplePng(size);
-      expect(checkEmblemPng(file)).toEqual({ png: file });
+      expect(checkImagePng(file)).toEqual({ png: file });
     }
   });
 
@@ -22,7 +22,7 @@ describe("checkEmblemPng", () => {
     const iend = pngChunk("IEND");
     const exif = pngChunk("eXIf", Uint8Array.of(1));
     const file = png(ihdr(32, 32, 8, 3), textChunk("Author", "Ada"), palette, alpha, exif, idat, textChunk("Comment", "hi"), iend);
-    expect(checkEmblemPng(file)).toEqual({ png: png(ihdr(32, 32, 8, 3), palette, alpha, idat, iend) });
+    expect(checkImagePng(file)).toEqual({ png: png(ihdr(32, 32, 8, 3), palette, alpha, idat, iend) });
   });
 
   it("accepts IDAT split over several chunks", () => {
@@ -36,7 +36,7 @@ describe("checkEmblemPng", () => {
   });
 
   it("rejects files over the size limit", () => {
-    const big = samplePng(64, pngChunk("zzZz", new Uint8Array(EMBLEM_MAX_BYTES)));
+    const big = samplePng(64, pngChunk("zzZz", new Uint8Array(IMAGE_MAX_BYTES)));
     expect(problemOf(big)).toMatch(/at most/);
   });
 

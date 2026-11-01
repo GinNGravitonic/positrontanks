@@ -167,7 +167,7 @@ describe("creating a Bot Design", () => {
       latestRevision: { designId: design.id, number: 1, build: BUILD, program: PROGRAM, cost: 74, notes: "" },
     });
     expect(Object.keys(design).sort()).toEqual(
-      ["archivedAt", "copiedFrom", "createdAt", "description", "id", "latestRevision", "name", "rulesetVersion", "updatedAt"],
+      ["archivedAt", "copiedFrom", "createdAt", "description", "icon", "id", "latestRevision", "name", "rulesetVersion", "updatedAt"],
     );
 
     const fetched = await call("GET", `/bot-designs/${design.id}`, { token: ada });
@@ -694,6 +694,7 @@ describe("the OpenAPI document", () => {
     expect(operations).toEqual([
       "archiveBotDesign",
       "checkBotDesignTickCost",
+      "clearBotDesignIcon",
       "copyBotDesignToRuleset",
       "createBotDesign",
       "createBotDesignRevision",
@@ -702,6 +703,7 @@ describe("the OpenAPI document", () => {
       "getBotDesignRevision",
       "listBotDesignRevisions",
       "listBotDesigns",
+      "setBotDesignIcon",
       "updateBotDesign",
     ]);
     expect(Object.keys(doc.components.schemas)).toEqual(expect.arrayContaining(["BotDesign", "Build", "CopyReport"]));

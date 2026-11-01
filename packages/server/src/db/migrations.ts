@@ -308,6 +308,17 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE players ADD COLUMN emblem TEXT CHECK (emblem GLOB '[0-9a-f]*' AND length(emblem) = 64);
     `,
   },
+  {
+    version: 11,
+    name: "icons",
+    // A Bot Design's optional Icon: the SHA-256 hex hash of the stored PNG.
+    // The object is shared by every design with the same hash, so it is only
+    // deleted once none references it; the index makes that check cheap.
+    sql: `
+      ALTER TABLE bot_designs ADD COLUMN icon TEXT CHECK (icon GLOB '[0-9a-f]*' AND length(icon) = 64);
+      CREATE INDEX bot_designs_by_icon ON bot_designs (icon) WHERE icon IS NOT NULL;
+    `,
+  },
 ];
 
 export class MigrationError extends Error {

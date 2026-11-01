@@ -8,14 +8,14 @@
  * the current Emblem is stored: replacing or removing it deletes the old
  * image, and Game Records and Replays never copy it.
  *
- * Uploads are checked and stripped by `checkEmblemPng`. Taking an Emblem
+ * Uploads are checked and stripped by `checkImagePng`. Taking an Emblem
  * down is done by deleting its stored object; fetching it then answers 404
  * and clients fall back to their placeholder.
  */
 
 import { createHash } from "node:crypto";
 import { authenticate } from "../accounts/auth.js";
-import { checkEmblemPng, EMBLEM_MAX_BYTES, EMBLEM_MAX_SIZE, EMBLEM_MIN_SIZE } from "../emblems/png.js";
+import { checkImagePng, IMAGE_MAX_BYTES, IMAGE_MAX_SIZE, IMAGE_MIN_SIZE } from "../images/png.js";
 import { notFound, validationFailed } from "../http/errors.js";
 import type { ApiModule, Json } from "../http/router.js";
 import { playerJson } from "./accounts.js";
@@ -41,8 +41,8 @@ export const emblemsModule: ApiModule = {
         operationId: "setEmblem",
         summary: "Set or replace the authenticated Player's Emblem",
         description:
-          `The body is the PNG file itself: square, ${String(EMBLEM_MIN_SIZE)} to ${String(EMBLEM_MAX_SIZE)} ` +
-          `pixels a side, at most ${String(EMBLEM_MAX_BYTES)} bytes. Only the chunks needed to draw it are kept ` +
+          `The body is the PNG file itself: square, ${String(IMAGE_MIN_SIZE)} to ${String(IMAGE_MAX_SIZE)} ` +
+          `pixels a side, at most ${String(IMAGE_MAX_BYTES)} bytes. Only the chunks needed to draw it are kept ` +
           "(IHDR, PLTE, tRNS, IDAT, IEND); metadata such as text and EXIF is dropped. Replacing an Emblem deletes " +
           "the old one.",
         tags: [TAG],
@@ -58,7 +58,7 @@ export const emblemsModule: ApiModule = {
       },
       handler: async (context) => {
         const { player } = authenticate(context);
-        const checked = checkEmblemPng(await context.readBytes(PNG, EMBLEM_MAX_BYTES));
+        const checked = checkImagePng(await context.readBytes(PNG, IMAGE_MAX_BYTES));
         if ("problem" in checked) throw validationFailed([{ path: "(body)", message: checked.problem }]);
 
         const hash = createHash("sha256").update(checked.png).digest("hex");

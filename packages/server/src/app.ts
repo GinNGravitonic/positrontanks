@@ -25,6 +25,7 @@ import { accountsModule } from "./routes/accounts.js";
 import { emblemsModule } from "./routes/emblems.js";
 import { gamesModule } from "./routes/games.js";
 import { garageModule } from "./routes/garage.js";
+import { iconsModule } from "./routes/icons.js";
 import { mapsModule } from "./routes/maps.js";
 import { rulesetsModule } from "./routes/rulesets.js";
 import { spectatingModule } from "./routes/spectating.js";
@@ -39,6 +40,7 @@ export const apiModules: readonly ApiModule[] = [
   accountsModule,
   emblemsModule,
   garageModule,
+  iconsModule,
   tickCostModule,
   mapsModule,
   rulesetsModule,

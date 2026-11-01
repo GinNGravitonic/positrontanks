@@ -23,6 +23,10 @@
       "description": "Your private Bot Designs and their immutable Revisions. Programs are visible only to their owner; other Players' designs are indistinguishable from missing ones."
     },
     {
+      "name": "Icons",
+      "description": "Bot Design Icons: a small square PNG shown next to the design's Bots."
+    },
+    {
       "name": "Maps",
       "description": "Maps and their immutable Revisions. Anyone may read Maps; only a Map's creator may add Revisions, rename or describe it, or archive it."
     },
@@ -1005,7 +1009,7 @@
       "post": {
         "operationId": "copyBotDesignToRuleset",
         "summary": "Copy one of your Bot Designs to another Ruleset version",
-        "description": "Re-validates a Revision (the latest by default) under the target Ruleset. If it is valid there, it is saved as a new design in that version, at Revision 1, and the source is untouched. Otherwise nothing is saved and the response is 422 `copy_has_problems` listing every problem (removed Components, a cost over the largest Point Budget, unknown built-ins, ...). With `dryRun` the report is returned with 200 and nothing is saved either way. Archived designs can be copied. The copy keeps the source's description; its Revision 1 takes `notes` from the request (empty if left out), not the source's.",
+        "description": "Re-validates a Revision (the latest by default) under the target Ruleset. If it is valid there, it is saved as a new design in that version, at Revision 1, and the source is untouched. Otherwise nothing is saved and the response is 422 `copy_has_problems` listing every problem (removed Components, a cost over the largest Point Budget, unknown built-ins, ...). With `dryRun` the report is returned with 200 and nothing is saved either way. Archived designs can be copied. The copy keeps the source's description and Icon; its Revision 1 takes `notes` from the request (empty if left out), not the source's.",
         "tags": [
           "Garage"
         ],
@@ -1062,6 +1066,157 @@
             "$ref": "#/components/responses/Error"
           },
           "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/bot-designs/{designId}/icon": {
+      "put": {
+        "operationId": "setBotDesignIcon",
+        "summary": "Set or replace the Icon of one of your Bot Designs",
+        "description": "The body is the PNG file itself: square, 32 to 256 pixels a side, at most 65536 bytes. Only the chunks needed to draw it are kept (IHDR, PLTE, tRNS, IDAT, IEND); metadata such as text and EXIF is dropped. The Icon belongs to the design, not a Revision, so this adds no Revision, and archived designs can be changed too.",
+        "tags": [
+          "Icons"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The design with its new Icon.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotDesign"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "413": {
+            "$ref": "#/components/responses/Error"
+          },
+          "415": {
+            "$ref": "#/components/responses/Error"
+          },
+          "422": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "clearBotDesignIcon",
+        "summary": "Remove the Icon of one of your Bot Designs",
+        "description": "Removing an Icon the design does not have is not an error. Archived designs can be changed too.",
+        "tags": [
+          "Icons"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "designId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The design has no Icon."
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/icons/{hash}": {
+      "get": {
+        "operationId": "getIcon",
+        "summary": "Get a Bot Design Icon image",
+        "description": "`hash` is the `icon` field of a Bot Design or a Game Entry's Bot. The image never changes for a given hash, so it may be cached. 404 when no Icon has that hash, including one no longer used or taken down.",
+        "tags": [
+          "Icons"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Icon.",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
             "$ref": "#/components/responses/Error"
           },
           "default": {
@@ -3093,6 +3248,7 @@
           "rulesetVersion",
           "latestRevision",
           "copiedFrom",
+          "icon",
           "createdAt",
           "updatedAt",
           "archivedAt"
@@ -3118,6 +3274,14 @@
           },
           "copiedFrom": {
             "$ref": "#/components/schemas/CopiedFrom"
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The content hash of the design's Icon (fetch it from `/icons/{hash}`), or null if it has none. Set with `PUT /bot-designs/{designId}/icon`; it belongs to the design, not a Revision."
           },
           "createdAt": {
             "type": "string",
@@ -3146,6 +3310,7 @@
           "rulesetVersion",
           "latestRevision",
           "copiedFrom",
+          "icon",
           "createdAt",
           "updatedAt",
           "archivedAt"
@@ -3171,6 +3336,14 @@
           },
           "copiedFrom": {
             "$ref": "#/components/schemas/CopiedFrom"
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The content hash of the design's Icon (fetch it from `/icons/{hash}`), or null if it has none. Set with `PUT /bot-designs/{designId}/icon`; it belongs to the design, not a Revision."
           },
           "createdAt": {
             "type": "string",
@@ -5454,7 +5627,7 @@
       },
       "GameEntryBot": {
         "type": "object",
-        "description": "One Bot of an Entry. `cost` and `build` are present for your own Entries and, for everyone, once the Game is Running or Finished; `design` only for your own Entries. Programs are never included.",
+        "description": "One Bot of an Entry. `cost`, `build` and `icon` are present for your own Entries and, for everyone, once the Game is Running or Finished; `design` only for your own Entries. Programs are never included.",
         "required": [
           "name"
         ],
@@ -5486,6 +5659,14 @@
           },
           "build": {
             "$ref": "#/components/schemas/Build"
+          },
+          "icon": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "The content hash of the Bot Design's current Icon (fetch it from `/icons/{hash}`), or null if it has none. Always the design's Icon now, not when it was entered."
           }
         }
       },

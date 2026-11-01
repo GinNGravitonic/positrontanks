@@ -113,6 +113,8 @@ export interface EntryBotRecord {
   /** The Revision's point cost. */
   readonly cost: number;
   readonly build: Build;
+  /** The design's current Icon (not the one it had when entered), or null. */
+  readonly icon: string | null;
 }
 
 export interface EntryRecord {
@@ -201,6 +203,7 @@ interface EntryBotRow {
   design_revision: number;
   cost: number;
   build: string;
+  icon: string | null;
 }
 
 const GAME_COLUMNS = `
@@ -356,11 +359,12 @@ export class GameStore {
     const rows = this.#db
       .prepare(
         `SELECT e.id AS entry_id, e.game_id, e.player_id, p.username, p.emblem, e.cost AS entry_cost,
-           e.created_at AS entry_created_at, b.name, b.design_id, b.design_revision, r.cost, r.build
+           e.created_at AS entry_created_at, b.name, b.design_id, b.design_revision, r.cost, r.build, d.icon
          FROM game_entries e
          JOIN players p ON p.id = e.player_id
          JOIN game_entry_bots b ON b.entry_id = e.id
          JOIN bot_design_revisions r ON r.design_id = b.design_id AND r.number = b.design_revision
+         JOIN bot_designs d ON d.id = b.design_id
          WHERE e.game_id = ?
          ORDER BY e.created_at, e.rowid, b.position`,
       )
@@ -387,6 +391,7 @@ export class GameStore {
         revision: row.design_revision,
         cost: row.cost,
         build: JSON.parse(row.build) as Build,
+        icon: row.icon,
       });
     }
     return [...entries.values()].map(({ record, bots }) => ({ ...record, bots }));

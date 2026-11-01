@@ -316,9 +316,53 @@ export interface paths {
         put?: never;
         /**
          * Copy one of your Bot Designs to another Ruleset version
-         * @description Re-validates a Revision (the latest by default) under the target Ruleset. If it is valid there, it is saved as a new design in that version, at Revision 1, and the source is untouched. Otherwise nothing is saved and the response is 422 `copy_has_problems` listing every problem (removed Components, a cost over the largest Point Budget, unknown built-ins, ...). With `dryRun` the report is returned with 200 and nothing is saved either way. Archived designs can be copied. The copy keeps the source's description; its Revision 1 takes `notes` from the request (empty if left out), not the source's.
+         * @description Re-validates a Revision (the latest by default) under the target Ruleset. If it is valid there, it is saved as a new design in that version, at Revision 1, and the source is untouched. Otherwise nothing is saved and the response is 422 `copy_has_problems` listing every problem (removed Components, a cost over the largest Point Budget, unknown built-ins, ...). With `dryRun` the report is returned with 200 and nothing is saved either way. Archived designs can be copied. The copy keeps the source's description and Icon; its Revision 1 takes `notes` from the request (empty if left out), not the source's.
          */
         post: operations["copyBotDesignToRuleset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/bot-designs/{designId}/icon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set or replace the Icon of one of your Bot Designs
+         * @description The body is the PNG file itself: square, 32 to 256 pixels a side, at most 65536 bytes. Only the chunks needed to draw it are kept (IHDR, PLTE, tRNS, IDAT, IEND); metadata such as text and EXIF is dropped. The Icon belongs to the design, not a Revision, so this adds no Revision, and archived designs can be changed too.
+         */
+        put: operations["setBotDesignIcon"];
+        post?: never;
+        /**
+         * Remove the Icon of one of your Bot Designs
+         * @description Removing an Icon the design does not have is not an error. Archived designs can be changed too.
+         */
+        delete: operations["clearBotDesignIcon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/icons/{hash}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a Bot Design Icon image
+         * @description `hash` is the `icon` field of a Bot Design or a Game Entry's Bot. The image never changes for a given hash, so it may be cached. 404 when no Icon has that hash, including one no longer used or taken down.
+         */
+        get: operations["getIcon"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -963,6 +1007,8 @@ export interface components {
             rulesetVersion: string;
             latestRevision: components["schemas"]["BotDesignRevisionSummary"];
             copiedFrom: components["schemas"]["CopiedFrom"];
+            /** @description The content hash of the design's Icon (fetch it from `/icons/{hash}`), or null if it has none. Set with `PUT /bot-designs/{designId}/icon`; it belongs to the design, not a Revision. */
+            icon: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -981,6 +1027,8 @@ export interface components {
             rulesetVersion: string;
             latestRevision: components["schemas"]["BotDesignRevision"];
             copiedFrom: components["schemas"]["CopiedFrom"];
+            /** @description The content hash of the design's Icon (fetch it from `/icons/{hash}`), or null if it has none. Set with `PUT /bot-designs/{designId}/icon`; it belongs to the design, not a Revision. */
+            icon: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1714,7 +1762,7 @@ export interface components {
             /** @description Pass as `cursor` for the next page; null on the last page. */
             nextCursor: string | null;
         };
-        /** @description One Bot of an Entry. `cost` and `build` are present for your own Entries and, for everyone, once the Game is Running or Finished; `design` only for your own Entries. Programs are never included. */
+        /** @description One Bot of an Entry. `cost`, `build` and `icon` are present for your own Entries and, for everyone, once the Game is Running or Finished; `design` only for your own Entries. Programs are never included. */
         GameEntryBot: {
             /** @description The Bot Name, unique within the Game. */
             name: string;
@@ -1724,6 +1772,8 @@ export interface components {
             };
             cost?: number;
             build?: components["schemas"]["Build"];
+            /** @description The content hash of the Bot Design's current Icon (fetch it from `/icons/{hash}`), or null if it has none. Always the design's Icon now, not when it was entered. */
+            icon?: string | null;
         };
         /** @description `cost` is present for your own Entries and, for everyone, once the Game is Running or Finished. */
         GameEntry: {
@@ -2525,6 +2575,86 @@ export interface operations {
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    setBotDesignIcon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                designId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+            };
+        };
+        responses: {
+            /** @description The design with its new Icon. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BotDesign"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            413: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    clearBotDesignIcon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                designId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The design has no Icon. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getIcon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hash: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Icon. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

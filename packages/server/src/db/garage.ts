@@ -41,6 +41,8 @@ export interface DesignRecord {
   readonly rulesetVersion: string;
   readonly latestRevision: RevisionSummary;
   readonly copiedFrom: { readonly designId: string; readonly revision: number } | null;
+  /** The content hash of the design's Icon, or null if it has none. */
+  readonly icon: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly archivedAt: string | null;
@@ -54,6 +56,8 @@ export interface NewDesign {
   readonly description?: string;
   readonly rulesetVersion: string;
   readonly copiedFrom?: { readonly designId: string; readonly revision: number };
+  /** Defaults to none. */
+  readonly icon?: string | null;
 }
 
 /** What an update changes; fields left out are kept. */
@@ -84,6 +88,7 @@ interface DesignRow {
   latest_revision: number;
   copied_from_design_id: string | null;
   copied_from_revision: number | null;
+  icon: string | null;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -104,7 +109,7 @@ interface RevisionRow {
 
 const DESIGN_COLUMNS = `
   d.id, d.player_id, d.name, d.description, d.ruleset_version, d.latest_revision, d.copied_from_design_id,
-  d.copied_from_revision, d.created_at, d.updated_at, d.archived_at, r.cost, r.notes AS revision_notes,
+  d.copied_from_revision, d.icon, d.created_at, d.updated_at, d.archived_at, r.cost, r.notes AS revision_notes,
   r.created_at AS revision_created_at
   FROM bot_designs d JOIN bot_design_revisions r ON r.design_id = d.id AND r.number = d.latest_revision`;
 
@@ -124,6 +129,7 @@ const toDesign = (row: DesignRow): DesignRecord => ({
     row.copied_from_design_id === null || row.copied_from_revision === null
       ? null
       : { designId: row.copied_from_design_id, revision: row.copied_from_revision },
+  icon: row.icon,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   archivedAt: row.archived_at,
@@ -155,8 +161,8 @@ export class GarageStore {
       this.#db
         .prepare(
           `INSERT INTO bot_designs (id, player_id, name, description, ruleset_version, latest_revision,
-             copied_from_design_id, copied_from_revision, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
+             copied_from_design_id, copied_from_revision, icon, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
         )
         .run(
           design.id,
@@ -166,6 +172,7 @@ export class GarageStore {
           design.rulesetVersion,
           design.copiedFrom?.designId ?? null,
           design.copiedFrom?.revision ?? null,
+          design.icon ?? null,
           at,
           at,
         );
@@ -306,6 +313,27 @@ export class GarageStore {
       )
       .run(changes.name ?? null, changes.description ?? null, now.toISOString(), designId, playerId);
     return Number(result.changes) > 0;
+  }
+
+  /**
+   * Sets or clears the Icon of one of the Player's designs, archived or not,
+   * adding no Revision. Returns the hash it replaced (null if it had none),
+   * or undefined if the Player has no such design.
+   */
+  setIcon(playerId: string, designId: string, icon: string | null, now: Date): { previous: string | null } | undefined {
+    return this.#transaction(() => {
+      const row = this.#db.prepare("SELECT icon FROM bot_designs WHERE id = ? AND player_id = ?").get(designId, playerId) as
+        | { icon: string | null }
+        | undefined;
+      if (row === undefined) return undefined;
+      this.#db.prepare("UPDATE bot_designs SET icon = ?, updated_at = ? WHERE id = ?").run(icon, now.toISOString(), designId);
+      return { previous: row.icon };
+    });
+  }
+
+  /** Whether any design, of any Player, archived or not, has the Icon with this hash. */
+  iconInUse(icon: string): boolean {
+    return this.#db.prepare("SELECT 1 FROM bot_designs WHERE icon = ? LIMIT 1").get(icon) !== undefined;
   }
 
   /** Archives one of the Player's designs (a no-op if already archived); false if it has no such design. */

@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startServer, type Logger, type RunningServer } from "../app.js";
 import { defaultConfig, type ServerConfig } from "../config.js";
-import { EMBLEM_MAX_BYTES } from "../emblems/png.js";
-import { ihdr, png, pngChunk, rgbaIdat, samplePng, textChunk } from "../emblems/sample-png.js";
+import { IMAGE_MAX_BYTES } from "../images/png.js";
+import { ihdr, png, pngChunk, rgbaIdat, samplePng, textChunk } from "../images/sample-png.js";
 import { emblemKey } from "./emblems.js";
 
 const quiet: Logger = { info: () => undefined, error: () => undefined };
@@ -154,7 +154,7 @@ describe("setting an Emblem", () => {
 
   it("rejects an oversized body and the wrong content type", async () => {
     const ada = await player("ada");
-    const big = samplePng(64, pngChunk("zzZz", new Uint8Array(EMBLEM_MAX_BYTES)));
+    const big = samplePng(64, pngChunk("zzZz", new Uint8Array(IMAGE_MAX_BYTES)));
     const tooLarge = await call("PUT", "/players/me/emblem", { token: ada.token, bytes: big });
     expect(tooLarge.status).toBe(413);
     expect(errorOf(tooLarge).code).toBe("payload_too_large");

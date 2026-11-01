@@ -1,10 +1,10 @@
 /**
- * Emblem image checking: PNG only, validated chunk by chunk in plain
- * TypeScript, with no image library.
+ * Image checking for Emblems and Icons: PNG only, validated chunk by chunk
+ * in plain TypeScript, with no image library.
  *
  * The file must be a well-formed PNG (signature, chunk lengths and CRCs,
- * chunk order) whose IHDR describes a square image of EMBLEM_MIN_SIZE to
- * EMBLEM_MAX_SIZE pixels a side. Only the chunks needed to draw the image
+ * chunk order) whose IHDR describes a square image of IMAGE_MIN_SIZE to
+ * IMAGE_MAX_SIZE pixels a side. Only the chunks needed to draw the image
  * are kept (IHDR, PLTE, tRNS, IDAT, IEND); everything else, such as text,
  * EXIF and animation chunks, is dropped. The image data itself is not
  * decoded: a browser that cannot decode it shows nothing, which is harmless.
@@ -12,10 +12,10 @@
 
 import { crc32 } from "node:zlib";
 
-export const EMBLEM_MIN_SIZE = 32;
-export const EMBLEM_MAX_SIZE = 256;
-/** Largest Emblem upload, in bytes. */
-export const EMBLEM_MAX_BYTES = 64 * 1024;
+export const IMAGE_MIN_SIZE = 32;
+export const IMAGE_MAX_SIZE = 256;
+/** Largest Emblem or Icon upload, in bytes. */
+export const IMAGE_MAX_BYTES = 64 * 1024;
 
 const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const KEPT = new Set(["IHDR", "PLTE", "tRNS", "IDAT", "IEND"]);
@@ -37,9 +37,9 @@ interface Chunk {
   readonly raw: Uint8Array;
 }
 
-/** Checks an uploaded Emblem and returns the PNG with only the drawing chunks kept. */
-export function checkEmblemPng(bytes: Uint8Array): PngCheck {
-  if (bytes.length > EMBLEM_MAX_BYTES) return { problem: `must be at most ${String(EMBLEM_MAX_BYTES)} bytes` };
+/** Checks an uploaded Emblem or Icon and returns the PNG with only the drawing chunks kept. */
+export function checkImagePng(bytes: Uint8Array): PngCheck {
+  if (bytes.length > IMAGE_MAX_BYTES) return { problem: `must be at most ${String(IMAGE_MAX_BYTES)} bytes` };
   if (bytes.length < SIGNATURE.length || SIGNATURE.some((b, i) => bytes[i] !== b)) {
     return { problem: "is not a PNG file" };
   }
@@ -90,8 +90,8 @@ function checkChunks(chunks: readonly Chunk[]): string | undefined {
   const height = header.getUint32(4);
   const [bitDepth = 0, colorType = 0, compression, filter, interlace] = ihdr.data.subarray(8);
   if (width !== height) return `must be square, not ${String(width)}×${String(height)} pixels`;
-  if (width < EMBLEM_MIN_SIZE || width > EMBLEM_MAX_SIZE) {
-    return `must be ${String(EMBLEM_MIN_SIZE)} to ${String(EMBLEM_MAX_SIZE)} pixels a side, not ${String(width)}`;
+  if (width < IMAGE_MIN_SIZE || width > IMAGE_MAX_SIZE) {
+    return `must be ${String(IMAGE_MIN_SIZE)} to ${String(IMAGE_MAX_SIZE)} pixels a side, not ${String(width)}`;
   }
   if (!(BIT_DEPTHS[colorType]?.includes(bitDepth) ?? false)) {
     return `has an invalid bit depth ${String(bitDepth)} for color type ${String(colorType)}`;

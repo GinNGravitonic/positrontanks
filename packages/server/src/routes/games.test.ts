@@ -346,8 +346,8 @@ describe("Entries", () => {
       createdAt: START.toISOString(),
       cost: 128,
       bots: [
-        { name: "Rex", design: { designId: bobDesign, revision: 1 }, cost: 64, build: CHEAP_BUILD },
-        { name: "Dino", design: { designId: bobDesign, revision: 1 }, cost: 64, build: CHEAP_BUILD },
+        { name: "Rex", design: { designId: bobDesign, revision: 1 }, cost: 64, build: CHEAP_BUILD, icon: null },
+        { name: "Dino", design: { designId: bobDesign, revision: 1 }, cost: 64, build: CHEAP_BUILD, icon: null },
       ],
     });
     expect(first.game).toMatchObject({ state: "open", entryCount: 1 });
@@ -377,10 +377,10 @@ describe("Entries", () => {
     expect(started.state).toBe("running");
     expect(started.entries.map((e) => e.bots)).toEqual([
       [
-        { name: "Rex", cost: 64, build: CHEAP_BUILD },
-        { name: "Dino", cost: 64, build: CHEAP_BUILD },
+        { name: "Rex", cost: 64, build: CHEAP_BUILD, icon: null },
+        { name: "Dino", cost: 64, build: CHEAP_BUILD, icon: null },
       ],
-      [{ name: "Plato", cost: 69, build: PLATED_BUILD }],
+      [{ name: "Plato", cost: 69, build: PLATED_BUILD, icon: null }],
     ]);
     expect(started.entries.map((e) => e.cost)).toEqual([128, 69]);
     for (const token of [alice, bob, carol]) {
@@ -412,8 +412,8 @@ describe("Entries", () => {
       { designId: id, revision: 1, name: "First" },
     ]);
     const expected = [
-      { name: "Latest", design: { designId: id, revision: 2 }, cost: 69, build: PLATED_BUILD },
-      { name: "First", design: { designId: id, revision: 1 }, cost: 64, build: CHEAP_BUILD },
+      { name: "Latest", design: { designId: id, revision: 2 }, cost: 69, build: PLATED_BUILD, icon: null },
+      { name: "First", design: { designId: id, revision: 1 }, cost: 64, build: CHEAP_BUILD, icon: null },
     ];
     expect(entry.bots).toEqual(expected);
     expect(after.entries[0]?.bots).toEqual(expected);

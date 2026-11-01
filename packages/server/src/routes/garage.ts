@@ -17,10 +17,11 @@
  * since Games may reference them. A Revision no Game uses, other than the
  * latest, may be truly deleted.
  *
- * A design's name and description belong to it, not to a Revision: the
- * owner may change them at any time, archived or not, without adding a
- * Revision. Each Revision instead carries optional notes on what changed
- * (Build and/or Program), given when it is saved and immutable with it.
+ * A design's name, description and Icon (routes/icons.ts) belong to it, not
+ * to a Revision: the owner may change them at any time, archived or not,
+ * without adding a Revision. Each Revision instead carries optional notes on
+ * what changed (Build and/or Program), given when it is saved and immutable
+ * with it.
  *
  * Everything here is owner-only. Programs are visible only to their owner,
  * ever, so another Player's design answers 404 exactly as a missing one does.
@@ -67,6 +68,14 @@ const timestamp: Json = { type: "string", format: "date-time" };
 const NOTES_VISIBILITY = "Private to the owner; never shown in Games.";
 const revisionNotes = notesSchema(NOTES_VISIBILITY);
 const newNotes: Json = { ...revisionNotes, default: "" };
+
+const iconSchema: Json = {
+  type: ["string", "null"],
+  pattern: "^[0-9a-f]{64}$",
+  description:
+    "The content hash of the design's Icon (fetch it from `/icons/{hash}`), or null if it has none. Set with " +
+    "`PUT /bot-designs/{designId}/icon`; it belongs to the design, not a Revision.",
+};
 
 const schemas: Record<string, Json> = {
   Build: {
@@ -138,6 +147,7 @@ const schemas: Record<string, Json> = {
       "rulesetVersion",
       "latestRevision",
       "copiedFrom",
+      "icon",
       "createdAt",
       "updatedAt",
       "archivedAt",
@@ -150,6 +160,7 @@ const schemas: Record<string, Json> = {
       rulesetVersion: { type: "string" },
       latestRevision: ref("BotDesignRevisionSummary"),
       copiedFrom: ref("CopiedFrom"),
+      icon: iconSchema,
       createdAt: timestamp,
       updatedAt: timestamp,
       archivedAt: { type: ["string", "null"], format: "date-time", description: "Set once the design is archived." },
@@ -164,6 +175,7 @@ const schemas: Record<string, Json> = {
       "rulesetVersion",
       "latestRevision",
       "copiedFrom",
+      "icon",
       "createdAt",
       "updatedAt",
       "archivedAt",
@@ -176,6 +188,7 @@ const schemas: Record<string, Json> = {
       rulesetVersion: { type: "string" },
       latestRevision: ref("BotDesignRevision"),
       copiedFrom: ref("CopiedFrom"),
+      icon: iconSchema,
       createdAt: timestamp,
       updatedAt: timestamp,
       archivedAt: { type: ["string", "null"], format: "date-time", description: "Set once the design is archived." },
@@ -341,6 +354,7 @@ const designFields = (d: DesignRecord): Record<string, Json> => ({
   description: d.description,
   rulesetVersion: d.rulesetVersion,
   copiedFrom: copiedFromJson(d),
+  icon: d.icon,
   createdAt: d.createdAt,
   updatedAt: d.updatedAt,
   archivedAt: d.archivedAt,
@@ -348,7 +362,7 @@ const designFields = (d: DesignRecord): Record<string, Json> => ({
 
 const designSummaryJson = (d: DesignRecord): Json => ({ ...designFields(d), latestRevision: revisionSummaryJson(d.latestRevision) });
 
-const designJson = (d: DesignRecord, latest: RevisionRecord): Json => ({ ...designFields(d), latestRevision: revisionJson(latest) });
+export const designJson = (d: DesignRecord, latest: RevisionRecord): Json => ({ ...designFields(d), latestRevision: revisionJson(latest) });
 
 const noDesign = (id: string): ApiError => notFound(`You have no Bot Design ${id}`);
 
@@ -356,7 +370,7 @@ const archived = (id: string): ApiError =>
   new ApiError(409, "design_archived", `Bot Design ${id} is archived and cannot be changed`);
 
 /** One of the authenticated Player's designs with its latest Revision, or 404. */
-function loadDesign(context: RequestContext, playerId: string): { design: DesignRecord; latest: RevisionRecord } {
+export function loadDesign(context: RequestContext, playerId: string): { design: DesignRecord; latest: RevisionRecord } {
   const id = context.params.designId ?? "";
   const garage = context.services.db.garage;
   const design = garage.getDesign(playerId, id);
@@ -706,7 +720,7 @@ export const garageModule: ApiModule = {
           "is saved and the response is 422 `copy_has_problems` listing every problem (removed Components, a " +
           "cost over the largest Point Budget, unknown built-ins, ...). With `dryRun` the report is returned " +
           "with 200 and nothing is saved either way. Archived designs can be copied. The copy keeps the source's " +
-          "description; its Revision 1 takes `notes` from the request (empty if left out), not the source's.",
+          "description and Icon; its Revision 1 takes `notes` from the request (empty if left out), not the source's.",
         tags: [TAG],
         security: bearer,
         parameters: [designIdParameter],
@@ -770,6 +784,7 @@ export const garageModule: ApiModule = {
             description: design.description,
             rulesetVersion: hosted.ruleset.version,
             copiedFrom: { designId: design.id, revision: source.number },
+            icon: design.icon,
           },
           { build: checked.build, program: checked.program, cost: checked.cost, notes },
           new Date(),

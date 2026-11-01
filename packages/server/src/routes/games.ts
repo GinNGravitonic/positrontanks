@@ -168,8 +168,8 @@ const schemas: Record<string, Json> = {
   GameEntryBot: {
     type: "object",
     description:
-      "One Bot of an Entry. `cost` and `build` are present for your own Entries and, for everyone, once the Game " +
-      "is Running or Finished; `design` only for your own Entries. Programs are never included.",
+      "One Bot of an Entry. `cost`, `build` and `icon` are present for your own Entries and, for everyone, once " +
+      "the Game is Running or Finished; `design` only for your own Entries. Programs are never included.",
     required: ["name"],
     additionalProperties: false,
     properties: {
@@ -182,6 +182,13 @@ const schemas: Record<string, Json> = {
       },
       cost: { type: "integer" },
       build: ref("Build"),
+      icon: {
+        type: ["string", "null"],
+        pattern: "^[0-9a-f]{64}$",
+        description:
+          "The content hash of the Bot Design's current Icon (fetch it from `/icons/{hash}`), or null if it has " +
+          "none. Always the design's Icon now, not when it was entered.",
+      },
     },
   },
   GameEntry: {
@@ -437,6 +444,7 @@ function entryJson(entry: EntryRecord, game: GameRecord, viewerId: string): Json
         ? {
             cost: bot.cost,
             build: { chassis: bot.build.chassis, components: { ...bot.build.components }, armor: { ...bot.build.armor } },
+            icon: bot.icon,
           }
         : {}),
     })),
