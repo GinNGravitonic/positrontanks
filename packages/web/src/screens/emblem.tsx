@@ -4,10 +4,10 @@
  * initials on a disc in their Entry's color.
  */
 
-import { useEffect, useSyncExternalStore } from "react";
 import type { Schema } from "../api/client.js";
 import { Canvas } from "../draw/preview.js";
-import { useServices } from "../hooks.js";
+import { useImage } from "../hooks.js";
+import { emblemPath } from "../images.js";
 
 /** The Player an Emblem is for, as any Player reference in the API gives them. */
 export type EmblemOwner = Pick<Schema<"GamePlayer">, "id" | "username" | "emblem">;
@@ -42,13 +42,7 @@ export function textColorOn(color: string): string {
 
 /** The Player's Emblem image once loaded, starting the load if needed; undefined while loading or when there is none to draw. */
 export function useEmblem({ id, emblem }: Pick<EmblemOwner, "id" | "emblem">): ImageBitmap | undefined {
-  const { emblems } = useServices();
-  const read = () => (emblem === null ? undefined : (emblems.get(id, emblem) ?? undefined));
-  const image = useSyncExternalStore(emblems.subscribe, read, read);
-  useEffect(() => {
-    if (emblem !== null) void emblems.load(id, emblem);
-  }, [emblems, id, emblem]);
-  return image;
+  return useImage(emblem === null ? undefined : emblemPath(id, emblem));
 }
 
 export function Emblem({ player, color, size = 32 }: { readonly player: EmblemOwner; readonly color: string; readonly size?: number }) {

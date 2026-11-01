@@ -14,6 +14,7 @@ import {
 } from "./entries.js";
 import { formProblems } from "./games.js";
 import { ServicesProvider } from "./hooks.js";
+import { iconPath } from "./images.js";
 import { cannotEnter, EnterGameView, type EnterGameViewProps } from "./screens/enter-game.js";
 import { createServices, signUp } from "./services.js";
 import { SESSION_STORAGE_KEY } from "./session.js";
@@ -142,6 +143,37 @@ describe("the Enter Game screen", () => {
     expect(html).toContain('aria-label="Add a Hunter Bot"');
     expect(html).toContain("No Bots yet");
     expect(html).toMatch(/Total: <!-- -->0<!-- --> of <!-- -->1000<!-- --> points/);
+  });
+
+  it("draws each design's Icon in the picker, and nothing for one with none or one that cannot be fetched", async () => {
+    const services = createServices({
+      fetch: fakeApi({ icons: { i1: Uint8Array.of(1) } }).fetch,
+      storage: memoryStorage(),
+      history: memoryHistory("/play/games/g1/enter"),
+      decodeImage: () => Promise.resolve({ width: 32, height: 32, close: () => undefined }),
+    });
+    await signUp(services, { username: "ada_bot", password: "correct horse" }, null);
+    await services.images.load(iconPath("i1"));
+    await services.images.load(iconPath("gone"));
+    const withIcons = [{ ...hunter, icon: "i1" }, { ...tank, icon: "gone" }, testDesign({ id: "d3", name: "Plain" })];
+    const html = renderToString(
+      <ServicesProvider services={services}>
+        <EnterGameView
+          game={testGame()}
+          designs={withIcons}
+          bots={[]}
+          problems={{ fields: {} }}
+          busy={false}
+          onAdd={() => undefined}
+          onRemove={() => undefined}
+          onRename={() => undefined}
+          onSubmit={() => undefined}
+        />
+      </ServicesProvider>,
+    );
+    expect(html).toMatch(/<td><canvas role="img" aria-label="Hunter&#x27;s Icon"[^>]*class="icon"><\/canvas>Hunter<\/td>/);
+    expect(html).toContain("<td>Tank</td>");
+    expect(html).toContain("<td>Plain</td>");
   });
 
   it("names each Bot in the Entry and keeps the running total, marking it over the Point Budget", () => {

@@ -1,6 +1,7 @@
 /**
  * React access to the client's services: a context that holds them, hooks
- * for the current route and session and for loading from the API, and `Link`
+ * for the current route and session, for loading from the API and for
+ * Emblem and Icon images, and `Link`
  * for in-client navigation.
  */
 
@@ -29,6 +30,17 @@ export function useRoute(): Route {
 export function useSession(): Session | undefined {
   const { session } = useServices();
   return useSyncExternalStore(session.subscribe, session.current, session.current);
+}
+
+/** The image at `path` once loaded, starting the load if needed; undefined while loading, when there is none to draw, or with no `path`. */
+export function useImage(path: string | undefined): ImageBitmap | undefined {
+  const { images } = useServices();
+  const read = () => (path === undefined ? undefined : (images.get(path) ?? undefined));
+  const image = useSyncExternalStore(images.subscribe, read, read);
+  useEffect(() => {
+    if (path !== undefined) void images.load(path);
+  }, [images, path]);
+  return image;
 }
 
 /** A link to a route; a plain click navigates inside the client, others behave as for any link. */

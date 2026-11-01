@@ -24,6 +24,7 @@ import {
 import { formProblems, gameActions, getGame, problemText, STATE_TEXT, type Game } from "../games.js";
 import { Link, useLoad, useServices, useSession } from "../hooks.js";
 import { gameRoute } from "./game.js";
+import { Icon } from "./icon.js";
 
 export function EnterGameScreen({ id }: { readonly id: string }) {
   const { api } = useServices();
@@ -200,7 +201,10 @@ export function EnterGameView({ game, designs, bots, problems, busy, onAdd, onRe
             <tbody>
               {designs.map((design) => (
                 <tr key={design.id}>
-                  <td>{design.name}</td>
+                  <td>
+                    <Icon icon={design.icon} name={design.name} size={20} />
+                    {design.name}
+                  </td>
                   <td>{String(design.latestRevision.number)}</td>
                   <td>{String(design.latestRevision.cost)}</td>
                   <td>

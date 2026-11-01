@@ -1,7 +1,7 @@
 /**
  * The Bot inset (frontend spec section 7, Bot inset): what a Spectator sees
  * of the selected Bot at the current moment of the Game. Its Bot Name,
- * Player and Emblem; its Chassis, Components by Slot and Armor by side; its
+ * Icon, Player and Emblem; its Chassis, Components by Slot and Armor by side; its
  * Hit Points, speed and status; the damage it has dealt to Foes and taken so
  * far; and a button to follow it. It never shows a Program or Program logs.
  */
@@ -14,6 +14,7 @@ import { botFigures, disabledCauseText } from "../viewer/figures.js";
 import { clockText } from "../viewer/playback.js";
 import type { Scene, ViewerReplay } from "../viewer/scene.js";
 import { Emblem, type EmblemOwner } from "./emblem.js";
+import { Icon } from "./icon.js";
 
 export interface BotInsetProps {
   readonly replay: ViewerReplay;
@@ -23,6 +24,8 @@ export interface BotInsetProps {
   readonly looks: BotLooks | undefined;
   /** Each Player, by Player id. */
   readonly players: ReadonlyMap<string, EmblemOwner>;
+  /** Each Bot's Icon hash, or null for none, by Bot Name. */
+  readonly icons: ReadonlyMap<string, string | null>;
   /** Whether the main view is following this Bot. */
   readonly following: boolean;
   readonly onFollow: () => void;
@@ -35,7 +38,7 @@ export function figureText(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-export function BotInset({ replay, catalog, scene, bot, looks, players, following, onFollow, onStopFollowing, onClose }: BotInsetProps) {
+export function BotInset({ replay, catalog, scene, bot, looks, players, icons, following, onFollow, onStopFollowing, onClose }: BotInsetProps) {
   const entryIndex = replay.entries.findIndex((entry) => entry.bots.some((b) => b.id === bot));
   const entry = replay.entries[entryIndex];
   const design = entry?.bots.find((b) => b.id === bot);
@@ -58,7 +61,10 @@ export function BotInset({ replay, catalog, scene, bot, looks, players, followin
       <header>
         <Emblem player={player} color={color} />
         <div>
-          <h3>{design.name}</h3>
+          <h3>
+            <Icon icon={icons.get(design.name)} name={design.name} size={20} />
+            {design.name}
+          </h3>
           <p>{player.username}</p>
         </div>
         <button type="button" className="bot-inset-close" aria-label="Close" onClick={onClose}>

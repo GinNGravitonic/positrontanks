@@ -272,6 +272,7 @@ function LiveGame({ game, onWatchAgain }: { readonly game: Game; readonly onWatc
             result={result}
             replay={final.replay}
             players={playersOf(ended.game)}
+            icons={iconsOf(ended.game)}
             onWatchAgain={() => {
               onWatchAgain(ended.game, final);
             }}
@@ -321,6 +322,11 @@ function playersOf(game: Game): Map<string, EmblemOwner> {
   return new Map(game.entries.map((entry) => [entry.player.id, entry.player]));
 }
 
+/** Each Bot's Icon hash, or null for none, by Bot Name: unique within the Game, and the same in the Game and its Replay. */
+export function iconsOf(game: Game): Map<string, string | null> {
+  return new Map(game.entries.flatMap((entry) => entry.bots.map((bot) => [bot.name, bot.icon ?? null] as const)));
+}
+
 const OVERVIEW_SIZE = 200;
 /** How far, in CSS pixels, a press may move and still be a click rather than a drag. */
 const CLICK_PIXELS = 4;
@@ -336,6 +342,7 @@ const MAX_FRAME_SECONDS = 0.25;
 function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly replay: ViewerReplay; readonly catalog: Catalog }) {
   const [playback, setPlayback] = useState<Playback>(START);
   const players = useMemo(() => playersOf(game), [game]);
+  const icons = useMemo(() => iconsOf(game), [game]);
 
   useEffect(() => {
     if (!playback.playing) return;
@@ -365,6 +372,7 @@ function ReplayViewer({ game, replay, catalog }: { readonly game: Game; readonly
             result={game.result}
             replay={replay}
             players={players}
+            icons={icons}
             onWatchAgain={() => {
               setPlayback((p) => ({ ...seek(p, 0, replay.lastTick), playing: true }));
             }}
@@ -410,6 +418,7 @@ function Viewer({ game, replay, catalog, time, badge, overlay, controls }: Viewe
   /** The Bot whose inset is open. */
   const [selected, setSelected] = useState<number>();
   const players = useMemo(() => playersOf(game), [game]);
+  const icons = useMemo(() => iconsOf(game), [game]);
   const view = camera?.view;
   const area = useRef<HTMLDivElement>(null);
   const main = useRef<HTMLCanvasElement>(null);
@@ -556,6 +565,7 @@ function Viewer({ game, replay, catalog, time, badge, overlay, controls }: Viewe
               bot={selected}
               looks={looks.get(selected)}
               players={players}
+              icons={icons}
               following={followed === selected}
               onFollow={() => {
                 setCamera((c) => (c === undefined ? c : follow(c, selected)));

@@ -4,7 +4,8 @@ import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ServicesProvider } from "../hooks.js";
-import { createServices } from "../services.js";
+import { iconPath } from "../images.js";
+import { createServices, signUp } from "../services.js";
 import { fakeApi, memoryHistory, memoryStorage } from "../test-platform.js";
 import { botFigures } from "../viewer/figures.js";
 import { clockText } from "../viewer/playback.js";
@@ -17,11 +18,16 @@ const replay = loadR1Replay(JSON.parse(JSON.stringify(replayOf(replayGame(duelLa
 const looks = botLooks(replay, ruleset);
 const [first, second] = replay.entries;
 const players = new Map([[first?.player ?? "", { id: first?.player ?? "", username: "ada_bot", emblem: null }]]);
-const services = createServices({ fetch: fakeApi().fetch, storage: memoryStorage(), history: memoryHistory("/play/") });
+const services = createServices({
+  fetch: fakeApi({ icons: { i1: Uint8Array.of(1) } }).fetch,
+  storage: memoryStorage(),
+  history: memoryHistory("/play/"),
+  decodeImage: () => Promise.resolve({ width: 32, height: 32, close: () => undefined }),
+});
 const disabled = replay.disablements[0];
 if (disabled === undefined) throw new Error("expected a Bot Disabled in the golden Game");
 
-function render(bot: number, time: number, following = false) {
+function render(bot: number, time: number, following = false, icons: ReadonlyMap<string, string | null> = new Map()) {
   return renderToString(
     <ServicesProvider services={services}>
       <BotInset
@@ -31,6 +37,7 @@ function render(bot: number, time: number, following = false) {
         bot={bot}
         looks={looks.get(bot)}
         players={players}
+        icons={icons}
         following={following}
         onFollow={() => undefined}
         onStopFollowing={() => undefined}
@@ -52,6 +59,17 @@ describe("the Bot inset", () => {
     expect(html).toContain(">AB</text>");
     expect(html).toContain(parts?.chassis.name);
     for (const { slot, component } of parts?.mounted ?? []) expect(html).toContain(`${slot.id}<!-- -->: <!-- -->${component.name}`);
+  });
+
+  it("draws the Bot's Icon next to its name, and nothing when it has none or it cannot be fetched", async () => {
+    await signUp(services, { username: "ada_bot", password: "correct horse" }, null);
+    await services.images.load(iconPath("i1"));
+    await services.images.load(iconPath("gone"));
+    expect(render(bot.id, 0, false, new Map([[bot.name, "i1"]]))).toMatch(
+      new RegExp(`<h3><canvas role="img" aria-label="${bot.name}&#x27;s Icon"[^>]*class="icon"></canvas>${bot.name}</h3>`),
+    );
+    for (const icon of [null, "gone"]) expect(render(bot.id, 0, false, new Map([[bot.name, icon]]))).not.toContain("Icon");
+    expect(render(bot.id, 0)).toContain(`<h3>${bot.name}</h3>`);
   });
 
   it("falls back to the Player's id when their username is not known", () => {

@@ -1,12 +1,12 @@
 /**
  * The client's services, made once per page: the API client, the session,
- * the router and the Emblem cache, wired so that a 401 ends the session and returns to
+ * the router and the image cache for Emblems and Icons, wired so that a 401 ends the session and returns to
  * log-in, and log-in returns to the page the Player was on (frontend spec
  * section 4). Also signing up, logging in and logging out.
  */
 
 import { ApiClient, type Schema } from "./api/client.js";
-import { EmblemCache, type DecodeImage } from "./emblems.js";
+import { ImageCache, type DecodeImage } from "./images.js";
 import { logInRoute, Router, safeNext, type HistoryLike } from "./router.js";
 import { SessionStore, type Session, type SessionStorage } from "./session.js";
 
@@ -16,7 +16,7 @@ export interface Services {
   readonly api: ApiClient;
   readonly session: SessionStore;
   readonly router: Router;
-  readonly emblems: EmblemCache;
+  readonly images: ImageCache;
 }
 
 /** Routes a signed-out visitor may see; every other route is signed-in only. */
@@ -26,7 +26,7 @@ export interface Platform {
   readonly fetch: typeof fetch;
   readonly storage: SessionStorage;
   readonly history: HistoryLike;
-  /** Decodes Emblems; `createImageBitmap` when not given. */
+  /** Decodes Emblems and Icons; `createImageBitmap` when not given. */
   readonly decodeImage?: DecodeImage;
 }
 
@@ -41,8 +41,8 @@ export function createServices(platform: Platform): Services {
       if (!SIGNED_OUT_ROUTES.includes(router.current().path)) router.navigate(logInRoute(router.here()), { replace: true });
     },
   });
-  const emblems = new EmblemCache(api, platform.decodeImage ?? ((image) => createImageBitmap(image)));
-  return { api, session, router, emblems };
+  const images = new ImageCache(api, platform.decodeImage ?? ((image) => createImageBitmap(image)));
+  return { api, session, router, images };
 }
 
 /** Logs in (`POST /sessions`) and goes to `next`, the page that sent the Player to log-in. */

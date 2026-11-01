@@ -1,6 +1,6 @@
 /**
  * The Garage (frontend spec section 5), read-only: the Player's Bot Designs,
- * each Build drawn with its cost, and a design's page with its parts, its
+ * each with its Icon and its Build drawn with its cost, and a design's page with its parts, its
  * Revisions and their notes, and its Program. Authoring stays with the CLI.
  * The filters live in the route's query (`?ruleset=r1&archived=1`), and a
  * design's page can show an earlier Revision (`?revision=2`).
@@ -31,6 +31,7 @@ import type { BotDesignSummary } from "../entries.js";
 import { localTime, problemText } from "../games.js";
 import { Link, useLoad, usePages, useRoute, useServices, type Pages } from "../hooks.js";
 import type { PartsCatalog } from "../replays.js";
+import { Icon } from "./icon.js";
 
 export function GarageScreen() {
   const route = useRoute();
@@ -111,6 +112,7 @@ export function DesignCards({ pages }: { readonly pages: Pages<BotDesignSummary>
             <li key={design.id}>
               <DesignDrawing id={design.id} rulesetVersion={design.rulesetVersion} name={design.name} />
               <h3>
+                <Icon icon={design.icon} name={design.name} />
                 <Link to={designRoute(design.id)}>{design.name}</Link>
               </h3>
               <p>
@@ -208,7 +210,10 @@ export function DesignView({ design, revision, catalog }: DesignViewProps) {
   const latest = revision.number === design.latestRevision.number;
   return (
     <article className="item design">
-      <h2>{design.name}</h2>
+      <h2>
+        <Icon icon={design.icon} name={design.name} size={32} />
+        {design.name}
+      </h2>
       <div className="item-summary">
         <BuildDrawing build={revision.build} catalog={catalog} label={`${design.name}'s Build`} size={200} />
         <dl>

@@ -4,7 +4,7 @@
  * Games endpoints of the Games screen and Game page, the Rulesets and
  * Maps the Create Game screen chooses from, and the Bot Designs and Entries
  * of the Enter Game screen and the Garage, Map Revisions, and the Replays,
- * Parts Catalog, event streams and Emblems the viewer loads.
+ * Parts Catalog, event streams, Emblems and Icons the viewer loads.
  */
 
 import duelJson from "@positrontanks/ruleset-data/maps/duel.json";
@@ -177,9 +177,9 @@ export function mapSummary(map: Schema<"Map">): MapSummary {
 
 /**
  * A fake of the API's accounts, Games, Rulesets, Maps, Bot Designs and
- * Replays endpoints and Emblem images, all but signing up and logging in
+ * Replays endpoints and Emblem and Icon images, all but signing up and logging in
  * needing a session. Every Player has the same `designs`; a Finished Game's
- * Replay is in `replays`, by Game id; Emblems are in `emblems`; the Parts
+ * Replay is in `replays`, by Game id; Emblems are in `emblems` and Icons in `icons`; the Parts
  * Catalog is r1's. Each opening of a
  * Running Game's stream takes the next of its `streams`, by Game id; once
  * they run out, the server is unavailable.
@@ -193,6 +193,8 @@ export function fakeApi(
     readonly streams?: Readonly<Record<string, readonly StreamOpening[]>>;
     /** Emblem images, by "playerId/hash". */
     readonly emblems?: Readonly<Record<string, Uint8Array<ArrayBuffer>>>;
+    /** Icon images, by hash. */
+    readonly icons?: Readonly<Record<string, Uint8Array<ArrayBuffer>>>;
   } = {},
 ): FakeApi {
   const games = [...(options.games ?? [])];
@@ -267,6 +269,12 @@ export function fakeApi(
     const emblemMatch = /^\/players\/([^/]+)\/emblem\/([^/]+)$/.exec(path);
     if (method === "GET" && emblemMatch !== null) {
       const image = options.emblems?.[`${decodeURIComponent(emblemMatch[1] ?? "")}/${decodeURIComponent(emblemMatch[2] ?? "")}`];
+      if (image === undefined) return error(404, "not_found", "Not found");
+      return new Response(image, { status: 200, headers: { "content-type": "image/png" } });
+    }
+    const iconMatch = /^\/icons\/([^/]+)$/.exec(path);
+    if (method === "GET" && iconMatch !== null) {
+      const image = options.icons?.[decodeURIComponent(iconMatch[1] ?? "")];
       if (image === undefined) return error(404, "not_found", "Not found");
       return new Response(image, { status: 200, headers: { "content-type": "image/png" } });
     }

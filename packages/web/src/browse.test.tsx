@@ -29,8 +29,9 @@ import {
   statText,
 } from "./browse.js";
 import { ServicesProvider } from "./hooks.js";
+import { iconPath } from "./images.js";
 import type { PartsCatalog } from "./replays.js";
-import { DesignView } from "./screens/garage.js";
+import { DesignCards, DesignView } from "./screens/garage.js";
 import { MapView, obstaclesText, terrainText } from "./screens/maps.js";
 import { CatalogView } from "./screens/parts.js";
 import { createServices, signUp } from "./services.js";
@@ -195,6 +196,36 @@ describe("the browser screens", () => {
     expect(html).toContain("Light Plate");
     expect(html).toContain('<pre class="program">-- Hunter, Revision 1');
     expect(html).toContain('href="/play/parts?ruleset=r1"');
+  });
+
+  it("draws a design's Icon on its card and its page, and nothing for one with none or one that cannot be fetched", async () => {
+    const withIcons = createServices({
+      fetch: fakeApi({ icons: { i1: Uint8Array.of(1) } }).fetch,
+      storage: memoryStorage(),
+      history: memoryHistory("/play/garage"),
+      decodeImage: () => Promise.resolve({ width: 32, height: 32, close: () => undefined }),
+    });
+    await signUp(withIcons, { username: "ada_bot", password: "correct horse" }, null);
+    await withIcons.images.load(iconPath("i1"));
+    await withIcons.images.load(iconPath("gone"));
+    const cards = [testDesign({ icon: "i1" }), testDesign({ id: "d2", name: "Tank", icon: "gone" }), testDesign({ id: "d3", name: "Plain" })];
+    const pages = { items: cards, status: "loaded", more: false, loadMore: () => undefined } as const;
+    const list = renderToString(
+      <ServicesProvider services={withIcons}>
+        <DesignCards pages={pages} />
+      </ServicesProvider>,
+    );
+    expect(list).toMatch(/<h3><canvas role="img" aria-label="Hunter&#x27;s Icon"[^>]*class="icon"><\/canvas><a href="\/play\/garage\/d1"/);
+    expect(list).toContain("<h3><a href=\"/play/garage/d2\"");
+    expect(list).toContain("<h3><a href=\"/play/garage/d3\"");
+    expect(list.match(/s Icon"/g)).toHaveLength(1);
+    const page = renderToString(
+      <ServicesProvider services={withIcons}>
+        <DesignView design={{ ...full, icon: "i1" }} revision={full.latestRevision} catalog={catalog} />
+      </ServicesProvider>,
+    );
+    expect(page).toMatch(/<h2><canvas role="img" aria-label="Hunter&#x27;s Icon" style="width:32px;height:32px" class="icon"><\/canvas>Hunter<\/h2>/);
+    expect(wrap(<DesignView design={full} revision={full.latestRevision} catalog={catalog} />)).toContain("<h2>Hunter</h2>");
   });
 
   it("says so when a Build's Chassis is not in the catalog", () => {

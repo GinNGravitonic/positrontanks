@@ -3,7 +3,7 @@
  * when a Game ends. The Winner, or a Draw, and how the Game was decided; one
  * row per Entry with its Emblem, Player, damage dealt to Foes, remaining Hit
  * Points and whether any of its Bots is still standing; under each Entry its
- * Bots, with the damage each dealt and took and, if Disabled, the Tick and
+ * Bots, each with its Icon, the damage each dealt and took and, if Disabled, the Tick and
  * cause; and the buttons to watch again or go back to the Games.
  */
 
@@ -15,6 +15,7 @@ import { clockText } from "../viewer/playback.js";
 import type { ViewerReplay } from "../viewer/scene.js";
 import { figureText } from "./bot-inset.js";
 import { Emblem, type EmblemOwner } from "./emblem.js";
+import { Icon } from "./icon.js";
 
 export type GameResult = NonNullable<Game["result"]>;
 
@@ -52,11 +53,13 @@ export interface GameOverProps {
   readonly replay: ViewerReplay;
   /** Each Player, by Player id. */
   readonly players: ReadonlyMap<string, EmblemOwner>;
+  /** Each Bot's Icon hash, or null for none, by Bot Name. */
+  readonly icons: ReadonlyMap<string, string | null>;
   /** Watches the Replay again from Tick 0. */
   readonly onWatchAgain: () => void;
 }
 
-export function GameOver({ result, replay, players, onWatchAgain }: GameOverProps) {
+export function GameOver({ result, replay, players, icons, onWatchAgain }: GameOverProps) {
   const { title, how } = outcomeText(result);
   const figures = entryFigures(replay);
   const final = replay.scene(replay.lastTick);
@@ -97,7 +100,10 @@ export function GameOver({ result, replay, players, onWatchAgain }: GameOverProp
                 const hitPoints = final.bots.find((b) => b.id === bot.id)?.hitPoints ?? 0;
                 return (
                   <tr key={bot.id} className="game-over-bot">
-                    <th scope="row">{bot.name}</th>
+                    <th scope="row">
+                      <Icon icon={icons.get(bot.name)} name={bot.name} size={20} />
+                      {bot.name}
+                    </th>
                     <td>{figureText(f.dealtToFoes)}</td>
                     <td>{figureText(f.taken)}</td>
                     <td>{f.disabled === undefined ? figureText(hitPoints) : ""}</td>

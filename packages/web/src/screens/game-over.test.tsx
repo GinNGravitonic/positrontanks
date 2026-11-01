@@ -8,7 +8,8 @@ import { loadRuleset } from "@positrontanks/ruleset-data/rulesets";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ServicesProvider } from "../hooks.js";
-import { createServices } from "../services.js";
+import { iconPath } from "../images.js";
+import { createServices, signUp } from "../services.js";
 import { fakeApi, memoryHistory, memoryStorage } from "../test-platform.js";
 import { disabledTick, entryFigures } from "../viewer/figures.js";
 import { loadR1Replay } from "../viewer/r1.js";
@@ -16,7 +17,12 @@ import { figureText } from "./bot-inset.js";
 import { GameOver, outcomeText, type GameResult } from "./game-over.js";
 
 const ruleset = loadRuleset("r1");
-const services = createServices({ fetch: fakeApi().fetch, storage: memoryStorage(), history: memoryHistory("/play/") });
+const services = createServices({
+  fetch: fakeApi({ icons: { i1: Uint8Array.of(1) } }).fetch,
+  storage: memoryStorage(),
+  history: memoryHistory("/play/"),
+  decodeImage: () => Promise.resolve({ width: 32, height: 32, close: () => undefined }),
+});
 const goldens = { duelLastStanding, fourCornersTimeLimit, iceAndMudTeams, mutualDestructionDraw, programFailures };
 
 function played(golden: { readonly record: unknown }) {
@@ -41,12 +47,12 @@ function apiResult(r1: Replay): GameResult {
   };
 }
 
-function render(golden: { readonly record: unknown }) {
+function render(golden: { readonly record: unknown }, icons: ReadonlyMap<string, string | null> = new Map()) {
   const { r1, replay } = played(golden);
   const players = new Map(replay.entries.map((entry) => [entry.player, { id: entry.player, username: usernameOf(entry.player), emblem: null }]));
   const html = renderToString(
     <ServicesProvider services={services}>
-      <GameOver result={apiResult(r1)} replay={replay} players={players} onWatchAgain={() => undefined} />
+      <GameOver result={apiResult(r1)} replay={replay} players={players} icons={icons} onWatchAgain={() => undefined} />
     </ServicesProvider>,
   );
   return { r1, replay, html };
@@ -123,6 +129,18 @@ describe("Game Over", () => {
     expect(html).toContain(`${usernameOf(r1.result?.winner ?? "")} wins`);
     expect(html).toContain("The time limit was reached; decided on");
     expect(html).toContain("Still standing");
+  });
+
+  it("draws each Bot's Icon in its row, and nothing for a Bot with none or one that cannot be fetched", async () => {
+    await signUp(services, { username: "ada_bot", password: "correct horse" }, null);
+    await services.images.load(iconPath("i1"));
+    await services.images.load(iconPath("gone"));
+    const { replay } = played(duelLastStanding);
+    const [first, second] = replay.entries.map((entry) => entry.bots[0]?.name ?? "");
+    const { html } = render(duelLastStanding, new Map([[first ?? "", "i1"], [second ?? "", "gone"]]));
+    expect(html).toMatch(new RegExp(`<th scope="row"><canvas role="img" aria-label="${first ?? ""}&#x27;s Icon"[^>]*class="icon"></canvas>${first ?? ""}</th>`));
+    expect(html).toContain(`<th scope="row">${second ?? ""}</th>`);
+    expect(html.match(/s Icon"/g)).toHaveLength(1);
   });
 
   it("offers to watch again and to go back to the Games", () => {

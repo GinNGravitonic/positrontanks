@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ENTRY_COLORS } from "../draw/colors.js";
 import { ServicesProvider } from "../hooks.js";
 import { createServices, signUp, type Services } from "../services.js";
+import { emblemPath } from "../images.js";
 import { fakeApi, memoryHistory, memoryStorage } from "../test-platform.js";
 import { Emblem, initials, textColorOn, type EmblemOwner } from "./emblem.js";
 
@@ -58,7 +59,7 @@ describe("placeholder Emblems", () => {
 
   it("stand in for an Emblem that cannot be fetched, such as one taken down", async () => {
     const services = await signedIn();
-    await services.emblems.load("p-ada_bot", "gone");
+    await services.images.load(emblemPath("p-ada_bot", "gone"));
     const html = render(services, { ...ada, emblem: "gone" });
     expect(html).toContain(">AB</text>");
   });
@@ -67,7 +68,7 @@ describe("placeholder Emblems", () => {
 describe("real Emblems", () => {
   it("are drawn in place of the placeholder once loaded", async () => {
     const services = await signedIn({ "p-ada_bot/h1": Uint8Array.of(1) });
-    await services.emblems.load("p-ada_bot", "h1");
+    await services.images.load(emblemPath("p-ada_bot", "h1"));
     const html = render(services, { ...ada, emblem: "h1" });
     expect(html).toMatch(/^<canvas role="img" aria-label="ada_bot&#x27;s Emblem" style="width:32px;height:32px" class="emblem">/);
     expect(html).not.toContain("<text");

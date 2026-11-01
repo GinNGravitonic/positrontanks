@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { matchGameRoute } from "./app.js";
 import { ServicesProvider } from "./hooks.js";
 import { loadReplay } from "./replays.js";
-import { botLooks, ReplayControls, startingBot, WatchGame } from "./screens/watch.js";
+import { botLooks, iconsOf, ReplayControls, startingBot, WatchGame } from "./screens/watch.js";
 import { createServices, signUp } from "./services.js";
 import { fakeApi, memoryHistory, memoryStorage, testGame } from "./test-platform.js";
 
@@ -95,5 +95,22 @@ describe("the Replay time controls", () => {
     const html = render(1200, false);
     expect(html).toContain(">Play<");
     expect(html).toMatch(/<button type="button" disabled="">Skip to result<\/button>/);
+  });
+});
+
+describe("each Bot's Icon", () => {
+  it("is its Entry Bot's, by Bot Name, and none when the Game does not show it", () => {
+    const player = { id: "p-ada_bot", username: "ada_bot", emblem: null };
+    const game = testGame({
+      state: "running",
+      entries: [
+        { id: "e1", player, createdAt: "2026-10-31T00:05:00.000Z", bots: [{ name: "Hunter", icon: "i1" }, { name: "Tank", icon: null }, { name: "Scout" }] },
+      ],
+    });
+    expect([...iconsOf(game)]).toEqual([
+      ["Hunter", "i1"],
+      ["Tank", null],
+      ["Scout", null],
+    ]);
   });
 });
